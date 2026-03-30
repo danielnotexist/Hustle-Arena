@@ -105,6 +105,9 @@ export default function Login({ onBack }: { onBack: () => void }) {
               },
             },
           }}
+          additionalQueryParams={{
+            username: 'required'
+          }}
         />
 
         <div className="mt-8 pt-6 border-t border-border text-center">
