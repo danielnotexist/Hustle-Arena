@@ -105,13 +105,12 @@ export default function Login({ onBack }: { onBack: () => void }) {
               },
             },
           }}
-          additional_fields={[
+          additionalFields={[
             {
               name: 'username',
               label: 'Username',
               placeholder: 'Arena Nickname',
               type: 'text',
-              required: true,
             },
           ]}
         />
