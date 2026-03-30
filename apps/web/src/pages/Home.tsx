@@ -7,7 +7,7 @@ export default function Home({ onAuth }: { onAuth: () => void }) {
   return (
     <div className="min-h-screen bg-[#020617] text-white selection:bg-orange-500/30 overflow-x-hidden">
       {/* Navbar Overlay */}
-      <nav className="absolute top-0 left-0 w-full z-50 p-6 flex items-center justify-between max-w-7xl mx-auto right-0">
+      <nav className="absolute top-0 left-0 right-0 z-50 p-6 flex items-center justify-between max-w-7xl mx-auto">
         <div className="text-2xl font-black bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent tracking-tighter">
           HUSTLE ARENA
         </div>
