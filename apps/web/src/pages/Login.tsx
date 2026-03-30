@@ -48,7 +48,7 @@ export default function Login({ onBack }: { onBack: () => void }) {
               label: 'text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1',
             }
           }}
-          providers={['github', 'google']}
+          providers={['steam']}
           theme="dark"
           localization={{
             variables: {
