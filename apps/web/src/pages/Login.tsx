@@ -105,9 +105,15 @@ export default function Login({ onBack }: { onBack: () => void }) {
               },
             },
           }}
-          additionalQueryParams={{
-            username: 'required'
-          }}
+          additional_fields={[
+            {
+              name: 'username',
+              label: 'Username',
+              placeholder: 'Arena Nickname',
+              type: 'text',
+              required: true,
+            },
+          ]}
         />
 
         <div className="mt-8 pt-6 border-t border-border text-center">
