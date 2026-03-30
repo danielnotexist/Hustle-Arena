@@ -59,7 +59,7 @@ function App() {
       <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-orange-500/30">
         {!session ? (
           <Routes>
-            <Route path="/" element={showLogin ? <Login /> : <Home onAuth={() => setShowLogin(true)} />} />
+            <Route path="/" element={showLogin ? <Login onBack={() => setShowLogin(false)} /> : <Home onAuth={() => setShowLogin(true)} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         ) : (
