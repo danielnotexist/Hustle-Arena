@@ -8,12 +8,23 @@ import Navbar from './components/layout/Navbar'
 function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+    async function init() {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) throw sessionError
+        setSession(session)
+      } catch (err: any) {
+        console.error('Auth Init Error:', err)
+        setError(err.message || 'Failed to connect to Supabase')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
@@ -21,6 +32,16 @@ function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <h1 className="text-red-500 text-2xl font-bold mb-2">Connection Error</h1>
+        <p className="text-slate-400 text-center mb-4">{error}</p>
+        <p className="text-xs text-slate-600">Check your Vercel Environment Variables</p>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
