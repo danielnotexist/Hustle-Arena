@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Navbar from './components/layout/Navbar'
@@ -9,6 +10,7 @@ function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showLogin, setShowLogin] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -28,6 +30,7 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session) setShowLogin(false)
     })
 
     return () => subscription.unsubscribe()
@@ -56,7 +59,8 @@ function App() {
       <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-orange-500/30">
         {!session ? (
           <Routes>
-            <Route path="*" element={<Login />} />
+            <Route path="/" element={showLogin ? <Login /> : <Home onAuth={() => setShowLogin(true)} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         ) : (
           <>
