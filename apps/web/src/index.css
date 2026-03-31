@@ -1,44 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 230 25% 7%;
-    --foreground: 220 20% 87%;
-    --card: 228 22% 11%;
-    --card-foreground: 220 20% 87%;
-    --popover: 228 22% 11%;
-    --popover-foreground: 220 20% 87%;
-    --primary: 190 100% 50%;
-    --primary-foreground: 230 25% 7%;
-    --secondary: 228 18% 14%;
-    --secondary-foreground: 220 20% 87%;
-    --muted: 228 15% 18%;
-    --muted-foreground: 220 12% 50%;
-    --accent: 265 90% 60%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 228 15% 16%;
-    --input: 228 15% 16%;
-    --ring: 190 100% 50%;
-    --radius: 0.5rem;
+    color-scheme: dark;
   }
-}
 
-@layer base {
   * {
-    @apply border-border;
+    @apply border-white/10;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-ink-950 text-zinc-100 antialiased;
+    font-family: 'Space Grotesk', sans-serif;
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    background-image:
+      radial-gradient(circle at top, rgba(39, 212, 255, 0.08), transparent 32%),
+      radial-gradient(circle at 80% 15%, rgba(255, 119, 47, 0.1), transparent 28%),
+      linear-gradient(180deg, #06080d 0%, #090c13 36%, #05070c 100%);
   }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
+    font-family: 'Oxanium', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
   #root {
-    width: 100%;
+    isolation: isolate;
+    min-height: 100vh;
   }
 }

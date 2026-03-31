@@ -1,118 +1,167 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { Trophy, Wallet, User as UserIcon, Play } from 'lucide-react'
+import { useMatchmakingQuery, useBootstrapQuery } from '../lib/query-hooks'
+import { formatDateTime, formatUsdt, kycLabel, transactionLabel } from '../lib/format'
+import { Button, EmptyState, ErrorState, MetricCard, Panel, SectionTitle, StatusBadge } from '../components/ui/primitives'
 
-export default function Dashboard() {
-  const [profile, setProfile] = useState<any>(null)
-  const [wallet, setWallet] = useState<any>(null)
-  const [matches, setMatches] = useState<any[]>([])
+export default function DashboardPage() {
+  const bootstrapQuery = useBootstrapQuery()
+  const matchmakingQuery = useMatchmakingQuery()
 
-  useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Fetch Profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(profileData)
+  if (bootstrapQuery.isLoading || matchmakingQuery.isLoading || !bootstrapQuery.data || !matchmakingQuery.data) {
+    return <Panel className="text-sm text-zinc-400">Loading dashboard state...</Panel>
+  }
 
-        // Fetch Wallet
-        const { data: walletData } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-        setWallet(walletData)
+  if (bootstrapQuery.isError || matchmakingQuery.isError) {
+    return (
+      <ErrorState
+        title="Dashboard data could not load"
+        message="The app shell authenticated, but dashboard queries failed. Check the API routes and refresh."
+      />
+    )
+  }
 
-        // Fetch Matches
-        const { data: matchesData } = await supabase
-          .from('matches')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5)
-        setMatches(matchesData || [])
-      }
-    }
-    loadData()
-  }, [])
+  const { viewer, wallet, transactions, topEarners, topMatches, communityPosts } = bootstrapQuery.data
+  const { activeMatch } = matchmakingQuery.data
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
-      {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center space-x-4">
-          <div className="p-3 bg-orange-500/10 rounded-xl">
-            <Trophy className="text-orange-500 h-8 w-8" />
-          </div>
-          <div>
-            <p className="text-slate-400 text-sm">ELO Rating</p>
-            <p className="text-2xl font-bold">{profile?.elo_rating || '1000'}</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <SectionTitle
+        eyebrow="Overview"
+        title="Operational dashboard"
+        description="Track KYC readiness, wallet headroom, active match state, and top platform performance from one summary surface."
+      />
 
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center space-x-4">
-          <div className="p-3 bg-blue-500/10 rounded-xl">
-            <Wallet className="text-blue-500 h-8 w-8" />
-          </div>
-          <div>
-            <p className="text-slate-400 text-sm">USDT Balance</p>
-            <p className="text-2xl font-bold">${wallet?.balance || '0.00'}</p>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center space-x-4">
-          <div className="p-3 bg-red-500/10 rounded-xl">
-            <UserIcon className="text-red-500 h-8 w-8" />
-          </div>
-          <div>
-            <p className="text-slate-400 text-sm">KYC Status</p>
-            <p className="text-lg font-semibold uppercase">{profile?.kyc_status || 'NOT STARTED'}</p>
-          </div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Available" value={`${formatUsdt(wallet.balance)} USDT`} detail="Ready for deposits, queue entry, and withdrawals." accent="bg-signal-orange" />
+        <MetricCard label="Locked" value={`${formatUsdt(wallet.locked_balance)} USDT`} detail="Currently reserved in queues or lobbies." accent="bg-signal-cyan" />
+        <MetricCard label="KYC" value={kycLabel(viewer.kyc_status)} detail="Protected actions enforce verified status." accent="bg-emerald-500" />
+        <MetricCard label="Lifetime earnings" value={`${formatUsdt(viewer.total_earnings)} USDT`} detail={`Wins ${viewer.wins} / Losses ${viewer.losses}`} accent="bg-amber-500" />
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Active Matches */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Active Matches</h2>
-            <button className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg font-semibold flex items-center space-x-2 transition">
-              <Play className="h-4 w-4" />
-              <span>Find Match</span>
-            </button>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <Panel className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Current match state</p>
+              <h3 className="mt-2 text-2xl font-semibold text-white">Active lobby</h3>
+            </div>
+            {activeMatch ? <StatusBadge tone="brand">{activeMatch.match.phase}</StatusBadge> : null}
           </div>
-          
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            {matches.length > 0 ? (
-              <div className="divide-y divide-slate-800">
-                {matches.map((match) => (
-                  <div key={match.id} className="p-4 hover:bg-slate-800/50 transition flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">{match.game_type} - ${match.wager_amount}</p>
-                      <p className="text-xs text-slate-500">Status: {match.status}</p>
-                    </div>
-                    <button className="border border-slate-700 px-3 py-1 rounded hover:bg-slate-800">View</button>
-                  </div>
-                ))}
+          {activeMatch ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm text-zinc-400">{activeMatch.match.title}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{activeMatch.match.game_mode.toUpperCase()}</p>
+                <p className="mt-3 text-sm text-zinc-300">
+                  Stake {formatUsdt(activeMatch.match.wager_amount)} USDT
+                  <span className="mx-2 text-zinc-600">|</span>
+                  Pool {formatUsdt(activeMatch.match.total_pool)} USDT
+                </p>
+                <p className="mt-3 text-sm text-zinc-400">
+                  {activeMatch.match.selected_map ? `Selected map: ${activeMatch.match.selected_map}` : 'Map vote still pending.'}
+                </p>
               </div>
-            ) : (
-              <div className="p-12 text-center text-slate-500">
-                <p>No active matches found. Start your own!</p>
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm text-zinc-400">Roster</p>
+                <ul className="mt-3 space-y-3">
+                  {activeMatch.players.map((player) => (
+                    <li key={player.user_id} className="flex items-center justify-between rounded-2xl bg-black/20 px-3 py-2">
+                      <span className="text-sm text-zinc-200">{player.profile?.display_name ?? player.user_id}</span>
+                      <StatusBadge tone={player.is_ready ? 'success' : 'warning'}>
+                        {player.team} · {player.is_ready ? 'Ready' : 'Waiting'}
+                      </StatusBadge>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          ) : (
+            <EmptyState title="No active match" message="Join the public queue or create a custom lobby to start the match flow." />
+          )}
+        </Panel>
 
-        {/* Sidebar News/Leaderboard */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Community Feed</h2>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <p className="text-slate-500 text-sm">Welcome to Hustle Arena. Check back for tournament news!</p>
+        <Panel className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Recent wallet activity</p>
+              <h3 className="mt-2 text-2xl font-semibold text-white">Ledger edge</h3>
+            </div>
           </div>
+          <div className="space-y-3">
+            {transactions.slice(0, 5).map((transaction) => (
+              <div key={transaction.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold capitalize text-white">{transactionLabel(transaction.type)}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{formatDateTime(transaction.created_at)}</p>
+                  </div>
+                  <StatusBadge tone={transaction.status === 'completed' ? 'success' : 'warning'}>
+                    {transaction.status}
+                  </StatusBadge>
+                </div>
+                <p className="mt-3 text-lg font-semibold text-white">{formatUsdt(transaction.amount)} USDT</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <Panel className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Top earners</p>
+              <h3 className="mt-2 text-xl font-semibold text-white">Leaderboard</h3>
+            </div>
+            <Button type="button" variant="ghost" onClick={() => window.location.assign('/community')}>
+              Open community
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {topEarners.map((entry, index) => (
+              <div key={entry.user_id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    #{index + 1} {entry.username}
+                  </p>
+                  <p className="text-xs text-zinc-500">Lifetime platform earnings</p>
+                </div>
+                <p className="text-sm font-semibold text-signal-cyan">{formatUsdt(entry.value)} USDT</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Panel className="space-y-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Top matches</p>
+            <div className="space-y-3">
+              {topMatches.map((match) => (
+                <div key={match.match_id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-sm font-semibold text-white">{match.title}</p>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    Pool {formatUsdt(match.total_pool)} USDT
+                    <span className="mx-2 text-zinc-600">|</span>
+                    {match.selected_map ?? 'Map TBD'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel className="space-y-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Community pulse</p>
+            <div className="space-y-3">
+              {communityPosts.slice(0, 4).map((post) => (
+                <div key={post.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-white">{post.author?.display_name ?? post.user_id}</p>
+                    <p className="text-xs text-zinc-500">{formatDateTime(post.created_at)}</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-zinc-300">{post.content}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
         </div>
       </div>
     </div>
