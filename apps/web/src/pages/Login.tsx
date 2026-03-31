@@ -40,7 +40,7 @@ export default function Login({ onBack }: { onBack: () => void }) {
 
     try {
       if (view === 'sign_up') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,7 +51,13 @@ export default function Login({ onBack }: { onBack: () => void }) {
         })
         
         if (signUpError) throw signUpError
-        alert('Check your email for the confirmation link!')
+        
+        // If email confirmation is off, data.session will be present
+        if (data.session) {
+          window.location.href = '/dashboard'
+        } else {
+          alert('Check your email for the confirmation link!')
+        }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
