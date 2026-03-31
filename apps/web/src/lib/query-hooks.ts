@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type {
+  AdminDashboardPayload,
   AppBootstrapPayload,
   DirectMessage,
   KycSubmission,
@@ -43,6 +44,14 @@ export function useBootstrapQuery() {
   return useQuery({
     queryKey: ['bootstrap'],
     queryFn: () => apiRequest<AppBootstrapPayload>('/bootstrap'),
+  })
+}
+
+export function useAdminQuery(enabled = true) {
+  return useQuery({
+    queryKey: ['admin'],
+    queryFn: () => apiRequest<AdminDashboardPayload>('/admin'),
+    enabled,
   })
 }
 

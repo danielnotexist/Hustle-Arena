@@ -38,6 +38,18 @@ npm run build --workspace @hustle-arena/web
 npm run lint
 ```
 
+## User Bootstrap
+
+Create or promote preview users once the repo root `.env` has `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`:
+
+```bash
+npm run user:manage -- --email player@example.com --password "StrongPass123!" --username playerone --display-name "Player One"
+npm run user:manage -- --email admin@example.com --password "StrongPass123!" --username arenaadmin --display-name "Arena Admin" --admin
+```
+
+- Add `--reset-password` if the user already exists and you want to overwrite the password.
+- New users are created with `email_confirm=true` so preview accounts can sign in immediately.
+
 ## Environment Notes
 
 - `AUTO_APPROVE_KYC=true` keeps the MVP flow usable without a backoffice reviewer. Set it to `false` in real review environments.

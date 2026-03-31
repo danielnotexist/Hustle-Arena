@@ -352,6 +352,45 @@ export interface AppBootstrapPayload {
   topMatches: TopMatchEntry[];
 }
 
+export type AdminProfilePreview = Pick<
+  Profile,
+  'id' | 'username' | 'display_name' | 'avatar_url' | 'kyc_status' | 'is_admin' | 'is_vip' | 'vip_expires_at' | 'elo_rating' | 'country_code' | 'created_at' | 'updated_at'
+>;
+
+export interface AdminSummaryMetrics {
+  totalUsers: number;
+  adminUsers: number;
+  verifiedKyc: number;
+  pendingKyc: number;
+  pendingWithdrawals: number;
+  activeMatches: number;
+  totalAvailableBalance: number;
+  totalLockedBalance: number;
+}
+
+export interface AdminUserSnapshot {
+  profile: Profile;
+  wallet: Wallet | null;
+}
+
+export interface AdminKycQueueItem {
+  submission: KycSubmission;
+  profile: AdminProfilePreview;
+}
+
+export interface AdminWithdrawalQueueItem {
+  request: WithdrawalRequest;
+  profile: AdminProfilePreview;
+}
+
+export interface AdminDashboardPayload {
+  summary: AdminSummaryMetrics;
+  users: AdminUserSnapshot[];
+  pendingKyc: AdminKycQueueItem[];
+  pendingWithdrawals: AdminWithdrawalQueueItem[];
+  riskEvents: RiskEvent[];
+}
+
 export interface MatchmakingSnapshot {
   activeMatch: MatchLobbyDetails | null;
   openLobbies: MatchLobby[];

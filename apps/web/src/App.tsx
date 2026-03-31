@@ -3,6 +3,7 @@ import { AppShell } from './components/layout/AppShell'
 import { LoadingState } from './components/ui/primitives'
 import { useAuth } from './providers/AuthProvider'
 import AuthCallbackPage from './pages/AuthCallback'
+import AdminPage from './pages/Admin'
 import ChatPage from './pages/Chat'
 import CommunityPage from './pages/Community'
 import DashboardPage from './pages/Dashboard'
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route element={<ProtectedLayout />}>
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/matchmaking" element={<MatchmakingPage />} />

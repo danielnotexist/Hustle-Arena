@@ -8,6 +8,7 @@ import { asyncHandler, AppError } from '../lib/errors';
 import { emitCommunityEvent, emitMatchEvent, emitUserEvent } from '../lib/socket';
 import { getInbox, sendMessage } from '../services/chat-service';
 import { acceptFriendRequest, createComment, createPost, getFriendProfiles, getPosts, sendFriendRequest } from '../services/community-service';
+import { getAdminDashboard, reviewKycSubmission, reviewWithdrawalRequest, updateAdminRole } from '../services/admin-service';
 import { getLatestKycSubmission, submitKyc } from '../services/kyc-service';
 import { getTopEarners, getTopMatches } from '../services/leaderboard-service';
 import {
@@ -140,6 +141,42 @@ const matchResultSchema = z.object({
   ),
 });
 
+const adminKycReviewSchema = z
+  .object({
+    status: z.enum(['verified', 'rejected']),
+    reason: z.string().trim().max(240).optional(),
+    notes: z.string().trim().max(240).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.status === 'rejected' && !value.reason?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A rejection reason is required',
+        path: ['reason'],
+      });
+    }
+  });
+
+const adminWithdrawalReviewSchema = z
+  .object({
+    decision: z.enum(['approve', 'reject']),
+    tx_hash: z.string().trim().max(128).optional(),
+    reason: z.string().trim().max(240).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.decision === 'reject' && !value.reason?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A rejection reason is required',
+        path: ['reason'],
+      });
+    }
+  });
+
+const adminRoleSchema = z.object({
+  is_admin: z.boolean(),
+});
+
 async function broadcastWallet(userId: string) {
   const [wallet, transactions, withdrawals, auditLogs] = await Promise.all([
     getWallet(userId),
@@ -165,6 +202,12 @@ async function broadcastMatch(matchId: string) {
   });
 }
 
+function requireAdmin(req: AuthenticatedRequest) {
+  if (!req.auth.profile.is_admin) {
+    throw new AppError(403, 'FORBIDDEN', 'Admin access is required for this action');
+  }
+}
+
 router.post(
   '/integrations/cs2/match-result',
   asyncHandler(async (req, res) => {
@@ -187,6 +230,50 @@ router.post(
 );
 
 router.use(authenticate);
+
+router.get(
+  '/admin',
+  asyncHandler<AuthenticatedRequest>(async (req, res) => {
+    requireAdmin(req);
+    const dashboard = await getAdminDashboard();
+    res.json({ data: dashboard });
+  }),
+);
+
+router.patch(
+  '/admin/kyc/:submissionId',
+  asyncHandler<AuthenticatedRequest>(async (req, res) => {
+    requireAdmin(req);
+    const payload = adminKycReviewSchema.parse(req.body);
+    const submission = await reviewKycSubmission(req.auth.user.id, req.params.submissionId, payload);
+    emitUserEvent(submission.user_id, 'kyc:update', submission);
+    emitUserEvent(submission.user_id, 'profile:update', { kyc_status: submission.status });
+    res.json({ data: submission });
+  }),
+);
+
+router.patch(
+  '/admin/withdrawals/:requestId',
+  asyncHandler<AuthenticatedRequest>(async (req, res) => {
+    requireAdmin(req);
+    const payload = adminWithdrawalReviewSchema.parse(req.body);
+    const request = await reviewWithdrawalRequest(req.auth.user.id, req.params.requestId, payload);
+    await broadcastWallet(request.user_id);
+    emitUserEvent(request.user_id, 'withdrawal:update', request);
+    res.json({ data: request });
+  }),
+);
+
+router.patch(
+  '/admin/users/:userId',
+  asyncHandler<AuthenticatedRequest>(async (req, res) => {
+    requireAdmin(req);
+    const payload = adminRoleSchema.parse(req.body);
+    const profile = await updateAdminRole(req.auth.user.id, req.params.userId, payload.is_admin);
+    emitUserEvent(profile.id, 'profile:update', profile);
+    res.json({ data: profile });
+  }),
+);
 
 router.get(
   '/bootstrap',

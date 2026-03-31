@@ -10,6 +10,7 @@ import type {
   MatchPlayerView,
   Post,
   Profile,
+  RiskEvent,
   TopMatchEntry,
   WalletAuditLog,
   Wallet,
@@ -243,6 +244,18 @@ export function mapComment(row: Record<string, unknown>): Comment {
     post_id: toStringValue(row.post_id),
     user_id: toStringValue(row.user_id),
     content: toStringValue(row.content),
+    created_at: toIsoString(row.created_at),
+  };
+}
+
+export function mapRiskEvent(row: Record<string, unknown>): RiskEvent {
+  return {
+    id: toStringValue(row.id),
+    user_id: toNullableString(row.user_id),
+    match_id: toNullableString(row.match_id),
+    event_type: toStringValue(row.event_type) as RiskEvent['event_type'],
+    severity: toStringValue(row.severity) as RiskEvent['severity'],
+    payload: toJsonObject(row.payload),
     created_at: toIsoString(row.created_at),
   };
 }

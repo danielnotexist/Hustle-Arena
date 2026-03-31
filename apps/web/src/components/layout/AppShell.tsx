@@ -1,12 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { MessageSquare, ShieldCheck, Swords, Wallet, LayoutDashboard, LogOut, ChevronRight } from 'lucide-react'
+import { MessageSquare, Shield, ShieldCheck, Swords, Wallet, LayoutDashboard, LogOut, ChevronRight } from 'lucide-react'
 import { useBootstrapQuery } from '../../lib/query-hooks'
 import { formatUsdt, kycLabel } from '../../lib/format'
 import { useAuth } from '../../providers/AuthProvider'
 import { Button, ErrorState, LoadingState, Panel, StatusBadge } from '../ui/primitives'
 import { cn } from '../../lib/cn'
 
-const navigation = [
+const baseNavigation = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/wallet', label: 'Wallet', icon: Wallet },
   { to: '/matchmaking', label: 'Matchmaking', icon: Swords },
@@ -39,6 +39,7 @@ export function AppShell() {
   }
 
   const { viewer, wallet } = bootstrapQuery.data
+  const navigation = viewer.is_admin ? [{ to: '/admin', label: 'Admin', icon: Shield }, ...baseNavigation] : baseNavigation
 
   return (
     <div className="min-h-screen bg-ink-950 text-white">
@@ -105,6 +106,7 @@ export function AppShell() {
             <div className="flex flex-wrap gap-2">
               <StatusBadge tone={viewer.is_vip ? 'success' : 'neutral'}>{viewer.is_vip ? 'VIP active' : 'Standard'}</StatusBadge>
               <StatusBadge tone="neutral">ELO {viewer.elo_rating}</StatusBadge>
+              {viewer.is_admin ? <StatusBadge tone="warning">Admin</StatusBadge> : null}
             </div>
             <Button type="button" variant="ghost" className="justify-start px-0 text-zinc-300" onClick={() => void signOut()}>
               <LogOut className="h-4 w-4" />
@@ -145,7 +147,7 @@ export function AppShell() {
       </div>
 
       <nav className="fixed inset-x-4 bottom-4 z-50 rounded-[24px] border border-white/10 bg-panel-950/95 p-2 shadow-[0_24px_70px_rgba(5,7,13,0.58)] backdrop-blur lg:hidden">
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${navigation.length}, minmax(0, 1fr))` }}>
           {navigation.map((item) => (
             <NavLink
               key={item.to}

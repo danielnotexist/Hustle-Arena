@@ -44,6 +44,25 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
     })
 
+    nextSocket.on('kyc:update', () => {
+      void queryClient.invalidateQueries({ queryKey: ['kyc'] })
+      void queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin'] })
+    })
+
+    nextSocket.on('withdrawal:update', () => {
+      void queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      void queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin'] })
+    })
+
+    nextSocket.on('profile:update', () => {
+      void queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
+      void queryClient.invalidateQueries({ queryKey: ['community'] })
+      void queryClient.invalidateQueries({ queryKey: ['chat'] })
+      void queryClient.invalidateQueries({ queryKey: ['admin'] })
+    })
+
     nextSocket.on('friends:request', () => {
       void queryClient.invalidateQueries({ queryKey: ['community'] })
       void queryClient.invalidateQueries({ queryKey: ['chat'] })
