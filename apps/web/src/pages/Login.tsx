@@ -39,8 +39,10 @@ export default function Login({ onBack }: { onBack: () => void }) {
     setError(null)
 
     try {
+      console.log('Attempting Email Auth:', { view, email, hasUsername: !!username })
+      
       if (view === 'sign_up') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -49,18 +51,21 @@ export default function Login({ onBack }: { onBack: () => void }) {
             }
           }
         })
+        console.log('SignUp Response:', { data, error: signUpError })
         if (signUpError) throw signUpError
         alert('Check your email for the confirmation link!')
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
+        console.log('SignIn Response:', { data, error: signInError })
         if (signInError) throw signInError
         window.location.href = '/dashboard'
       }
     } catch (err: any) {
-      setError(err.message)
+      console.error('Auth Error Details:', err)
+      setError(err.message || 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
