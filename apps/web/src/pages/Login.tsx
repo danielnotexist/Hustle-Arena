@@ -39,16 +39,8 @@ export default function Login({ onBack }: { onBack: () => void }) {
     setError(null)
 
     try {
-      // CORS / URL Check
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'UNDEFINED'
-      console.log('--- Auth Request Check ---')
-      console.log('Target Supabase URL:', supabaseUrl)
-      console.log('Auth View:', view)
-      console.log('--------------------------')
-
       if (view === 'sign_up') {
-        console.log('Executing signUp...')
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -58,34 +50,18 @@ export default function Login({ onBack }: { onBack: () => void }) {
           }
         })
         
-        if (signUpError) {
-          console.error('FULL SIGNUP ERROR OBJECT:', signUpError)
-          throw signUpError
-        }
-        
-        console.log('SignUp Success:', data)
+        if (signUpError) throw signUpError
         alert('Check your email for the confirmation link!')
       } else {
-        console.log('Executing signIn...')
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
-        if (signInError) {
-          console.error('FULL SIGNIN ERROR OBJECT:', signInError)
-          throw signInError
-        }
-
-        console.log('SignIn Success:', data)
+        if (signInError) throw signInError
         window.location.href = '/dashboard'
       }
     } catch (err: any) {
-      console.error('CATCHED AUTH ERROR:', err)
-      // Check if it's a fetch failure
-      if (err.message === 'Failed to fetch') {
-        console.error('NETWORK ERROR: This usually means the Supabase URL is incorrect or CORS is blocking the request.')
-      }
       setError(err.message || 'An unknown error occurred')
     } finally {
       setLoading(false)
