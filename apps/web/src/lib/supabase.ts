@@ -4,6 +4,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PU
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 // DEBUG LOGS (Safe for public console)
+console.log('--- ALL VITE ENV KEYS ---')
+console.log(Object.keys(import.meta.env).filter(key => key.includes('SUPABASE') || key.includes('URL')))
 console.log('--- Supabase Config Check ---')
 console.log('URL Present:', !!supabaseUrl)
 console.log('URL Value:', supabaseUrl || 'UNDEFINED')
