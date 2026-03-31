@@ -32,3 +32,6 @@ dist-ssr
 
 # Supabase
 supabase/.temp
+
+# Generated package artifacts
+packages/shared-types/index.js
