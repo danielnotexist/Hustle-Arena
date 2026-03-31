@@ -54,7 +54,7 @@ export default function Login({ onBack }: { onBack: () => void }) {
         
         // If email confirmation is off, data.session will be present
         if (data.session) {
-          window.location.href = '/dashboard'
+          onBack()
         } else {
           alert('Check your email for the confirmation link!')
         }
@@ -65,7 +65,7 @@ export default function Login({ onBack }: { onBack: () => void }) {
         })
 
         if (signInError) throw signInError
-        window.location.href = '/dashboard'
+        onBack()
       }
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred')
