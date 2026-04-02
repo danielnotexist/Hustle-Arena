@@ -1,67 +1,92 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
+  --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
-  --color-cyber-bg: #05070A;
-  --color-cyber-sidebar: #0A0D14;
-  --color-cyber-card: rgba(16, 20, 30, 0.6);
-  --color-cyber-accent: #00F0FF;
-  --color-cyber-secondary: #7000FF;
-  --color-cyber-border: rgba(0, 240, 255, 0.1);
-  --color-cyber-text-muted: #6B7280;
+
+  --color-esport-bg: #0a0b0d;
+  --color-esport-sidebar: #121417;
+  --color-esport-card: #1a1d21;
+  --color-esport-accent: #3b82f6; /* Electric Blue */
+  --color-esport-accent-hover: #2563eb;
+  --color-esport-secondary: #f97316; /* Vibrant Orange */
+  --color-esport-border: #262a30;
+  --color-esport-text-muted: #94a3b8;
+  --color-esport-success: #10b981;
+  --color-esport-danger: #ef4444;
 }
 
 @layer base {
   body {
-    @apply bg-cyber-bg text-white font-sans antialiased overflow-x-hidden;
-    background-image: 
-      radial-gradient(circle at 0% 0%, rgba(112, 0, 255, 0.05) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(0, 240, 255, 0.05) 0%, transparent 50%);
+    @apply bg-esport-bg text-white antialiased selection:bg-esport-accent/30;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-bold tracking-tight;
   }
 }
 
-.sidebar-item {
-  @apply flex items-center gap-3 py-3 px-4 text-cyber-text-muted hover:text-white hover:bg-white/5 transition-all cursor-pointer border-r-2 border-transparent relative overflow-hidden;
+@layer components {
+  .esport-card {
+    @apply bg-esport-card border border-esport-border rounded-xl shadow-lg transition-all duration-300;
+  }
+
+  .esport-card-hover {
+    @apply hover:border-esport-accent/50 hover:shadow-esport-accent/5 hover:translate-y-[-2px];
+  }
+
+  .esport-btn-primary {
+    @apply bg-esport-accent hover:bg-esport-accent-hover text-white font-bold py-2.5 px-6 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .esport-btn-secondary {
+    @apply bg-white/5 hover:bg-white/10 border border-esport-border text-white font-bold py-2.5 px-6 rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 text-esport-text-muted hover:text-white hover:bg-white/5;
+  }
+
+  .sidebar-item.active {
+    @apply bg-esport-accent/10 text-esport-accent border-r-2 border-esport-accent rounded-r-none;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-esport-border rounded-full hover:bg-esport-text-muted/30 transition-colors;
+  }
+
+  .glass-header {
+    @apply bg-esport-sidebar/80 backdrop-blur-md border-b border-esport-border sticky top-0 z-50;
+  }
+
+  .badge {
+    @apply px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider;
+  }
+
+  .badge-accent { @apply bg-esport-accent/20 text-esport-accent border border-esport-accent/30; }
+  .badge-secondary { @apply bg-esport-secondary/20 text-esport-secondary border border-esport-secondary/30; }
+  .badge-success { @apply bg-esport-success/20 text-esport-success border border-esport-success/30; }
+  .badge-danger { @apply bg-esport-danger/20 text-esport-danger border border-esport-danger/30; }
 }
 
-.sidebar-item.active {
-  @apply text-cyber-accent border-cyber-accent bg-cyber-accent/5;
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.sidebar-item.active::before {
-  content: '';
-  @apply absolute inset-0 bg-cyber-accent/10 blur-xl opacity-50;
-}
-
-.cyber-btn-primary {
-  @apply bg-cyber-accent hover:bg-cyber-accent/80 text-black font-bold py-2 px-6 rounded-sm transition-all uppercase text-sm tracking-widest shadow-[0_0_15px_rgba(0,240,255,0.3)];
-}
-
-.cyber-card {
-  @apply bg-cyber-card backdrop-blur-md border border-cyber-border rounded-xl overflow-hidden transition-all duration-300;
-}
-
-.cyber-card:hover {
-  @apply border-cyber-accent/30 shadow-[0_0_20px_rgba(0,240,255,0.05)];
-}
-
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  @apply bg-cyber-bg;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-cyber-accent/20 rounded-full hover:bg-cyber-accent/40 transition-colors;
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
 }
