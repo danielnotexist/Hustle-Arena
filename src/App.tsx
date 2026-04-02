@@ -111,6 +111,7 @@ export default function App() {
   };
 
   const openModal = (title: string, body: React.ReactNode) => {
+    console.log("Opening modal:", title);
     setModalContent({ title, body });
     setIsModalOpen(true);
   };
@@ -158,150 +159,152 @@ export default function App() {
     addToast("Logged out successfully", "info");
   };
 
-  if (view === "landing") {
-    return <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={handleLogin} />)} />;
-  }
-
   return (
-    <div className="flex h-screen bg-esport-bg text-white overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
-        <div className="p-6">
-          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-            <img src="/logo.png" alt="Hustle Arena" className="h-10 w-auto" onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=HUSTLE+ARENA'} />
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-8 py-4">
-          {isAdmin && (
-            <div>
-              <div className="px-4 mb-3 text-[10px] font-bold text-esport-secondary uppercase tracking-[0.2em]">Administration</div>
-              <div className="space-y-1">
-                <SidebarItem 
-                  icon={<Shield size={20} />} 
-                  label="Admin Panel" 
-                  active={activeTab === "Admin"} 
-                  onClick={() => setActiveTab("Admin")} 
-                  highlight
-                />
+    <div className="min-h-screen bg-esport-bg text-white font-sans">
+      {view === "landing" ? (
+        <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={handleLogin} />)} />
+      ) : (
+        <div className="flex h-screen overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
+            <div className="p-6">
+              <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
+                <img src="/logo.png" alt="Hustle Arena" className="h-10 w-auto" onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=HUSTLE+ARENA'} />
               </div>
             </div>
-          )}
 
-          <div>
-            <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
-            <div className="space-y-1">
-              {menuItems.map(item => (
-                <SidebarItem 
-                  key={item.id} 
-                  {...item} 
-                  active={activeTab === item.id} 
-                  onClick={() => setActiveTab(item.id)} 
-                />
-              ))}
-            </div>
-          </div>
+            <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-8 py-4">
+              {isAdmin && (
+                <div>
+                  <div className="px-4 mb-3 text-[10px] font-bold text-esport-secondary uppercase tracking-[0.2em]">Administration</div>
+                  <div className="space-y-1">
+                    <SidebarItem 
+                      icon={<Shield size={20} />} 
+                      label="Admin Panel" 
+                      active={activeTab === "Admin"} 
+                      onClick={() => setActiveTab("Admin")} 
+                      highlight
+                    />
+                  </div>
+                </div>
+              )}
 
-          <div>
-            <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Collective</div>
-            <div className="space-y-1">
-              {collectiveItems.map(item => (
-                <SidebarItem 
-                  key={item.id} 
-                  {...item} 
-                  active={activeTab === item.id} 
-                  onClick={() => setActiveTab(item.id)} 
-                />
-              ))}
-            </div>
-          </div>
-        </nav>
+              <div>
+                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
+                <div className="space-y-1">
+                  {menuItems.map(item => (
+                    <SidebarItem 
+                      key={item.id} 
+                      {...item} 
+                      active={activeTab === item.id} 
+                      onClick={() => setActiveTab(item.id)} 
+                    />
+                  ))}
+                </div>
+              </div>
 
-        <div className="p-4 border-t border-esport-border bg-black/20">
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all">
-            <div className="relative">
-              <img src="https://picsum.photos/seed/pro/100/100" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
+              <div>
+                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Collective</div>
+                <div className="space-y-1">
+                  {collectiveItems.map(item => (
+                    <SidebarItem 
+                      key={item.id} 
+                      {...item} 
+                      active={activeTab === item.id} 
+                      onClick={() => setActiveTab(item.id)} 
+                    />
+                  ))}
+                </div>
+              </div>
+            </nav>
+
+            <div className="p-4 border-t border-esport-border bg-black/20">
+              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all">
+                <div className="relative">
+                  <img src="https://picsum.photos/seed/pro/100/100" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">{user?.username || "CyberGhost_99"}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-[10px] text-esport-accent font-bold uppercase tracking-wider">Level {stats?.level || 0}</div>
+                    {!isAdmin && (
+                      <button 
+                        onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} />)}
+                        className="text-[8px] px-1.5 py-0.5 bg-esport-secondary/20 text-esport-secondary border border-esport-secondary/30 rounded uppercase font-bold hover:bg-esport-secondary hover:text-white transition-all"
+                      >
+                        Verify KYC
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Settings size={16} className="text-esport-text-muted hover:text-white transition-colors" />
+                  <LogOut size={16} className="text-esport-text-muted hover:text-esport-danger transition-colors" onClick={handleLogout} />
+                </div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold truncate">{user?.username || "CyberGhost_99"}</div>
-              <div className="flex items-center gap-2">
-                <div className="text-[10px] text-esport-accent font-bold uppercase tracking-wider">Level {stats?.level || 0}</div>
-                {!isAdmin && (
-                  <button 
-                    onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} />)}
-                    className="text-[8px] px-1.5 py-0.5 bg-esport-secondary/20 text-esport-secondary border border-esport-secondary/30 rounded uppercase font-bold hover:bg-esport-secondary hover:text-white transition-all"
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col overflow-hidden relative">
+            <header className="glass-header h-16 flex items-center justify-between px-8 shrink-0">
+              <div className="flex items-center gap-8">
+                <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
+                <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
+                  <Search size={16} className="text-esport-text-muted group-focus-within:text-esport-accent" />
+                  <input type="text" placeholder="Search tournaments, players..." className="bg-transparent border-none outline-none text-sm w-64" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-esport-border rounded-full hover:bg-white/10 transition-colors cursor-pointer">
+                  <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
+                    <Star size={12} className="text-white fill-white" />
+                  </div>
+                  <span className="text-xs font-bold">{stats?.credits.toLocaleString() || 0} CR</span>
+                  <Plus size={14} className="text-esport-text-muted" />
+                </div>
+                
+                <button className="relative p-2 text-esport-text-muted hover:text-white transition-colors">
+                  <Bell size={20} />
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-esport-danger rounded-full ring-2 ring-esport-bg" />
+                </button>
+                
+                <button className="p-2 text-esport-text-muted hover:text-white transition-colors">
+                  <MessageSquare size={20} />
+                </button>
+              </div>
+            </header>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="max-w-[1400px] mx-auto p-8">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeTab}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    Verify KYC
-                  </button>
-                )}
+                    {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
+                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} />}
+                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
+                    {activeTab === "Apex List" && <ApexListView />}
+                    {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
+                    {activeTab === "Missions" && <MissionsView addToast={addToast} />}
+                    {activeTab === "Vault" && <VaultView addToast={addToast} />}
+                    {activeTab === "Pulse" && <PulseView />}
+                    {activeTab === "Syndicates" && <SyndicatesView />}
+                    {activeTab === "Neon Prime" && <NeonPrimeView />}
+                    {activeTab === "Dashboard" && <DashboardView stats={stats} />}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Settings size={16} className="text-esport-text-muted hover:text-white transition-colors" />
-              <LogOut size={16} className="text-esport-text-muted hover:text-esport-danger transition-colors" onClick={handleLogout} />
-            </div>
-          </div>
+          </main>
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="glass-header h-16 flex items-center justify-between px-8 shrink-0">
-          <div className="flex items-center gap-8">
-            <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
-            <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
-              <Search size={16} className="text-esport-text-muted group-focus-within:text-esport-accent" />
-              <input type="text" placeholder="Search tournaments, players..." className="bg-transparent border-none outline-none text-sm w-64" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-esport-border rounded-full hover:bg-white/10 transition-colors cursor-pointer">
-              <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
-                <Star size={12} className="text-white fill-white" />
-              </div>
-              <span className="text-xs font-bold">{stats?.credits.toLocaleString() || 0} CR</span>
-              <Plus size={14} className="text-esport-text-muted" />
-            </div>
-            
-            <button className="relative p-2 text-esport-text-muted hover:text-white transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-esport-danger rounded-full ring-2 ring-esport-bg" />
-            </button>
-            
-            <button className="p-2 text-esport-text-muted hover:text-white transition-colors">
-              <MessageSquare size={20} />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-[1400px] mx-auto p-8">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
-                {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} />}
-                {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
-                {activeTab === "Apex List" && <ApexListView />}
-                {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
-                {activeTab === "Missions" && <MissionsView addToast={addToast} />}
-                {activeTab === "Vault" && <VaultView addToast={addToast} />}
-                {activeTab === "Pulse" && <PulseView />}
-                {activeTab === "Syndicates" && <SyndicatesView />}
-                {activeTab === "Neon Prime" && <NeonPrimeView />}
-                {activeTab === "Dashboard" && <DashboardView stats={stats} />}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-      </main>
+      )}
 
       {/* Toast System */}
       <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-3">
@@ -1041,6 +1044,11 @@ function DynamicImage({ prompt, className }: { prompt: string, className?: strin
 
   useEffect(() => {
     const generateImage = async () => {
+      if (!process.env.GEMINI_API_KEY) {
+        setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
+        setLoading(false);
+        return;
+      }
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
@@ -1056,6 +1064,9 @@ function DynamicImage({ prompt, className }: { prompt: string, className?: strin
             return;
           }
         }
+        // Fallback if no image part found
+        setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
+        setLoading(false);
       } catch (error) {
         console.error("Failed to generate image:", error);
         setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
@@ -1309,9 +1320,19 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const isSupabaseConfigured = 
+    import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
+
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
+
+    if (!isSupabaseConfigured) {
+      setError("Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.");
+      setLoading(false);
+      return;
+    }
 
     try {
       if (mode === "login") {
@@ -1367,6 +1388,19 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
       </div>
 
       {error && <div className="p-3 bg-esport-danger/20 border border-esport-danger/50 text-esport-danger text-xs rounded-lg text-center font-bold uppercase tracking-widest">{error}</div>}
+
+      {!isSupabaseConfigured && (
+        <div className="p-4 rounded-xl bg-esport-accent/10 border border-esport-accent/30 text-esport-accent text-[10px] leading-relaxed font-medium">
+          <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
+            <AlertCircle size={14} />
+            Configuration Required
+          </div>
+          To enable authentication, you must set up your Supabase environment variables in Vercel or your .env file. 
+          <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="block mt-2 underline hover:text-white transition-colors">
+            Go to Supabase Dashboard →
+          </a>
+        </div>
+      )}
 
       <div className="space-y-4">
         {mode === "register" && (
