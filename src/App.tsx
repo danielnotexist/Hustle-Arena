@@ -169,7 +169,7 @@ export default function App() {
           <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
             <div className="p-6">
               <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <img src="/logo.png" alt="Hustle Arena" className="h-10 w-auto" onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=HUSTLE+ARENA'} />
+                <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-10 w-auto" />
               </div>
             </div>
 
@@ -508,16 +508,16 @@ function StatCard({ label, value, trend, icon, color }: any) {
 
 function BattlefieldView({ addToast, openModal }: any) {
   const modes = [
-    { id: 1, title: "Competitive 5v5", desc: "Standard tactical combat. ELO at stake.", players: "12,450", image: "https://picsum.photos/seed/cs1/600/400" },
-    { id: 2, title: "Wingman 2v2", desc: "High-intensity duo combat on small maps.", players: "4,210", image: "https://picsum.photos/seed/cs2/600/400" },
-    { id: 3, title: "Nexus Royale", desc: "32-player tactical battle royale.", players: "8,900", image: "https://picsum.photos/seed/cs3/600/400" },
+    { id: 1, title: "Competitive 5v5", desc: "Standard tactical combat. ELO at stake.", players: "12,450", image: "esports 5v5 tactical shooter gameplay screenshot" },
+    { id: 2, title: "Wingman 2v2", desc: "High-intensity duo combat on small maps.", players: "4,210", image: "esports 2v2 tactical shooter gameplay screenshot" },
+    { id: 3, title: "Nexus Royale", desc: "32-player tactical battle royale.", players: "8,900", image: "esports battle royale gameplay screenshot" },
   ];
 
   return (
     <div className="space-y-12">
       {/* Hero Banner */}
       <div className="relative h-[400px] rounded-3xl overflow-hidden group">
-        <img src="https://picsum.photos/seed/hero/1600/800" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+        <DynamicImage prompt="esports tournament stage with players and large screen" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-esport-bg via-esport-bg/40 to-transparent" />
         <div className="absolute bottom-0 left-0 p-12 max-w-2xl">
           <div className="flex items-center gap-3 mb-4">
@@ -550,7 +550,7 @@ function BattlefieldView({ addToast, openModal }: any) {
         {modes.map(mode => (
           <div key={mode.id} className="esport-card group overflow-hidden esport-card-hover cursor-pointer">
             <div className="relative h-48 overflow-hidden">
-              <img src={mode.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <DynamicImage prompt={mode.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-all" />
               <div className="absolute top-4 right-4 flex items-center gap-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded border border-white/10">
                 <Users size={12} className="text-esport-accent" />
@@ -956,7 +956,7 @@ function PulseView() {
                 Just hit a crazy 4k clutch in the Nexus Arena tournament! The competition is getting intense. Who else is grinding today?
               </p>
               <div className="rounded-xl overflow-hidden border border-esport-border mb-4">
-                <img src={`https://picsum.photos/seed/feed${i}/800/400`} className="w-full h-auto" />
+                <DynamicImage prompt={`esports gameplay highlight screenshot ${i}`} className="w-full h-auto" />
               </div>
               <div className="flex items-center gap-6 pt-4 border-t border-esport-border">
                 <button className="flex items-center gap-2 text-xs text-esport-text-muted hover:text-esport-accent transition-colors">
@@ -1098,7 +1098,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       {/* Navbar */}
       <nav className="glass-header h-20 flex items-center justify-between px-12 fixed w-full top-0 z-50">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Hustle Arena" className="h-12 w-auto" onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=HUSTLE+ARENA'} />
+          <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-12 w-auto" />
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest">
           <a href="#tournaments" className="hover:text-esport-accent transition-colors">Tournaments</a>
@@ -1112,7 +1112,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       <section className="relative h-screen flex items-center justify-center pt-20">
         <div className="absolute inset-0 z-0">
           <DynamicImage 
-            prompt="A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography." 
+            prompt="A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game like CS:GO or Valorant, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography." 
             className="w-full h-full object-cover opacity-40" 
           />
           <div className="absolute inset-0 bg-gradient-to-b from-esport-bg/20 via-esport-bg/60 to-esport-bg" />
@@ -1193,9 +1193,9 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { title: "Neon Strike Invitational", prize: "$50,000", game: "Tactical Shooter", img: "esports tactical shooter tournament" },
-            { title: "Cyber League Masters", prize: "$25,000", game: "Battle Royale", img: "esports battle royale tournament" },
-            { title: "Hustle Arena Open", prize: "$10,000", game: "MOBA Championship", img: "esports moba tournament" }
+            { title: "Neon Strike Invitational", prize: "$50,000", game: "Tactical Shooter", img: "esports tactical shooter tournament stage with players at computers" },
+            { title: "Cyber League Masters", prize: "$25,000", game: "Battle Royale", img: "esports battle royale tournament stage with players at computers" },
+            { title: "Hustle Arena Open", prize: "$10,000", game: "MOBA Championship", img: "esports moba tournament stage with players at computers" }
           ].map((t, i) => (
             <div key={i} className="esport-card group overflow-hidden">
               <div className="h-48 overflow-hidden relative">
@@ -1224,7 +1224,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
           <div className="flex flex-col md:flex-row-reverse items-center gap-16">
             <div className="flex-1">
               <DynamicImage 
-                prompt="A collection of high-end gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents." 
+                prompt="A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear." 
                 className="w-full h-[500px] object-cover rounded-3xl border border-esport-secondary/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" 
               />
             </div>
@@ -1284,7 +1284,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       <footer className="py-20 border-t border-esport-border bg-esport-sidebar/50">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Hustle Arena" className="h-8 w-auto" onError={(e) => e.currentTarget.src = 'https://via.placeholder.com/150x50?text=HUSTLE+ARENA'} />
+            <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-8 w-auto" />
           </div>
           <div className="text-esport-text-muted text-sm">
             © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
