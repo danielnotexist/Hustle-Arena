@@ -1039,55 +1039,35 @@ function NeonPrimeView() {
 // --- Sub-Components ---
 
 function DynamicImage({ prompt, className }: { prompt: string, className?: string }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Map prompts to high-quality static esports/gaming images from Unsplash
+  // This ensures images look great and work perfectly when pushed to Git without needing an API key.
+  const imageMap: Record<string, string> = {
+    "A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game like CS:GO or Valorant, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography.": "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&auto=format&fit=crop",
+    "A professional esports player sitting in a high-tech gaming chair, wearing a headset, focused on a glowing monitor. Intense atmosphere, neon blue lighting, high detail.": "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1920&auto=format&fit=crop",
+    "esports tactical shooter tournament stage with players at computers": "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=1920&auto=format&fit=crop",
+    "esports battle royale tournament stage with players at computers": "https://images.unsplash.com/photo-1538481199005-c710c4e965fc?q=80&w=1920&auto=format&fit=crop",
+    "esports moba tournament stage with players at computers": "https://images.unsplash.com/photo-1560253023-3ec5d502959f?q=80&w=1920&auto=format&fit=crop",
+    "A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear.": "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?q=80&w=1920&auto=format&fit=crop",
+    "esports 5v5 tactical shooter gameplay screenshot": "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?q=80&w=1920&auto=format&fit=crop",
+    "esports 2v2 tactical shooter gameplay screenshot": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920&auto=format&fit=crop",
+    "esports battle royale gameplay screenshot": "https://images.unsplash.com/photo-1542751110-97427bbecf20?q=80&w=1920&auto=format&fit=crop",
+    "esports tournament stage with players and large screen": "https://images.unsplash.com/photo-1511882150382-421056c89033?q=80&w=1920&auto=format&fit=crop",
+    "esports gameplay highlight screenshot 1": "https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?q=80&w=1920&auto=format&fit=crop",
+    "esports gameplay highlight screenshot 2": "https://images.unsplash.com/photo-1542751110-97427bbecf20?q=80&w=1920&auto=format&fit=crop",
+    "esports gameplay highlight screenshot 3": "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=1920&auto=format&fit=crop"
+  };
 
-  useEffect(() => {
-    const generateImage = async () => {
-      if (!process.env.GEMINI_API_KEY) {
-        setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
-        setLoading(false);
-        return;
-      }
-      try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash-image",
-          contents: { parts: [{ text: prompt }] },
-          config: { imageConfig: { aspectRatio: "16:9" } }
-        });
-
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            setImageUrl(`data:image/png;base64,${part.inlineData.data}`);
-            setLoading(false);
-            return;
-          }
-        }
-        // Fallback if no image part found
-        setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
-        setLoading(false);
-      } catch (error) {
-        console.error("Failed to generate image:", error);
-        setImageUrl(`https://picsum.photos/seed/${encodeURIComponent(prompt)}/1920/1080`);
-        setLoading(false);
-      }
-    };
-
-    generateImage();
-  }, [prompt]);
-
-  if (loading) {
-    return <div className={`${className} bg-white/5 animate-shimmer`} />;
-  }
+  // Fallback to a generic gaming image if prompt not found
+  const imageUrl = imageMap[prompt] || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&auto=format&fit=crop";
 
   return (
     <motion.img 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      src={imageUrl || ""} 
+      src={imageUrl} 
       className={className} 
       referrerPolicy="no-referrer"
+      alt={prompt}
     />
   );
 }
