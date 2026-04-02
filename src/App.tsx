@@ -76,6 +76,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [profileData, setProfileData] = useState({ bio: "Ready to dominate the arena. Tactical shooter veteran.", country: "Israel", twitter: "", twitch: "" });
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
@@ -228,7 +229,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all">
+              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => setActiveTab("Profile")}>
                 <div className="relative">
                   <img src="https://ui-avatars.com/api/?name=Pro&background=random" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
@@ -297,6 +298,7 @@ export default function App() {
                     transition={{ duration: 0.2 }}
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
+                    {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} />}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
                     {activeTab === "Apex List" && <ApexListView />}
@@ -515,311 +517,425 @@ function StatCard({ label, value, trend, icon, color }: any) {
   );
 }
 
-function BattlefieldView({ addToast, openModal }: any) {
-  const [matchType, setMatchType] = useState('standard');
-  const [publicParty, setPublicParty] = useState(false);
+function UserProfileView({ user, stats, profileData, setProfileData, addToast }: any) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState(profileData);
+
+  const handleSave = () => {
+    setProfileData(editForm);
+    setIsEditing(false);
+    addToast("Profile updated successfully!", "success");
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Top Nav */}
-      <div className="flex items-center justify-center gap-8 border-b border-esport-border pb-4">
-        <button className="text-sm font-bold text-white border-b-2 border-esport-accent pb-4 -mb-[18px]">MATCHMAKING</button>
-        <button className="text-sm font-bold text-esport-text-muted hover:text-white transition-colors">TOURNAMENTS</button>
-        <button className="text-sm font-bold text-esport-text-muted hover:text-white transition-colors flex items-center gap-2">
-          LEAGUE <span className="bg-esport-accent text-white text-[10px] px-2 py-0.5 rounded-full">14H</span>
-        </button>
-      </div>
-
-      {/* Queue Badge */}
-      <div className="flex justify-center">
-        <div className="bg-esport-accent/20 border border-esport-accent/50 text-esport-accent text-xs font-bold px-4 py-1.5 rounded-full">
-          Europe 5v5 Queue
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+      {/* Banner */}
+      <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden bg-esport-card border border-esport-border group">
+        <DynamicImage prompt="abstract dark blue neon cyberpunk landscape" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/60 to-transparent" />
+        
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 flex flex-col md:flex-row items-end gap-6">
+          <div className="relative">
+            <img src={`https://ui-avatars.com/api/?name=${user?.username || 'Player'}&background=random&size=128`} className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-[#0a0b0d] shadow-2xl" />
+            <div className="absolute -bottom-2 -right-2 bg-esport-accent text-white text-xs font-bold px-2 py-1 rounded-lg border-2 border-[#0a0b0d]">
+              LVL {stats?.level || 1}
+            </div>
+          </div>
+          
+          <div className="flex-1 pb-2">
+            <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-1">{user?.username || 'Player'}</h1>
+            <div className="flex items-center gap-4 text-sm text-esport-text-muted font-bold uppercase tracking-wider">
+              <span className="flex items-center gap-1"><MapPin size={14} /> {profileData.country}</span>
+              <span className="flex items-center gap-1"><Clock size={14} /> Member since 2026</span>
+            </div>
+          </div>
+          
+          <div className="pb-2 w-full md:w-auto flex gap-3">
+            <button onClick={() => { setActiveTab('settings'); setIsEditing(true); }} className="esport-btn-secondary flex-1 md:flex-none">
+              <Settings size={16} /> Edit Profile
+            </button>
+            <button className="esport-btn-primary flex-1 md:flex-none">
+              <User size={16} /> Add Friend
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Top Stats Row */}
+      {/* Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Monthly ladders */}
-        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
-          <div className="text-xs text-esport-text-muted mb-4">Monthly ladders</div>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-black/40 rounded flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-white/10 rounded-sm flex flex-col justify-between p-1">
-                <div className="w-full h-0.5 bg-white/10"></div>
-                <div className="w-full h-0.5 bg-white/10"></div>
+        {/* Left Sidebar */}
+        <div className="space-y-6">
+          {/* Bio Card */}
+          <div className="esport-card p-6">
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">About Me</h3>
+            <p className="text-sm leading-relaxed">{profileData.bio}</p>
+            
+            <div className="mt-6 pt-6 border-t border-esport-border space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-esport-text-muted">Role</span>
+                <span className="font-bold text-esport-accent capitalize">{user?.role || 'Player'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-esport-text-muted">Status</span>
+                <span className="font-bold text-esport-success flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-esport-success animate-pulse"/> Online</span>
               </div>
             </div>
-            <div className="flex-1">
-              <div className="text-[10px] text-esport-text-muted uppercase tracking-wider mb-1">APRIL</div>
-              <div className="text-sm font-bold mb-2">Play 1 match to get placed</div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-esport-text-muted">0/1</span>
-                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Lock size={10} className="text-esport-success z-10" />
+          </div>
+
+          {/* Quick Stats */}
+          <div className="esport-card p-6">
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Combat Record</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-esport-accent">{stats?.winRate || "0%"}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">Win Rate</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-white">{stats?.kdRatio || "0.00"}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">K/D Ratio</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center col-span-2">
+                <div className="text-xl font-bold text-white">{stats?.rank || "Unranked"}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">Current Rank</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Custom Tabs */}
+          <div className="flex overflow-x-auto custom-scrollbar gap-2 p-1 bg-esport-card border border-esport-border rounded-xl">
+            {['overview', 'matches', 'highlights', 'settings'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); if(tab !== 'settings') setIsEditing(false); }}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab ? 'bg-esport-accent text-white shadow-lg' : 'text-esport-text-muted hover:text-white hover:bg-white/5'}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="esport-card p-6 min-h-[400px]">
+            {activeTab === 'overview' && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Recent Performance</h3>
+                  <div className="h-32 flex items-end gap-2">
+                    {[40, 70, 45, 90, 65, 85, 100, 50, 75, 60].map((h, i) => (
+                      <div key={i} className="flex-1 bg-esport-accent/20 rounded-t-sm hover:bg-esport-accent transition-colors relative group" style={{ height: `${h}%` }}>
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          {h}pts
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="h-full bg-esport-success/20 w-full"></div>
+                </div>
+                
+                <div>
+                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Guestbook</h3>
+                  <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center">
+                    <MessageSquare className="w-12 h-12 text-esport-text-muted mx-auto mb-3 opacity-50" />
+                    <div className="font-bold mb-1">No messages yet</div>
+                    <div className="text-sm text-esport-text-muted mb-4">Be the first to leave a message on this profile.</div>
+                    <button className="esport-btn-secondary mx-auto text-sm py-2">Sign Guestbook</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'matches' && (
+              <div>
+                <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Match History</h3>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-esport-border rounded-lg hover:border-esport-accent/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded flex items-center justify-center font-bold ${i % 2 === 0 ? 'bg-esport-danger/20 text-esport-danger' : 'bg-esport-success/20 text-esport-success'}`}>
+                          {i % 2 === 0 ? 'DEFEAT' : 'VICTORY'}
+                        </div>
+                        <div>
+                          <div className="font-bold">Ranked 5v5 • Cyberia</div>
+                          <div className="text-xs text-esport-text-muted">{i} days ago</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-white">16 - {10 + i}</div>
+                        <div className="text-xs text-esport-accent">+{25 - i} ELO</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div className="max-w-xl">
+                <h3 className="font-display font-bold uppercase tracking-wider mb-6 text-white">Edit Profile</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Bio</label>
+                    <textarea 
+                      value={editForm.bio}
+                      onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                      className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors min-h-[100px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Country</label>
+                    <input 
+                      type="text"
+                      value={editForm.country}
+                      onChange={(e) => setEditForm({...editForm, country: e.target.value})}
+                      className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="pt-4 border-t border-esport-border flex gap-3">
+                    <button onClick={handleSave} className="esport-btn-primary">Save Changes</button>
+                    <button onClick={() => { setEditForm(profileData); setIsEditing(false); setActiveTab('overview'); }} className="esport-btn-secondary">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'highlights' && (
+              <div>
+                 <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Video Highlights</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-esport-border group cursor-pointer">
+                       <DynamicImage prompt="esports highlight sniper shot" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/20 transition-colors">
+                          <PlayCircle className="w-12 h-12 text-white opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                       </div>
+                       <div className="absolute bottom-2 left-2 text-xs font-bold bg-black/80 px-2 py-1 rounded">Clutch 1v3</div>
+                    </div>
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-esport-border group cursor-pointer">
+                       <DynamicImage prompt="esports highlight team wipe" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/20 transition-colors">
+                          <PlayCircle className="w-12 h-12 text-white opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                       </div>
+                       <div className="absolute bottom-2 left-2 text-xs font-bold bg-black/80 px-2 py-1 rounded">Ace Defense</div>
+                    </div>
+                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BattlefieldView({ addToast, openModal }: any) {
+  const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
+  const [searchTime, setSearchTime] = useState(0);
+  const [acceptedCount, setAcceptedCount] = useState(0);
+  const [matchType, setMatchType] = useState('standard');
+
+  useEffect(() => {
+    let interval: any;
+    if (matchState === 'searching') {
+      interval = setInterval(() => {
+        setSearchTime(prev => {
+          if (prev >= 5) { // Found match after 5 seconds
+            setMatchState('found');
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [matchState]);
+
+  useEffect(() => {
+    let interval: any;
+    if (matchState === 'accepted') {
+      interval = setInterval(() => {
+        setAcceptedCount(prev => {
+          if (prev >= 10) {
+            setTimeout(() => setMatchState('connecting'), 1000);
+            return 10;
+          }
+          return prev + 1;
+        });
+      }, 400); // Simulate other players accepting
+    }
+    return () => clearInterval(interval);
+  }, [matchState]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const startSearch = () => {
+    setSearchTime(0);
+    setMatchState('searching');
+    addToast("Searching for match...", "info");
+  };
+
+  const acceptMatch = () => {
+    setMatchState('accepted');
+    setAcceptedCount(1); // You accepted
+  };
+
+  const cancelSearch = () => {
+    setMatchState('idle');
+    setSearchTime(0);
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield</h2>
+          <p className="text-esport-text-muted">Enter the arena and prove your worth.</p>
+        </div>
+        <div className="flex items-center gap-4 bg-esport-card border border-esport-border px-4 py-2 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" />
+            <span className="text-sm font-bold">12,458 Players Online</span>
+          </div>
+        </div>
+      </div>
+
+      {matchState === 'idle' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Game Modes */}
+          <div className="md:col-span-2 space-y-4">
+            <div 
+              onClick={() => setMatchType('standard')}
+              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === 'standard' ? 'border-esport-accent' : 'border-esport-border hover:border-white/20'}`}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === 'standard' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+              <div className="flex items-center justify-between relative z-10">
+                <div>
+                  <h3 className="text-2xl font-bold font-display uppercase mb-1">Ranked 5v5</h3>
+                  <p className="text-sm text-esport-text-muted">Competitive matchmaking. Affects your ELO.</p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === 'standard' ? 'bg-esport-accent/20 border-esport-accent' : 'bg-black/50 border-esport-border'}`}>
+                  <Sword className={matchType === 'standard' ? 'text-esport-accent' : 'text-esport-text-muted'} />
+                </div>
+              </div>
+            </div>
+            
+            <div 
+              onClick={() => setMatchType('unranked')}
+              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === 'unranked' ? 'border-esport-accent' : 'border-esport-border hover:border-white/20'}`}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === 'unranked' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+              <div className="flex items-center justify-between relative z-10">
+                <div>
+                  <h3 className="text-xl font-bold font-display uppercase mb-1">Unranked</h3>
+                  <p className="text-sm text-esport-text-muted">Casual play. Try new strategies.</p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === 'unranked' ? 'bg-esport-accent/20 border-esport-accent' : 'bg-black/50 border-esport-border'}`}>
+                  <Users className={matchType === 'unranked' ? 'text-esport-accent' : 'text-esport-text-muted'} />
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Skill level */}
-        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
-          <div className="text-xs text-esport-text-muted mb-4">Skill level</div>
-          <div className="flex justify-between items-end mb-2">
-            <div className="text-xs text-esport-text-muted uppercase tracking-wider">LEVEL 4</div>
-          </div>
-          <div className="text-2xl font-bold mb-2">1,029</div>
-          <div className="h-1.5 bg-black/40 rounded-full overflow-hidden mb-2 flex">
-            <div className="h-full bg-esport-accent w-[40%]"></div>
-          </div>
-          <div className="flex justify-between text-[10px] text-esport-text-muted">
-            <span>901</span>
-            <span>+22 to Level 5</span>
-            <span>1,050</span>
-          </div>
-        </div>
-
-        {/* Missions */}
-        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
-          <div className="text-xs text-esport-text-muted mb-4">Missions (2)</div>
-          <div className="flex gap-4">
-            <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=80&auto=format&fit=crop" className="w-16 h-16 rounded object-cover" />
+          {/* Action Panel */}
+          <div className="esport-card p-6 flex flex-col justify-center items-center text-center space-y-6">
+            <div className="w-24 h-24 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
+              <Target className="w-10 h-10 text-esport-text-muted" />
+            </div>
             <div>
-              <div className="text-[10px] text-esport-text-muted uppercase tracking-wider mb-1">ENDS IN 28D 01H 35M</div>
-              <div className="text-sm font-bold mb-2">Premium Monthly Mission: April Showers</div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1 text-esport-accent font-bold"><Zap size={12} /> 62K</span>
-                <span className="flex items-center gap-1 text-esport-secondary font-bold"><ShoppingBag size={12} /> 1 prize</span>
-              </div>
+              <div className="text-sm text-esport-text-muted mb-1">Estimated Wait</div>
+              <div className="text-2xl font-bold font-mono">01:15</div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Party Section */}
-      <div className="relative">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <span className="font-bold">team_imale</span>
-            <span className="text-xs text-esport-text-muted bg-white/5 px-2 py-1 rounded-full">Not verified</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-full px-4 py-1.5 border border-white/5">
-              <Users size={14} className="text-esport-text-muted" />
-              <span className="text-sm font-bold">199</span>
-              <span className="text-sm text-esport-text-muted">Public party</span>
-              <button 
-                onClick={() => setPublicParty(!publicParty)}
-                className={`w-8 h-4 rounded-full relative transition-colors ${publicParty ? 'bg-esport-accent' : 'bg-black/40'}`}
-              >
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${publicParty ? 'left-4.5' : 'left-0.5'}`} />
-              </button>
-            </div>
-            <button className="text-esport-danger hover:text-red-400 transition-colors">
-              <LogOut size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex justify-center gap-4">
-          {/* Empty Slot */}
-          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
-            <Plus size={32} className="text-white/20" />
-          </div>
-          {/* Empty Slot */}
-          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
-            <Plus size={32} className="text-white/20" />
-          </div>
-          
-          {/* User Slot */}
-          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-esport-accent/50 relative flex flex-col items-center justify-center">
-            <div className="absolute -top-3 text-esport-secondary">
-              <Crown size={20} fill="currentColor" />
-            </div>
-            <img src="https://ui-avatars.com/api/?name=imale&background=random" className="w-16 h-16 rounded-full border-2 border-white/10 mb-3" />
-            <div className="font-bold text-sm mb-1 flex items-center gap-1">
-              imale <span className="text-[10px] bg-white text-black px-1 rounded">IL</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-esport-secondary text-black flex items-center justify-center text-xs font-bold">4</div>
-              <span className="text-xs font-bold">1,029</span>
-            </div>
-          </div>
-
-          {/* Empty Slot */}
-          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
-            <Plus size={32} className="text-white/20" />
-          </div>
-
-          {/* Find Parties Slot */}
-          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex flex-col items-center justify-center cursor-pointer hover:border-white/20 transition-colors gap-2">
-            <Search size={24} className="text-white/40" />
-            <span className="text-xs text-white/40 font-bold">Find Parties</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Anti-Cheat Banner */}
-      <div className="flex justify-center">
-        <div className="bg-black/60 border border-esport-accent/50 rounded-lg px-6 py-3 flex items-center gap-6">
-          <div className="flex items-center gap-2 text-esport-accent">
-            <ShieldAlert size={16} />
-            <span className="text-sm font-bold">Please run Anti-Cheat</span>
-          </div>
-          <div className="flex gap-4">
-            <button className="text-esport-accent text-sm font-bold hover:text-white transition-colors">DOWNLOAD</button>
-            <button className="text-esport-accent text-sm font-bold hover:text-white transition-colors">LAUNCH</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Match Types */}
-      <div className="bg-[#1a1a1a] rounded-xl border border-white/5 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-esport-accent font-bold text-sm">
-              <Target size={16} />
-              MATCH TYPE
-            </div>
-            <div className="flex items-center gap-2 text-esport-text-muted font-bold text-sm">
-              <Map size={16} />
-              MAPS 7/7
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-esport-text-muted font-bold text-sm">
-            <Server size={16} />
-            SERVERS 6/6
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="flex justify-center mb-6">
-            <button 
-              onClick={() => addToast("Searching for match...", "success")}
-              className="bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-display font-bold text-xl uppercase px-24 py-4 rounded-lg transition-all border border-white/10"
-            >
+            <button onClick={startSearch} className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               FIND MATCH
             </button>
           </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Standard Match */}
-            <div 
-              onClick={() => setMatchType('standard')}
-              className={`p-4 rounded-lg border cursor-pointer transition-all flex gap-4 ${matchType === 'standard' ? 'border-white bg-white/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
-            >
-              <div className="flex flex-col gap-2">
-                <div className="w-12 h-12 rounded bg-[#2a2a2a] flex flex-col items-center justify-center relative">
-                  <CheckCircle2 size={16} className="text-white/60 mb-1" />
-                  <span className="text-[8px] font-bold uppercase text-white/60">Verified</span>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-esport-success rounded-full flex items-center justify-center">
-                    <Star size={8} className="text-black fill-black" />
-                  </div>
-                </div>
-                <div className="w-12 h-12 rounded bg-[#2a2a2a] flex flex-col items-center justify-center relative">
-                  <Crown size={16} className="text-white/60 mb-1" />
-                  <span className="text-[8px] font-bold uppercase text-white/60">Veteran</span>
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-esport-success text-black text-[8px] font-bold px-1 rounded">NEW</div>
-                </div>
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-bold">Standard Match • <span className="text-esport-text-muted">5v5</span></h4>
-                  <Info size={16} className="text-esport-text-muted" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                    <Users size={14} /> All party sizes
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                    <Activity size={14} /> No Elo restrictions
-                  </div>
-                </div>
-              </div>
+      {matchState === 'searching' && (
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden">
+          {/* Radar Animation */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+            <div className="w-96 h-96 border border-esport-accent rounded-full animate-[ping_3s_linear_infinite]" />
+            <div className="w-64 h-64 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_1s]" />
+            <div className="w-32 h-32 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_2s]" />
+          </div>
+          
+          <div className="relative z-10 text-center space-y-6">
+            <div className="w-20 h-20 mx-auto bg-esport-accent/20 rounded-full flex items-center justify-center border border-esport-accent animate-spin-slow">
+              <Search className="w-8 h-8 text-esport-accent" />
             </div>
-
-            {/* Super Match */}
-            <div 
-              onClick={() => setMatchType('super')}
-              className={`p-4 rounded-lg border cursor-pointer transition-all flex flex-col ${matchType === 'super' ? 'border-esport-success bg-esport-success/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h4 className="font-bold flex items-center gap-2">
-                  <Zap size={16} className="text-white" />
-                  Super Match • <span className="text-esport-text-muted">5v5</span>
-                </h4>
-                <Info size={16} className="text-esport-text-muted" />
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Users size={14} /> Solo, duo, trio
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Star size={14} /> Premium flex
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Activity size={14} /> 400 Elo range
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-success">
-                  <CheckCircle2 size={14} /> Verified matching
-                </div>
-                <div className="col-start-2 flex items-center gap-2 text-xs text-esport-success">
-                  <Crown size={14} /> Veteran Matching
-                </div>
-              </div>
-              <button className="mt-auto w-full py-2 border border-esport-success/50 text-esport-success hover:bg-esport-success hover:text-black font-bold text-xs uppercase rounded transition-colors">
-                PLAY NOW
-              </button>
+            <div>
+              <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-esport-accent mb-2">Searching for Players</h3>
+              <div className="text-4xl font-mono font-bold text-white">{formatTime(searchTime)}</div>
             </div>
-
-            {/* Premium Match */}
-            <div 
-              onClick={() => setMatchType('premium')}
-              className={`p-4 rounded-lg border cursor-pointer transition-all flex flex-col ${matchType === 'premium' ? 'border-esport-success bg-esport-success/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h4 className="font-bold flex items-center gap-2">
-                  <Star size={16} className="text-white" />
-                  Premium Match • <span className="text-esport-text-muted">5v5</span>
-                </h4>
-                <Info size={16} className="text-esport-text-muted" />
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Users size={14} /> Solo or duo
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Star size={14} /> Premium required
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
-                  <Activity size={14} /> 400 Elo range
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-success">
-                  <CheckCircle2 size={14} /> Verified required
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-success">
-                  <Target size={14} /> High stakes
-                </div>
-                <div className="flex items-center gap-2 text-xs text-esport-success">
-                  <Crown size={14} /> Veteran required
-                </div>
-              </div>
-              <button className="mt-auto w-full py-2 border border-esport-success/50 text-esport-success hover:bg-esport-success hover:text-black font-bold text-xs uppercase rounded transition-colors">
-                PLAY NOW
-              </button>
-            </div>
+            <button onClick={cancelSearch} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
+              Cancel Search
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Footer Stats */}
-      <div className="flex justify-center gap-6 text-xs text-esport-text-muted">
-        <span>Live matches: <span className="text-white">8,461</span></span>
-        <span>Players queueing: <span className="text-white">2,325</span></span>
-      </div>
+      {matchState === 'found' && (
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-success shadow-[0_0_50px_rgba(16,185,129,0.2)]">
+          <div className="w-24 h-24 mx-auto bg-esport-success/20 rounded-full flex items-center justify-center border-2 border-esport-success mb-6 animate-bounce">
+            <CheckCircle2 className="w-12 h-12 text-esport-success" />
+          </div>
+          <h3 className="text-4xl font-bold font-display uppercase tracking-widest text-white mb-2">Match Found!</h3>
+          <p className="text-esport-text-muted mb-8">Please accept to join the lobby.</p>
+          
+          <div className="flex gap-4">
+            <button onClick={acceptMatch} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+              ACCEPT
+            </button>
+            <button onClick={cancelSearch} className="esport-btn-secondary py-4 px-8">
+              DECLINE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {matchState === 'accepted' && (
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px]">
+          <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-white mb-8">Waiting for players...</h3>
+          
+          <div className="flex gap-2 mb-8">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className={`w-12 h-16 rounded border-2 flex items-center justify-center transition-all duration-300 ${i < acceptedCount ? 'bg-esport-success/20 border-esport-success text-esport-success shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 border-esport-border text-esport-border'}`}>
+                {i < acceptedCount ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+              </div>
+            ))}
+          </div>
+          
+          <div className="text-xl font-mono font-bold text-esport-accent">
+            {acceptedCount} / 10 Accepted
+          </div>
+        </div>
+      )}
+
+      {matchState === 'connecting' && (
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-accent">
+          <div className="w-20 h-20 mx-auto mb-6 relative">
+            <div className="absolute inset-0 border-4 border-esport-border rounded-full" />
+            <div className="absolute inset-0 border-4 border-esport-accent rounded-full border-t-transparent animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Server className="w-8 h-8 text-esport-accent" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-bold font-display uppercase tracking-widest text-white mb-2">Connecting to Server</h3>
+          <p className="text-esport-text-muted font-mono bg-black/50 px-4 py-2 rounded border border-esport-border">
+            IP: 192.168.1.{Math.floor(Math.random() * 255)}:27015
+          </p>
+          <button onClick={cancelSearch} className="mt-8 esport-btn-secondary text-sm">
+            Disconnect
+          </button>
+        </div>
+      )}
     </div>
   );
 }
