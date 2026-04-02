@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Search, 
@@ -1248,30 +1247,318 @@ function SyndicatesView() {
 }
 
 function NeonPrimeView() {
+  const [activeTab, setActiveTab] = useState('serious');
+  
   return (
-    <div className="max-w-4xl mx-auto py-12">
-      <div className="esport-card p-12 text-center relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-esport-accent to-transparent" />
-        <Crown size={64} className="text-esport-accent mx-auto mb-8 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
-        <h2 className="text-4xl font-display font-extrabold uppercase tracking-tighter mb-4">Elevate Your <span className="text-esport-accent">Experience</span></h2>
-        <p className="text-esport-text-muted mb-12 max-w-lg mx-auto">Join the elite tier of Hustle Arena and unlock the full potential of your combat career.</p>
+    <div className="min-h-screen bg-[#0a0a0a] text-white pb-24 font-sans">
+      {/* Hero Section */}
+      <div className="relative pt-20 pb-16 text-center px-4">
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-[#ff4500]/20 blur-[120px] rounded-full pointer-events-none" />
         
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <div className="p-6 bg-white/5 rounded-2xl border border-esport-border">
-            <div className="font-bold uppercase text-esport-accent mb-2">Priority</div>
-            <div className="text-xs text-esport-text-muted">Skip the matchmaking queues instantly.</div>
+        <div className="relative z-10">
+          <div className="w-20 h-20 mx-auto bg-[#1a1a1a] border-2 border-[#ff4500] rounded-xl flex items-center justify-center mb-8 transform rotate-45">
+            <Star className="text-[#ff4500] w-10 h-10 -rotate-45" fill="currentColor" />
           </div>
-          <div className="p-6 bg-white/5 rounded-2xl border border-esport-border">
-            <div className="font-bold uppercase text-esport-accent mb-2">Analytics</div>
-            <div className="text-xs text-esport-text-muted">Deep neural data on every match played.</div>
-          </div>
-          <div className="p-6 bg-white/5 rounded-2xl border border-esport-border">
-            <div className="font-bold uppercase text-esport-accent mb-2">Exclusive</div>
-            <div className="text-xs text-esport-text-muted">Monthly Prime-only weapon drops.</div>
+          
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 tracking-tight">
+            Elevate every match<br />with NEON PRIME
+          </h1>
+          
+          <div className="text-2xl font-bold mb-2">$7.99/month</div>
+          <div className="text-sm text-gray-400 mb-8">Per month billed annually, not including taxes • Cancel anytime</div>
+          
+          <button className="bg-[#00ff66] hover:bg-[#00cc52] text-black font-bold py-3 px-8 rounded-md transition-colors mb-4">
+            UPGRADE TO PREMIUM
+          </button>
+          
+          <div>
+            <button className="text-sm text-gray-400 hover:text-white flex items-center justify-center mx-auto gap-1">
+              Compare plans <ChevronDown className="w-4 h-4" />
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Tabs Section */}
+      <div className="max-w-6xl mx-auto px-4 mt-12">
+        <h2 className="text-3xl font-bold text-center mb-8">Get the best out of NEON PRIME. Go Premium</h2>
         
-        <button className="esport-btn-primary px-12 py-4 text-lg">Activate Neon Prime - $9.99/mo</button>
+        <div className="flex justify-center gap-4 mb-16">
+          <button 
+            onClick={() => setActiveTab('serious')}
+            className={`flex items-center gap-2 px-6 py-2 rounded-full border transition-colors ${activeTab === 'serious' ? 'border-white bg-white/10 text-white' : 'border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'}`}
+          >
+            <Sword className="w-4 h-4" /> Serious games
+          </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-2 px-6 py-2 rounded-full border transition-colors ${activeTab === 'settings' ? 'border-white bg-white/10 text-white' : 'border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'}`}
+          >
+            <Settings className="w-4 h-4" /> Settings selection
+          </button>
+          <button 
+            onClick={() => setActiveTab('rewards')}
+            className={`flex items-center gap-2 px-6 py-2 rounded-full border transition-colors ${activeTab === 'rewards' ? 'border-white bg-white/10 text-white' : 'border-gray-800 text-gray-400 hover:text-white hover:border-gray-600'}`}
+          >
+            <Trophy className="w-4 h-4" /> Rewards
+          </button>
+        </div>
+
+        {/* Feature 1 */}
+        <div className="grid md:grid-cols-2 gap-12 items-center mb-32">
+          <div>
+            <h3 className="text-3xl font-bold mb-4">Compete in the ultimate<br />matchmaking experience</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-bold mb-6">
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Guaranteed Super Match</span>
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Guaranteed Verified Lobbies</span>
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Matchmaking block</span>
+            </div>
+            <p className="text-gray-400 leading-relaxed">
+              Take control of your match experience, ensuring that every game respects your preferences for a more balanced and fairer competition. You'll enjoy more competitive and serious games, making every move and bullet count.
+            </p>
+          </div>
+          <div className="relative rounded-xl overflow-hidden border border-gray-800 aspect-video bg-gray-900">
+            <DynamicImage prompt="esports 5v5 tactical shooter gameplay screenshot" className="w-full h-full object-cover opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          </div>
+        </div>
+
+        {/* Feature 2 */}
+        <div className="grid md:grid-cols-2 gap-12 items-center mb-32">
+          <div className="order-2 md:order-1 relative rounded-xl overflow-hidden border border-gray-800 aspect-video bg-gray-900 flex items-center justify-center p-8">
+            {/* Mock UI for settings */}
+            <div className="w-full max-w-sm bg-[#1a1a1a] border border-gray-700 rounded-lg p-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4 border-b border-gray-700 pb-4">
+                <div className="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center border border-orange-500">
+                  <Star className="w-5 h-5 text-orange-500" fill="currentColor" />
+                </div>
+                <div>
+                  <div className="font-bold">Match Settings</div>
+                  <div className="text-xs text-gray-400">Premium only</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded flex items-center justify-center ${i <= 2 ? 'bg-orange-500' : 'border border-gray-600'}`}>
+                      {i <= 2 && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="h-2 bg-gray-700 rounded w-full max-w-[120px]" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="order-1 md:order-2">
+            <h3 className="text-3xl font-bold mb-4">Play your way</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-bold mb-6">
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Map selection</span>
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Captain priority</span>
+            </div>
+            <p className="text-gray-400 leading-relaxed">
+              Choose the game settings that work best for you. Pick your favorite maps and, as captain, the optimal server and the starting side. It's all about playing your way and focusing on your gameplay.
+            </p>
+          </div>
+        </div>
+
+        {/* Feature 3 */}
+        <div className="grid md:grid-cols-2 gap-12 items-center mb-32">
+          <div>
+            <h3 className="text-3xl font-bold mb-4">Get your skill and<br />commitment rewarded</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-bold mb-6">
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Premium missions</span>
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-white" /> Premium ladders</span>
+            </div>
+            <p className="text-gray-400 leading-relaxed">
+              Complete Premium monthly mission challenges, climb the 29 new Premium ladders available each week, and you could win your share of NEON PRIME Points and skins, with over 1.18 million winners every month.
+            </p>
+          </div>
+          <div className="relative rounded-xl overflow-hidden border border-gray-800 aspect-video bg-gray-900">
+            <DynamicImage prompt="A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear." className="w-full h-full object-cover opacity-80" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          </div>
+        </div>
+
+        {/* More Features */}
+        <div className="mb-32">
+          <h3 className="text-2xl font-bold text-center mb-12">More popular NEON PRIME features</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="bg-[#111] border border-gray-800 rounded-xl p-6 text-center hover:border-gray-600 transition-colors">
+              <div className="w-12 h-12 mx-auto bg-orange-500/10 rounded-lg flex items-center justify-center mb-4 border border-orange-500/20">
+                <Crown className="w-6 h-6 text-orange-500" />
+              </div>
+              <h4 className="font-bold mb-2">Premium tiers</h4>
+              <p className="text-xs text-gray-400">Your Premium tier is a badge that evolves to showcase your contribution to the community.</p>
+            </div>
+            <div className="bg-[#111] border border-gray-800 rounded-xl p-6 text-center hover:border-gray-600 transition-colors">
+              <div className="w-12 h-12 mx-auto bg-gray-800 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
+                <MessageSquare className="w-6 h-6 text-gray-300" />
+              </div>
+              <h4 className="font-bold mb-2">Premium customer support</h4>
+              <p className="text-xs text-gray-400">Fast-track your requests as we prioritize your tickets.</p>
+            </div>
+            <div className="bg-[#111] border border-gray-800 rounded-xl p-6 text-center hover:border-gray-600 transition-colors">
+              <div className="w-12 h-12 mx-auto bg-gray-800 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
+                <User className="w-6 h-6 text-gray-300" />
+              </div>
+              <h4 className="font-bold mb-2">Nickname change</h4>
+              <p className="text-xs text-gray-400">Refresh your nickname every 3 months at no extra cost (including idle accounts).</p>
+            </div>
+            <div className="bg-[#111] border border-gray-800 rounded-xl p-6 text-center hover:border-gray-600 transition-colors">
+              <div className="w-12 h-12 mx-auto bg-gray-800 rounded-lg flex items-center justify-center mb-4 border border-gray-700">
+                <PlayCircle className="w-6 h-6 text-gray-300" />
+              </div>
+              <h4 className="font-bold mb-2">Match highlights</h4>
+              <p className="text-xs text-gray-400">Relive your epic in-game actions—no client needed!</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Loyalty */}
+        <div className="bg-[#111] border border-gray-800 rounded-xl p-8 mb-32 flex flex-col md:flex-row items-center gap-8">
+          <div className="flex-1">
+            <h3 className="text-xl font-bold mb-2">Your Loyalty, Now Rewarded!</h3>
+            <p className="text-sm text-gray-400">
+              The longer you stay subscribed to Premium, the more XP and rewards you unlock. Progress through tiers to earn new Premium badges, unlock up to 25% Shop discounts, and receive up to 20 NEON PRIME day passes each month that you can gift to friends.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4">
+            {['Subscriber', 'Gold', 'Platinum', 'Diamond', 'Elite', 'Legend'].map((tier, i) => (
+              <div key={tier} className="text-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mb-2 mx-auto
+                  ${i === 0 ? 'border-orange-500 bg-orange-500/20 text-orange-500' : 
+                    i === 1 ? 'border-yellow-500 bg-yellow-500/20 text-yellow-500' :
+                    i === 2 ? 'border-gray-300 bg-gray-300/20 text-gray-300' :
+                    i === 3 ? 'border-blue-400 bg-blue-400/20 text-blue-400' :
+                    i === 4 ? 'border-purple-500 bg-purple-500/20 text-purple-500' :
+                    'border-red-500 bg-red-500/20 text-red-500'
+                  }`}
+                >
+                  <Star className="w-4 h-4" fill="currentColor" />
+                </div>
+                <div className="text-[10px] text-gray-500 uppercase">{tier}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Compare Plans */}
+        <div className="mb-32">
+          <h3 className="text-3xl font-bold text-center mb-12">Compare plans</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr>
+                  <th className="p-4 border-b border-gray-800 font-bold text-lg w-1/2">Features</th>
+                  <th className="p-4 border-b border-gray-800 text-center">
+                    <div className="font-bold mb-1">FREE</div>
+                    <div className="text-xs text-gray-500 mb-2">CURRENT</div>
+                  </th>
+                  <th className="p-4 border-b border-gray-800 text-center">
+                    <div className="font-bold mb-1">NEON PLUS</div>
+                    <div className="text-xs text-[#00ff66] mb-2">$4.17/month</div>
+                    <button className="text-xs border border-[#00ff66] text-[#00ff66] px-3 py-1 rounded hover:bg-[#00ff66]/10 transition-colors">UPGRADE</button>
+                  </th>
+                  <th className="p-4 border-b border-gray-800 text-center">
+                    <div className="font-bold mb-1">NEON PRIME</div>
+                    <div className="text-xs text-[#00ff66] mb-2">$7.99/month</div>
+                    <button className="text-xs bg-[#00ff66] text-black font-bold px-3 py-1 rounded hover:bg-[#00cc52] transition-colors">UPGRADE</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {[
+                  { name: 'Subscription badge', desc: 'Show your subscription badge, with Premium tier badges that level up the longer you subscribe.', free: false, plus: 'badge', prime: 'badge' },
+                  { name: 'Free rank system', desc: 'Grind Elo rating to climb skill levels all the way up to the FPL.', free: true, plus: true, prime: true },
+                  { name: 'Free matchmaking', desc: 'Compete with +30M competitive players.', free: true, plus: true, prime: true },
+                  { name: 'Guaranteed Super Match', desc: 'Ensure a more balanced matchmaking experience with matches that always respect specific characteristics and rules.', free: false, plus: true, prime: true },
+                  { name: 'Guaranteed Veteran-Only Lobbies', desc: 'Veteran subscribers can toggle Veteran Only to be matched exclusively with veteran accounts in 5v5 Standard and Super Match.', badge: 'NEW', free: false, plus: true, prime: true },
+                  { name: 'Guaranteed Verified Lobbies', desc: 'Verified players can toggle Verified Only to be matched exclusively with verified accounts in 5v5 Standard and Super Match.', free: false, plus: true, prime: true },
+                  { name: 'Map selection', desc: 'Select 5 maps you prefer to play on.', free: false, plus: true, prime: true },
+                  { name: 'Premium missions', desc: 'Complete missions and earn rare Skins and Points.', free: false, plus: false, prime: true },
+                  { name: 'Premium ladders', desc: 'Climb the new Premium ladders available each week and win your share of Points and skins.', free: false, plus: false, prime: true },
+                  { name: 'Match highlights', desc: 'Relive your epic in-game actions—no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
+                ].map((feature, i) => (
+                  <tr key={i} className="border-b border-gray-800/50 hover:bg-white/5 transition-colors">
+                    <td className="p-4">
+                      <div className="font-bold mb-1 flex items-center gap-2">
+                        {feature.name}
+                        {feature.badge && <span className="bg-orange-500 text-black text-[10px] px-1.5 py-0.5 rounded font-bold">{feature.badge}</span>}
+                      </div>
+                      <div className="text-xs text-gray-500">{feature.desc}</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      {feature.free === true ? <CheckCircle2 className="w-5 h-5 text-[#00ff66] mx-auto" /> : null}
+                    </td>
+                    <td className="p-4 text-center">
+                      {feature.plus === true ? <CheckCircle2 className="w-5 h-5 text-[#00ff66] mx-auto" /> : 
+                       feature.plus === 'badge' ? <div className="w-5 h-5 rounded-full border border-orange-500 flex items-center justify-center mx-auto"><Star className="w-3 h-3 text-orange-500" /></div> : null}
+                    </td>
+                    <td className="p-4 text-center">
+                      {feature.prime === true ? <CheckCircle2 className="w-5 h-5 text-[#00ff66] mx-auto" /> : 
+                       feature.prime === 'badge' ? <div className="w-5 h-5 rounded-full border border-orange-500 flex items-center justify-center mx-auto bg-orange-500/20"><Star className="w-3 h-3 text-orange-500" fill="currentColor" /></div> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="text-center mt-4">
+              <button className="text-xs border border-gray-700 text-gray-400 px-4 py-2 rounded hover:text-white hover:border-gray-500 flex items-center justify-center mx-auto gap-2 transition-colors">
+                SEE ALL FEATURES <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="max-w-3xl mx-auto mb-32">
+          <h3 className="text-3xl font-bold text-center mb-12">Frequently asked questions</h3>
+          <div className="space-y-4">
+            {[
+              'What is NEON PRIME?',
+              'Does my subscription renew automatically?',
+              'What payment methods are available?',
+              'How do I gift a subscription?',
+              'How long are the subscriptions for?'
+            ].map((q, i) => (
+              <div key={i} className="border-b border-gray-800 pb-4">
+                <button className="w-full flex items-center justify-between font-bold text-left hover:text-gray-300 transition-colors">
+                  {q}
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer CTA */}
+        <div className="relative text-center py-20">
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-64 bg-[#ff4500]/10 blur-[100px] rounded-full pointer-events-none" />
+          
+          <div className="relative z-10">
+            <div className="w-16 h-16 mx-auto bg-[#1a1a1a] border-2 border-[#ff4500] rounded-xl flex items-center justify-center mb-6 transform rotate-45">
+              <Star className="text-[#ff4500] w-8 h-8 -rotate-45" fill="currentColor" />
+            </div>
+            
+            <h2 className="text-4xl font-bold mb-4">
+              Unlock exclusive features<br />with NEON PRIME
+            </h2>
+            
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm font-bold mb-8">
+              <span>Guaranteed Super Match</span>
+              <span className="w-1 h-1 rounded-full bg-gray-500 hidden sm:block" />
+              <span>Map selection</span>
+              <span className="w-1 h-1 rounded-full bg-gray-500 hidden sm:block" />
+              <span>Captain priority</span>
+            </div>
+            
+            <button className="bg-[#00ff66] hover:bg-[#00cc52] text-black font-bold py-3 px-8 rounded-md transition-colors">
+              UPGRADE TO PREMIUM
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
