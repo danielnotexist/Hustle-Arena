@@ -173,7 +173,12 @@ export default function App() {
           <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
             <div className="p-6">
               <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <img src="/logo.png" alt="Hustle Arena" className="h-10 w-auto" />
+                <div className="flex items-center gap-2 h-10">
+                  <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
+                    <Gamepad2 className="text-black w-3/4 h-3/4" />
+                  </div>
+                  <span className="font-display font-bold text-xl tracking-wider text-white">HUSTLE</span>
+                </div>
               </div>
             </div>
 
@@ -225,7 +230,7 @@ export default function App() {
             <div className="p-4 border-t border-esport-border bg-black/20">
               <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all">
                 <div className="relative">
-                  <img src="https://picsum.photos/seed/pro/100/100" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
+                  <img src="https://ui-avatars.com/api/?name=Pro&background=random" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -470,7 +475,7 @@ function DashboardView({ stats }: { stats: UserStats | null }) {
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="flex items-center gap-3 group cursor-pointer">
                   <div className="relative">
-                    <img src={`https://picsum.photos/seed/f${i}/40/40`} className="w-8 h-8 rounded-full" />
+                    <img src={`https://ui-avatars.com/api/?name=Friend+${i}&background=random`} className="w-8 h-8 rounded-full" />
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-esport-success border-2 border-esport-card rounded-full" />
                   </div>
                   <div className="flex-1">
@@ -581,7 +586,7 @@ function BattlefieldView({ addToast, openModal }: any) {
         <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
           <div className="text-xs text-esport-text-muted mb-4">Missions (2)</div>
           <div className="flex gap-4">
-            <img src="https://picsum.photos/seed/mission/80/80" className="w-16 h-16 rounded object-cover" />
+            <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=80&auto=format&fit=crop" className="w-16 h-16 rounded object-cover" />
             <div>
               <div className="text-[10px] text-esport-text-muted uppercase tracking-wider mb-1">ENDS IN 28D 01H 35M</div>
               <div className="text-sm font-bold mb-2">Premium Monthly Mission: April Showers</div>
@@ -634,7 +639,7 @@ function BattlefieldView({ addToast, openModal }: any) {
             <div className="absolute -top-3 text-esport-secondary">
               <Crown size={20} fill="currentColor" />
             </div>
-            <img src="https://picsum.photos/seed/imale/64/64" className="w-16 h-16 rounded-full border-2 border-white/10 mb-3" />
+            <img src="https://ui-avatars.com/api/?name=imale&background=random" className="w-16 h-16 rounded-full border-2 border-white/10 mb-3" />
             <div className="font-bold text-sm mb-1 flex items-center gap-1">
               imale <span className="text-[10px] bg-white text-black px-1 rounded">IL</span>
             </div>
@@ -845,7 +850,7 @@ function SquadHubView({ addToast }: any) {
             <div className="flex items-center justify-between mb-6">
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map(i => (
-                  <img key={i} src={`https://picsum.photos/seed/sq${squad.id}${i}/40/40`} className="w-10 h-10 rounded-full border-2 border-esport-card shadow-lg" />
+                  <img key={i} src={`https://ui-avatars.com/api/?name=Player+${i}&background=random`} className="w-10 h-10 rounded-full border-2 border-esport-card shadow-lg" />
                 ))}
                 {squad.members < squad.max && (
                   <div className="w-10 h-10 rounded-full border-2 border-dashed border-esport-border flex items-center justify-center bg-black/20 text-esport-text-muted text-xs font-bold">
@@ -880,11 +885,11 @@ function SquadHubView({ addToast }: any) {
 
 function ApexListView() {
   const players = [
-    { rank: 1, name: "qw1nk1", elo: "5,189", level: 10, winRate: "72%", avatar: "https://picsum.photos/seed/p1/100/100" },
-    { rank: 2, name: "fame--", elo: "5,153", level: 10, winRate: "68%", avatar: "https://picsum.photos/seed/p2/100/100" },
-    { rank: 3, name: "donk666", elo: "5,061", level: 10, winRate: "70%", avatar: "https://picsum.photos/seed/p3/100/100" },
-    { rank: 4, name: "b1st-", elo: "5,060", level: 10, winRate: "65%", avatar: "https://picsum.photos/seed/p4/100/100" },
-    { rank: 5, name: "executor", elo: "5,058", level: 10, winRate: "64%", avatar: "https://picsum.photos/seed/p5/100/100" },
+    { rank: 1, name: "qw1nk1", elo: "5,189", level: 10, winRate: "72%", avatar: "https://ui-avatars.com/api/?name=qw1nk1&background=random" },
+    { rank: 2, name: "fame--", elo: "5,153", level: 10, winRate: "68%", avatar: "https://ui-avatars.com/api/?name=fame--&background=random" },
+    { rank: 3, name: "donk666", elo: "5,061", level: 10, winRate: "70%", avatar: "https://ui-avatars.com/api/?name=donk666&background=random" },
+    { rank: 4, name: "b1st-", elo: "5,060", level: 10, winRate: "65%", avatar: "https://ui-avatars.com/api/?name=b1st-&background=random" },
+    { rank: 5, name: "executor", elo: "5,058", level: 10, winRate: "64%", avatar: "https://ui-avatars.com/api/?name=executor&background=random" },
   ];
 
   return (
@@ -1165,7 +1170,7 @@ function PulseView() {
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="esport-card p-6">
         <div className="flex gap-4">
-          <img src="https://picsum.photos/seed/me/100/100" className="w-10 h-10 rounded-full border border-esport-border" />
+          <img src="https://ui-avatars.com/api/?name=Me&background=random" className="w-10 h-10 rounded-full border border-esport-border" />
           <div className="flex-1 space-y-4">
             <textarea placeholder="Share your latest victory..." className="w-full bg-white/5 border border-esport-border rounded-xl p-4 text-sm focus:outline-none focus:border-esport-accent/50 min-h-[100px] resize-none transition-all" />
             <div className="flex justify-between items-center">
@@ -1186,7 +1191,7 @@ function PulseView() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <img src={`https://picsum.photos/seed/u${i}/100/100`} className="w-10 h-10 rounded-full" />
+                  <img src={`https://ui-avatars.com/api/?name=User+${i}&background=random`} className="w-10 h-10 rounded-full" />
                   <div>
                     <div className="text-sm font-bold">ProPlayer_{i}</div>
                     <div className="text-[10px] text-esport-text-muted uppercase font-bold">{i * 10}m ago</div>
@@ -1608,7 +1613,12 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       {/* Navbar */}
       <nav className="glass-header h-20 flex items-center justify-between px-12 fixed w-full top-0 z-50">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Hustle Arena" className="h-12 w-auto" />
+          <div className="flex items-center gap-2 h-12">
+            <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
+              <Gamepad2 className="text-black w-3/4 h-3/4" />
+            </div>
+            <span className="font-display font-bold text-2xl tracking-wider text-white">HUSTLE</span>
+          </div>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest">
           <a href="#tournaments" className="hover:text-esport-accent transition-colors">Tournaments</a>
@@ -1794,7 +1804,12 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       <footer className="py-20 border-t border-esport-border bg-esport-sidebar/50">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Hustle Arena" className="h-8 w-auto" />
+            <div className="flex items-center gap-2 h-8">
+              <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
+                <Gamepad2 className="text-black w-3/4 h-3/4" />
+              </div>
+              <span className="font-display font-bold text-lg tracking-wider text-white">HUSTLE</span>
+            </div>
           </div>
           <div className="text-esport-text-muted text-sm">
             © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
@@ -2100,7 +2115,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
             users.map(user => (
               <div key={user.id} className="grid grid-cols-[1fr_1fr_150px_150px_200px] p-6 items-center hover:bg-white/5 transition-colors">
                 <div className="px-4 flex items-center gap-3">
-                  <img src={`https://picsum.photos/seed/u${user.id}/40/40`} className="w-8 h-8 rounded-full" />
+                  <img src={`https://ui-avatars.com/api/?name=${user.username}&background=random`} className="w-8 h-8 rounded-full" />
                   <span className="font-bold text-sm">{user.username}</span>
                 </div>
                 <div className="text-sm text-esport-text-muted">{user.email}</div>
