@@ -169,7 +169,7 @@ export default function App() {
           <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
             <div className="p-6">
               <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-10 w-auto" />
+                <img src="/logo.png" alt="Hustle Arena" className="h-10 w-auto" />
               </div>
             </div>
 
@@ -1078,7 +1078,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       {/* Navbar */}
       <nav className="glass-header h-20 flex items-center justify-between px-12 fixed w-full top-0 z-50">
         <div className="flex items-center gap-3">
-          <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-12 w-auto" />
+          <img src="/logo.png" alt="Hustle Arena" className="h-12 w-auto" />
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest">
           <a href="#tournaments" className="hover:text-esport-accent transition-colors">Tournaments</a>
@@ -1264,7 +1264,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
       <footer className="py-20 border-t border-esport-border bg-esport-sidebar/50">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
-            <img src="https://storage.googleapis.com/a1aa/image/V3Bv3Xh2k5pXFp1oX820n7j12q213X8X312X312X312X312.jpg" alt="Hustle Arena" className="h-8 w-auto" />
+            <img src="/logo.png" alt="Hustle Arena" className="h-8 w-auto" />
           </div>
           <div className="text-esport-text-muted text-sm">
             © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
