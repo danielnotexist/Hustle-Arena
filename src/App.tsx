@@ -35,7 +35,12 @@ import {
   Gamepad2,
   LayoutDashboard,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Lock,
+  Info,
+  Map,
+  Server,
+  ShieldAlert
 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "./lib/supabase";
@@ -507,71 +512,309 @@ function StatCard({ label, value, trend, icon, color }: any) {
 }
 
 function BattlefieldView({ addToast, openModal }: any) {
-  const modes = [
-    { id: 1, title: "Competitive 5v5", desc: "Standard tactical combat. ELO at stake.", players: "12,450", image: "esports 5v5 tactical shooter gameplay screenshot" },
-    { id: 2, title: "Wingman 2v2", desc: "High-intensity duo combat on small maps.", players: "4,210", image: "esports 2v2 tactical shooter gameplay screenshot" },
-    { id: 3, title: "Nexus Royale", desc: "32-player tactical battle royale.", players: "8,900", image: "esports battle royale gameplay screenshot" },
-  ];
+  const [matchType, setMatchType] = useState('standard');
+  const [publicParty, setPublicParty] = useState(false);
 
   return (
-    <div className="space-y-12">
-      {/* Hero Banner */}
-      <div className="relative h-[400px] rounded-3xl overflow-hidden group">
-        <DynamicImage prompt="esports tournament stage with players and large screen" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-t from-esport-bg via-esport-bg/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-12 max-w-2xl">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="badge badge-accent">Season 4 Live</span>
-            <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Nexus Championship Series</span>
-          </div>
-          <h2 className="text-5xl font-display font-extrabold uppercase tracking-tighter mb-6 leading-none">
-            DOMINATE THE <span className="text-esport-accent italic">BATTLEFIELD</span>
-          </h2>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => openModal("Deploy to Combat", <div className="text-center space-y-4">
-                <p className="text-esport-text-muted">You are about to enter the matchmaking queue for Competitive 5v5. Estimated wait time: 1:42</p>
-                <div className="flex justify-center gap-4 py-4">
-                  <div className="w-12 h-12 rounded-full border-4 border-esport-accent border-t-transparent animate-spin" />
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Top Nav */}
+      <div className="flex items-center justify-center gap-8 border-b border-esport-border pb-4">
+        <button className="text-sm font-bold text-white border-b-2 border-esport-accent pb-4 -mb-[18px]">MATCHMAKING</button>
+        <button className="text-sm font-bold text-esport-text-muted hover:text-white transition-colors">TOURNAMENTS</button>
+        <button className="text-sm font-bold text-esport-text-muted hover:text-white transition-colors flex items-center gap-2">
+          LEAGUE <span className="bg-esport-accent text-white text-[10px] px-2 py-0.5 rounded-full">14H</span>
+        </button>
+      </div>
+
+      {/* Queue Badge */}
+      <div className="flex justify-center">
+        <div className="bg-esport-accent/20 border border-esport-accent/50 text-esport-accent text-xs font-bold px-4 py-1.5 rounded-full">
+          Europe 5v5 Queue
+        </div>
+      </div>
+
+      {/* Top Stats Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly ladders */}
+        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
+          <div className="text-xs text-esport-text-muted mb-4">Monthly ladders</div>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-black/40 rounded flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-white/10 rounded-sm flex flex-col justify-between p-1">
+                <div className="w-full h-0.5 bg-white/10"></div>
+                <div className="w-full h-0.5 bg-white/10"></div>
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="text-[10px] text-esport-text-muted uppercase tracking-wider mb-1">APRIL</div>
+              <div className="text-sm font-bold mb-2">Play 1 match to get placed</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-esport-text-muted">0/1</span>
+                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Lock size={10} className="text-esport-success z-10" />
+                  </div>
+                  <div className="h-full bg-esport-success/20 w-full"></div>
                 </div>
-              </div>)} 
-              className="esport-btn-primary px-10 py-4 text-lg"
-            >
-              <Zap size={20} fill="currentColor" />
-              Quick Deploy
-            </button>
-            <button className="esport-btn-secondary px-10 py-4 text-lg">Browse Events</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Skill level */}
+        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
+          <div className="text-xs text-esport-text-muted mb-4">Skill level</div>
+          <div className="flex justify-between items-end mb-2">
+            <div className="text-xs text-esport-text-muted uppercase tracking-wider">LEVEL 4</div>
+          </div>
+          <div className="text-2xl font-bold mb-2">1,029</div>
+          <div className="h-1.5 bg-black/40 rounded-full overflow-hidden mb-2 flex">
+            <div className="h-full bg-esport-accent w-[40%]"></div>
+          </div>
+          <div className="flex justify-between text-[10px] text-esport-text-muted">
+            <span>901</span>
+            <span>+22 to Level 5</span>
+            <span>1,050</span>
+          </div>
+        </div>
+
+        {/* Missions */}
+        <div className="bg-[#1a1a1a] rounded-lg p-4 border border-white/5">
+          <div className="text-xs text-esport-text-muted mb-4">Missions (2)</div>
+          <div className="flex gap-4">
+            <img src="https://picsum.photos/seed/mission/80/80" className="w-16 h-16 rounded object-cover" />
+            <div>
+              <div className="text-[10px] text-esport-text-muted uppercase tracking-wider mb-1">ENDS IN 28D 01H 35M</div>
+              <div className="text-sm font-bold mb-2">Premium Monthly Mission: April Showers</div>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1 text-esport-accent font-bold"><Zap size={12} /> 62K</span>
+                <span className="flex items-center gap-1 text-esport-secondary font-bold"><ShoppingBag size={12} /> 1 prize</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Game Modes */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {modes.map(mode => (
-          <div key={mode.id} className="esport-card group overflow-hidden esport-card-hover cursor-pointer">
-            <div className="relative h-48 overflow-hidden">
-              <DynamicImage prompt={mode.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-all" />
-              <div className="absolute top-4 right-4 flex items-center gap-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded border border-white/10">
-                <Users size={12} className="text-esport-accent" />
-                <span className="text-[10px] font-bold">{mode.players}</span>
+      {/* Party Section */}
+      <div className="relative">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <span className="font-bold">team_imale</span>
+            <span className="text-xs text-esport-text-muted bg-white/5 px-2 py-1 rounded-full">Not verified</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-full px-4 py-1.5 border border-white/5">
+              <Users size={14} className="text-esport-text-muted" />
+              <span className="text-sm font-bold">199</span>
+              <span className="text-sm text-esport-text-muted">Public party</span>
+              <button 
+                onClick={() => setPublicParty(!publicParty)}
+                className={`w-8 h-4 rounded-full relative transition-colors ${publicParty ? 'bg-esport-accent' : 'bg-black/40'}`}
+              >
+                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${publicParty ? 'left-4.5' : 'left-0.5'}`} />
+              </button>
+            </div>
+            <button className="text-esport-danger hover:text-red-400 transition-colors">
+              <LogOut size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4">
+          {/* Empty Slot */}
+          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
+            <Plus size={32} className="text-white/20" />
+          </div>
+          {/* Empty Slot */}
+          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
+            <Plus size={32} className="text-white/20" />
+          </div>
+          
+          {/* User Slot */}
+          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-esport-accent/50 relative flex flex-col items-center justify-center">
+            <div className="absolute -top-3 text-esport-secondary">
+              <Crown size={20} fill="currentColor" />
+            </div>
+            <img src="https://picsum.photos/seed/imale/64/64" className="w-16 h-16 rounded-full border-2 border-white/10 mb-3" />
+            <div className="font-bold text-sm mb-1 flex items-center gap-1">
+              imale <span className="text-[10px] bg-white text-black px-1 rounded">IL</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-esport-secondary text-black flex items-center justify-center text-xs font-bold">4</div>
+              <span className="text-xs font-bold">1,029</span>
+            </div>
+          </div>
+
+          {/* Empty Slot */}
+          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex items-center justify-center cursor-pointer hover:border-white/20 transition-colors">
+            <Plus size={32} className="text-white/20" />
+          </div>
+
+          {/* Find Parties Slot */}
+          <div className="w-32 h-48 bg-[#1a1a1a] rounded-xl border border-white/5 flex flex-col items-center justify-center cursor-pointer hover:border-white/20 transition-colors gap-2">
+            <Search size={24} className="text-white/40" />
+            <span className="text-xs text-white/40 font-bold">Find Parties</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Anti-Cheat Banner */}
+      <div className="flex justify-center">
+        <div className="bg-black/60 border border-esport-accent/50 rounded-lg px-6 py-3 flex items-center gap-6">
+          <div className="flex items-center gap-2 text-esport-accent">
+            <ShieldAlert size={16} />
+            <span className="text-sm font-bold">Please run Anti-Cheat</span>
+          </div>
+          <div className="flex gap-4">
+            <button className="text-esport-accent text-sm font-bold hover:text-white transition-colors">DOWNLOAD</button>
+            <button className="text-esport-accent text-sm font-bold hover:text-white transition-colors">LAUNCH</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Match Types */}
+      <div className="bg-[#1a1a1a] rounded-xl border border-white/5 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 text-esport-accent font-bold text-sm">
+              <Target size={16} />
+              MATCH TYPE
+            </div>
+            <div className="flex items-center gap-2 text-esport-text-muted font-bold text-sm">
+              <Map size={16} />
+              MAPS 7/7
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-esport-text-muted font-bold text-sm">
+            <Server size={16} />
+            SERVERS 6/6
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="flex justify-center mb-6">
+            <button 
+              onClick={() => addToast("Searching for match...", "success")}
+              className="bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-display font-bold text-xl uppercase px-24 py-4 rounded-lg transition-all border border-white/10"
+            >
+              FIND MATCH
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Standard Match */}
+            <div 
+              onClick={() => setMatchType('standard')}
+              className={`p-4 rounded-lg border cursor-pointer transition-all flex gap-4 ${matchType === 'standard' ? 'border-white bg-white/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
+            >
+              <div className="flex flex-col gap-2">
+                <div className="w-12 h-12 rounded bg-[#2a2a2a] flex flex-col items-center justify-center relative">
+                  <CheckCircle2 size={16} className="text-white/60 mb-1" />
+                  <span className="text-[8px] font-bold uppercase text-white/60">Verified</span>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-esport-success rounded-full flex items-center justify-center">
+                    <Star size={8} className="text-black fill-black" />
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded bg-[#2a2a2a] flex flex-col items-center justify-center relative">
+                  <Crown size={16} className="text-white/60 mb-1" />
+                  <span className="text-[8px] font-bold uppercase text-white/60">Veteran</span>
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-esport-success text-black text-[8px] font-bold px-1 rounded">NEW</div>
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <h4 className="font-bold">Standard Match • <span className="text-esport-text-muted">5v5</span></h4>
+                  <Info size={16} className="text-esport-text-muted" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                    <Users size={14} /> All party sizes
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                    <Activity size={14} /> No Elo restrictions
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="p-6">
-              <h4 className="text-lg font-display font-bold uppercase mb-2 group-hover:text-esport-accent transition-colors">{mode.title}</h4>
-              <p className="text-xs text-esport-text-muted mb-6 leading-relaxed">{mode.desc}</p>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addToast(`Queuing for ${mode.title}...`, "info");
-                }} 
-                className="w-full py-3 bg-white/5 border border-esport-border hover:bg-esport-accent hover:border-esport-accent font-bold text-xs uppercase tracking-widest rounded-lg transition-all"
-              >
-                Enter Queue
+
+            {/* Super Match */}
+            <div 
+              onClick={() => setMatchType('super')}
+              className={`p-4 rounded-lg border cursor-pointer transition-all flex flex-col ${matchType === 'super' ? 'border-esport-success bg-esport-success/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <h4 className="font-bold flex items-center gap-2">
+                  <Zap size={16} className="text-white" />
+                  Super Match • <span className="text-esport-text-muted">5v5</span>
+                </h4>
+                <Info size={16} className="text-esport-text-muted" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Users size={14} /> Solo, duo, trio
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Star size={14} /> Premium flex
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Activity size={14} /> 400 Elo range
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-success">
+                  <CheckCircle2 size={14} /> Verified matching
+                </div>
+                <div className="col-start-2 flex items-center gap-2 text-xs text-esport-success">
+                  <Crown size={14} /> Veteran Matching
+                </div>
+              </div>
+              <button className="mt-auto w-full py-2 border border-esport-success/50 text-esport-success hover:bg-esport-success hover:text-black font-bold text-xs uppercase rounded transition-colors">
+                PLAY NOW
+              </button>
+            </div>
+
+            {/* Premium Match */}
+            <div 
+              onClick={() => setMatchType('premium')}
+              className={`p-4 rounded-lg border cursor-pointer transition-all flex flex-col ${matchType === 'premium' ? 'border-esport-success bg-esport-success/5' : 'border-white/5 bg-black/20 hover:border-white/20'}`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <h4 className="font-bold flex items-center gap-2">
+                  <Star size={16} className="text-white" />
+                  Premium Match • <span className="text-esport-text-muted">5v5</span>
+                </h4>
+                <Info size={16} className="text-esport-text-muted" />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Users size={14} /> Solo or duo
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Star size={14} /> Premium required
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-text-muted">
+                  <Activity size={14} /> 400 Elo range
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-success">
+                  <CheckCircle2 size={14} /> Verified required
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-success">
+                  <Target size={14} /> High stakes
+                </div>
+                <div className="flex items-center gap-2 text-xs text-esport-success">
+                  <Crown size={14} /> Veteran required
+                </div>
+              </div>
+              <button className="mt-auto w-full py-2 border border-esport-success/50 text-esport-success hover:bg-esport-success hover:text-black font-bold text-xs uppercase rounded transition-colors">
+                PLAY NOW
               </button>
             </div>
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Footer Stats */}
+      <div className="flex justify-center gap-6 text-xs text-esport-text-muted">
+        <span>Live matches: <span className="text-white">8,461</span></span>
+        <span>Players queueing: <span className="text-white">2,325</span></span>
       </div>
     </div>
   );
