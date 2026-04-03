@@ -121,7 +121,10 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = typeof window !== "undefined" ? window.localStorage.getItem("activeTab") : null;
+    return savedTab || "Dashboard";
+  });
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [profileData, setProfileData] = useState({ bio: "Ready to dominate the arena. Tactical shooter veteran.", country: "Israel", twitter: "", twitch: "" });
@@ -215,6 +218,18 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (isLoggedIn) {
+      window.localStorage.setItem("activeTab", activeTab);
+    }
+  }, [activeTab, isLoggedIn]);
+
+  useEffect(() => {
+    if (isLoggedIn && !isAdmin && activeTab === "Admin") {
+      setActiveTab("Dashboard");
+    }
+  }, [isLoggedIn, isAdmin, activeTab]);
+
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -268,6 +283,7 @@ export default function App() {
     setIsLoggedIn(false);
     setIsAdmin(false);
     setUser(null);
+    window.localStorage.removeItem("activeTab");
     setView("landing");
     addToast("Logged out successfully", "info");
   };
