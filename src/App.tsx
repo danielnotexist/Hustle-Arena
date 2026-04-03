@@ -2381,27 +2381,50 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     }
     setLoading(true);
     try {
-      const [idFrontUrl, addressProofUrl, selfieUrl] = await Promise.all([
+      const uploadResults = await Promise.allSettled([
         uploadKycDocument("idFront", documents.idFront!),
         uploadKycDocument("addressProof", documents.addressProof!),
         uploadKycDocument("selfie", documents.selfie!),
       ]);
 
+      const uploadedDocs: { idFront?: string; addressProof?: string; selfie?: string } = {};
+      const docKeys: Array<"idFront" | "addressProof" | "selfie"> = ["idFront", "addressProof", "selfie"];
+      uploadResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          uploadedDocs[docKeys[index]] = result.value;
+        }
+      });
+
       await updateDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
         kycMessage: null,
-        kycDocuments: {
-          idFront: idFrontUrl,
-          addressProof: addressProofUrl,
-          selfie: selfieUrl
-        },
+        kycDocuments: uploadedDocs,
+        kycUploadsComplete: Object.keys(uploadedDocs).length === 3,
         kycDetails: personalInfo
       });
-      addToast("KYC Documents submitted for review!", "success");
+
+      if (Object.keys(uploadedDocs).length === 3) {
+        addToast("KYC Documents submitted for review!", "success");
+      } else {
+        addToast("KYC sent for review, but some images failed to upload. Admin can still review your details.", "info");
+      }
     } catch (error) {
       console.error("KYC submission error:", error);
-      addToast("Failed to submit KYC. Please check Firebase Storage rules/config.", "error");
+      try {
+        await updateDoc(doc(db, "users", user.id), {
+          kycStatus: "pending",
+          kycUpdatedAt: serverTimestamp(),
+          kycMessage: "Uploads failed - review requested without full documents",
+          kycDocuments: {},
+          kycUploadsComplete: false,
+          kycDetails: personalInfo
+        });
+        addToast("KYC sent for review without files (upload failed). Please retry documents later.", "info");
+      } catch (fallbackError) {
+        console.error("KYC fallback submission error:", fallbackError);
+        addToast("Failed to submit KYC. Please check Firebase Storage/Firestore permissions.", "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -2957,7 +2980,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                         )}>
                           {user.kycStatus || 'none'}
                         </span>
-                        {user.kycDocuments && (
+                        {user.kycDocuments && Object.keys(user.kycDocuments).length > 0 && (
                           <div className="text-esport-accent" title="Documents Uploaded">
                             <FileText size={14} />
                           </div>
@@ -3101,7 +3124,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
 
             <div className="space-y-4">
               <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">KYC Documents</label>
-              {editingUser.kycDocuments ? (
+              {editingUser.kycDocuments && Object.keys(editingUser.kycDocuments).length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {Object.entries(editingUser.kycDocuments).map(([key, url]: [string, any]) => (
                     <div key={key} className="space-y-1">
