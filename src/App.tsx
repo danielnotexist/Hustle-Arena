@@ -382,46 +382,29 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
               {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
-                <div className="absolute inset-0 z-[30] bg-esport-bg/60 backdrop-blur-md flex items-center justify-center p-8">
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="esport-card max-w-lg w-full p-10 text-center space-y-6 border-2 border-esport-accent/30"
-                  >
-                    <div className="w-20 h-20 bg-esport-accent/10 rounded-full flex items-center justify-center mx-auto">
-                      <ShieldAlert size={40} className="text-esport-accent" />
+                <div className="sticky top-0 z-[30] bg-esport-accent/10 border-b border-esport-accent/30 backdrop-blur-md p-3 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-esport-accent/20 rounded-full flex items-center justify-center">
+                      <ShieldAlert size={16} className="text-esport-accent" />
                     </div>
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-display font-bold uppercase tracking-tight">KYC Verification Required</h3>
-                      <p className="text-esport-text-muted">To maintain a secure and fair gaming environment, all players must verify their identity before accessing the battlefield.</p>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-white">KYC Verification Required</div>
+                      <p className="text-[10px] text-esport-text-muted">Verify your identity to unlock Battlefield and other premium features.</p>
                     </div>
-                    
-                    {user?.kycStatus === 'pending' ? (
-                      <div className="p-4 bg-esport-accent/10 border border-esport-accent/30 rounded-xl text-esport-accent font-bold">
-                        Your documents are currently under review. Please wait for an administrator to approve your request.
-                      </div>
-                    ) : user?.kycStatus === 'rejected' ? (
-                      <div className="space-y-4">
-                        <div className="p-4 bg-esport-danger/10 border border-esport-danger/30 rounded-xl text-esport-danger font-bold">
-                          <div>Verification Rejected</div>
-                          <div className="text-xs opacity-80 font-normal mt-1">{user.kycMessage || "Please re-submit your documents."}</div>
-                        </div>
-                        <button 
-                          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
-                          className="esport-btn-primary w-full py-4"
-                        >
-                          Re-submit Documents
-                        </button>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
-                        className="esport-btn-primary w-full py-4"
-                      >
-                        Start Verification
-                      </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {user?.kycStatus === 'pending' && (
+                      <span className="text-[10px] font-bold text-esport-accent uppercase tracking-widest bg-esport-accent/10 px-3 py-1 rounded-full border border-esport-accent/30">
+                        Review Pending
+                      </span>
                     )}
-                  </motion.div>
+                    <button 
+                      onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+                      className="px-4 py-1.5 bg-esport-accent text-esport-bg text-[10px] font-bold uppercase tracking-widest rounded-lg hover:scale-105 transition-all shadow-[0_0_15px_rgba(0,243,255,0.3)]"
+                    >
+                      {user?.kycStatus === 'rejected' ? 'Re-verify Now' : user?.kycStatus === 'pending' ? 'Update Info' : 'Verify Now'}
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="max-w-[1400px] mx-auto p-8">
@@ -435,8 +418,8 @@ export default function App() {
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
                     {activeTab === "Deposit" && <DepositPage addToast={addToast} />}
-                    {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} />}
-                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} />}
+                    {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} openModal={openModal} />}
+                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
@@ -654,7 +637,7 @@ function StatCard({ label, value, trend, icon, color }: any) {
   );
 }
 
-function UserProfileView({ user, stats, profileData, setProfileData, addToast }: any) {
+function UserProfileView({ user, stats, profileData, setProfileData, addToast, openModal }: any) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(profileData);
@@ -712,6 +695,31 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast }:
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Sidebar */}
         <div className="space-y-6">
+          {/* KYC Status Card */}
+          <div className="esport-card p-6 border-2 border-esport-accent/20">
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Identity Verification</h3>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs text-esport-text-muted uppercase font-bold">Status</span>
+              <span className={cn(
+                "badge text-[10px] font-bold uppercase tracking-widest",
+                user?.kycStatus === 'verified' ? 'badge-success' : 
+                user?.kycStatus === 'pending' ? 'badge-accent' : 
+                user?.kycStatus === 'rejected' ? 'badge-danger' : 
+                'bg-white/10 text-white'
+              )}>
+                {user?.kycStatus || 'none'}
+              </span>
+            </div>
+            {user?.kycStatus !== 'verified' && (
+              <button 
+                onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+                className="esport-btn-primary w-full py-3 text-[10px] uppercase tracking-[0.2em]"
+              >
+                {user?.kycStatus === 'rejected' ? 'Re-verify Identity' : 'Verify Identity'}
+              </button>
+            )}
+          </div>
+
           {/* Bio Card */}
           <div className="esport-card p-6">
             <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">About Me</h3>
@@ -875,7 +883,8 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast }:
   );
 }
 
-function BattlefieldView({ addToast, openModal }: any) {
+function BattlefieldView({ addToast, openModal, user }: any) {
+  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -920,6 +929,10 @@ function BattlefieldView({ addToast, openModal }: any) {
   };
 
   const startSearch = () => {
+    if (!isKycVerified) {
+      addToast("KYC Verification required to play", "error");
+      return;
+    }
     setSearchTime(0);
     setMatchState('searching');
     addToast("Searching for match...", "info");
@@ -934,6 +947,28 @@ function BattlefieldView({ addToast, openModal }: any) {
     setMatchState('idle');
     setSearchTime(0);
   };
+
+  if (!isKycVerified) {
+    return (
+      <div className="max-w-5xl mx-auto h-[60vh] flex flex-col items-center justify-center text-center space-y-6">
+        <div className="w-24 h-24 bg-esport-danger/10 rounded-full flex items-center justify-center">
+          <Lock size={48} className="text-esport-danger" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield Locked</h2>
+          <p className="text-esport-text-muted max-w-md mx-auto">
+            You must complete your KYC verification before you can enter the battlefield and compete for prizes.
+          </p>
+        </div>
+        <button 
+          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+          className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
+        >
+          Verify Identity Now
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -2236,6 +2271,14 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState<{ idFront?: string, addressProof?: string, selfie?: string }>({});
+  const [personalInfo, setPersonalInfo] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    address: "",
+    city: "",
+    country: "Israel"
+  });
   
   const idInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -2263,13 +2306,18 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
       addToast("Please upload all required documents", "error");
       return;
     }
+    if (!personalInfo.firstName || !personalInfo.lastName || !personalInfo.phone || !personalInfo.address) {
+      addToast("Please fill in all personal details", "error");
+      return;
+    }
     setLoading(true);
     try {
       await updateDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
         kycMessage: null,
-        kycDocuments: documents
+        kycDocuments: documents,
+        kycDetails: personalInfo
       });
       addToast("KYC Documents submitted for review!", "success");
     } catch (error) {
@@ -2282,31 +2330,83 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
 
   return (
     <div className="space-y-6">
-      <input type="file" ref={idInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'idFront')} />
-      <input type="file" ref={addressInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'addressProof')} />
-      <input type="file" ref={selfieInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'selfie')} />
+      <input type="file" ref={idInputRef} style={{ opacity: 0, position: 'absolute', zIndex: -1 }} accept="image/*" onChange={(e) => handleFileChange(e, 'idFront')} />
+      <input type="file" ref={addressInputRef} style={{ opacity: 0, position: 'absolute', zIndex: -1 }} accept="image/*" onChange={(e) => handleFileChange(e, 'addressProof')} />
+      <input type="file" ref={selfieInputRef} style={{ opacity: 0, position: 'absolute', zIndex: -1 }} accept="image/*" onChange={(e) => handleFileChange(e, 'selfie')} />
 
       {user?.kycStatus === 'rejected' && (
         <div className="p-4 bg-esport-danger/10 border border-esport-danger/30 rounded-xl text-esport-danger text-sm font-bold flex items-center gap-3">
           <ShieldAlert size={20} />
           <div>
-            <div>KYC Rejected</div>
+            <div className="uppercase tracking-wider">KYC Rejected</div>
             <div className="text-xs opacity-80 font-normal mt-1">{user.kycMessage || "Please re-submit your documents."}</div>
           </div>
         </div>
       )}
       <div className="flex justify-between mb-8">
-        {[1, 2, 3].map(i => (
+        {[1, 2, 3, 4].map(i => (
           <div key={i} className={`flex items-center gap-2 ${step >= i ? 'text-esport-accent' : 'text-esport-text-muted'}`}>
             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${step >= i ? 'border-esport-accent bg-esport-accent/10' : 'border-esport-border'}`}>
               {i}
             </div>
-            <span className="text-[10px] uppercase font-bold tracking-widest">{i === 1 ? 'Identity' : i === 2 ? 'Address' : 'Selfie'}</span>
+            <span className="text-[10px] uppercase font-bold tracking-widest">
+              {i === 1 ? 'Details' : i === 2 ? 'Identity' : i === 3 ? 'Address' : 'Selfie'}
+            </span>
           </div>
         ))}
       </div>
 
       {step === 1 && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">First Name</label>
+              <input 
+                type="text" 
+                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+                value={personalInfo.firstName}
+                onChange={(e) => setPersonalInfo({...personalInfo, firstName: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Last Name</label>
+              <input 
+                type="text" 
+                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+                value={personalInfo.lastName}
+                onChange={(e) => setPersonalInfo({...personalInfo, lastName: e.target.value})}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Phone Number</label>
+            <input 
+              type="tel" 
+              className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+              value={personalInfo.phone}
+              onChange={(e) => setPersonalInfo({...personalInfo, phone: e.target.value})}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Full Address</label>
+            <input 
+              type="text" 
+              className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+              value={personalInfo.address}
+              onChange={(e) => setPersonalInfo({...personalInfo, address: e.target.value})}
+            />
+          </div>
+          <button 
+            onClick={() => setStep(2)} 
+            disabled={!personalInfo.firstName || !personalInfo.lastName || !personalInfo.phone || !personalInfo.address}
+            className="esport-btn-primary w-full disabled:opacity-50"
+          >
+            Next Step
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Please upload a clear photo of your government-issued ID (Passport or Driver's License).</p>
           <div 
@@ -2325,11 +2425,14 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
               </>
             )}
           </div>
-          <button onClick={() => setStep(2)} disabled={!documents.idFront} className="esport-btn-primary w-full disabled:opacity-50">Next Step</button>
+          <div className="flex gap-4">
+            <button onClick={() => setStep(1)} className="esport-btn-secondary flex-1">Back</button>
+            <button onClick={() => setStep(3)} disabled={!documents.idFront} className="esport-btn-primary flex-1 disabled:opacity-50">Next Step</button>
+          </div>
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Please provide a utility bill or bank statement from the last 3 months as proof of residence.</p>
           <div 
@@ -2349,13 +2452,13 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
             )}
           </div>
           <div className="flex gap-4">
-            <button onClick={() => setStep(1)} className="esport-btn-secondary flex-1">Back</button>
-            <button onClick={() => setStep(3)} disabled={!documents.addressProof} className="esport-btn-primary flex-1 disabled:opacity-50">Next Step</button>
+            <button onClick={() => setStep(2)} className="esport-btn-secondary flex-1">Back</button>
+            <button onClick={() => setStep(4)} disabled={!documents.addressProof} className="esport-btn-primary flex-1 disabled:opacity-50">Next Step</button>
           </div>
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Finally, take a live selfie holding your ID to verify your identity.</p>
           <div 
@@ -2375,7 +2478,7 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
             )}
           </div>
           <div className="flex gap-4">
-            <button onClick={() => setStep(2)} className="esport-btn-secondary flex-1">Back</button>
+            <button onClick={() => setStep(3)} className="esport-btn-secondary flex-1">Back</button>
             <button 
               onClick={submitKYC} 
               disabled={loading || !documents.selfie}
@@ -2869,6 +2972,26 @@ function AdminPanel({ addToast }: { addToast: any }) {
               </div>
             </div>
 
+            {editingUser.kycDetails && (
+              <div className="p-4 bg-white/5 rounded-xl space-y-3">
+                <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Personal Details</label>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <div className="text-esport-text-muted uppercase text-[8px] font-bold">Name</div>
+                    <div className="text-white">{editingUser.kycDetails.firstName} {editingUser.kycDetails.lastName}</div>
+                  </div>
+                  <div>
+                    <div className="text-esport-text-muted uppercase text-[8px] font-bold">Phone</div>
+                    <div className="text-white">{editingUser.kycDetails.phone}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-esport-text-muted uppercase text-[8px] font-bold">Address</div>
+                    <div className="text-white">{editingUser.kycDetails.address}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">KYC Documents</label>
               {editingUser.kycDocuments ? (
@@ -2891,6 +3014,18 @@ function AdminPanel({ addToast }: { addToast: any }) {
                 </div>
               )}
             </div>
+
+            {editingUser.kycStatus === 'rejected' && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-esport-danger uppercase tracking-widest">Rejection Reason</label>
+                <textarea 
+                  className="w-full bg-esport-danger/5 border border-esport-danger/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-esport-danger/50 min-h-[80px]"
+                  placeholder="Enter reason for rejection..."
+                  value={editingUser.kycMessage || ""}
+                  onChange={(e) => updateUserField(editingUser.id, "kycMessage", e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-4">
               <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Quick Actions</label>
