@@ -2662,6 +2662,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [previewDocument, setPreviewDocument] = useState<{ url: string, label: string } | null>(null);
   const kycFilterOptions = ["all", "none", "pending", "verified", "rejected"] as const;
 
   useEffect(() => {
@@ -2708,6 +2709,20 @@ function AdminPanel({ addToast }: { addToast: any }) {
       addToast(`User ${field} updated`, "success");
     } catch (error) {
       addToast("Update failed", "error");
+    }
+  };
+
+  const handleEditingUserKycStatusChange = async (nextStatus: string) => {
+    if (!editingUser?.id) return;
+    if (nextStatus === "rejected") {
+      setRejectReason(editingUser.kycMessage || "");
+      setRejectingUser(editingUser);
+      return;
+    }
+
+    await updateUserField(editingUser.id, "kycStatus", nextStatus);
+    if (nextStatus === "verified") {
+      await updateUserField(editingUser.id, "kycMessage", null);
     }
   };
 
@@ -3054,7 +3069,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                 <select 
                   className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
                   value={editingUser.kycStatus}
-                  onChange={(e) => updateUserField(editingUser.id, "kycStatus", e.target.value)}
+                  onChange={(e) => handleEditingUserKycStatusChange(e.target.value)}
                 >
                   <option value="none">None</option>
                   <option value="pending">Pending</option>
@@ -3093,7 +3108,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                       <div className="text-[8px] uppercase font-bold text-esport-text-muted">{key}</div>
                       <div 
                         className="aspect-square bg-black/40 rounded-lg border border-esport-border overflow-hidden cursor-pointer hover:border-esport-accent transition-all"
-                        onClick={() => window.open(url, '_blank')}
+                        onClick={() => setPreviewDocument({ url, label: key })}
                       >
                         <img src={url} className="w-full h-full object-cover" />
                       </div>
@@ -3156,6 +3171,21 @@ function AdminPanel({ addToast }: { addToast: any }) {
 
             <button onClick={() => setEditingUser(null)} className="esport-btn-primary w-full">Done</button>
           </motion.div>
+        </div>
+      )}
+
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4" onClick={() => setPreviewDocument(null)}>
+          <div className="max-w-5xl w-full max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewDocument(null)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <div className="text-xs uppercase tracking-widest text-esport-text-muted mb-3">{previewDocument.label}</div>
+            <img src={previewDocument.url} className="w-full max-h-[85vh] object-contain rounded-xl border border-esport-border bg-black/50" />
+          </div>
         </div>
       )}
     </div>
