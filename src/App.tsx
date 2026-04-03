@@ -109,6 +109,8 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
+const ADMIN_EMAIL = "danielnotexist@gmail.com";
+
 // --- Main App Component ---
 export default function App() {
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
@@ -139,8 +141,8 @@ export default function App() {
             const initialProfile = {
               username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
               email: firebaseUser.email,
-              role: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "admin" : "user",
-              kycStatus: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "verified" : "none",
+              role: firebaseUser.email?.toLowerCase() === ADMIN_EMAIL ? "admin" : "user",
+              kycStatus: firebaseUser.email?.toLowerCase() === ADMIN_EMAIL ? "verified" : "none",
               bio: "Ready to dominate the arena. Tactical shooter veteran.",
               country: "Israel",
               twitter: "",
@@ -156,6 +158,11 @@ export default function App() {
               }
             };
             await setDoc(userDocRef, initialProfile);
+          } else if (firebaseUser.email?.toLowerCase() === ADMIN_EMAIL) {
+            const profile = userDoc.data();
+            if (profile.role !== "admin" || profile.kycStatus !== "verified") {
+              await setDoc(userDocRef, { role: "admin", kycStatus: "verified" }, { merge: true });
+            }
           }
 
           // Real-time profile listener
@@ -245,7 +252,7 @@ export default function App() {
       role: userData.role || "user",
       kycStatus: userData.kycStatus || "none"
     };
-    setIsAdmin(userProfile.role === "admin" || userProfile.email?.toLowerCase() === "danielnotexist@gmail.com");
+    setIsAdmin(userProfile.role === "admin" || userProfile.email?.toLowerCase() === ADMIN_EMAIL);
     setUser(userProfile);
     setView("dashboard");
     addToast(`Welcome back, ${userProfile.username}!`, "success");
@@ -393,7 +400,7 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
+              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== ADMIN_EMAIL && user?.kycStatus !== 'verified' && (
                 <div className="sticky top-0 z-[30] bg-esport-accent/10 border-b border-esport-accent/30 backdrop-blur-md p-3 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-esport-accent/20 rounded-full flex items-center justify-center">
@@ -896,7 +903,7 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
 }
 
 function BattlefieldView({ addToast, openModal, user }: any) {
-  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
+  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === ADMIN_EMAIL;
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
