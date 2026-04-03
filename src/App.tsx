@@ -59,7 +59,9 @@ import {
   Info,
   Map,
   Server,
-  ShieldAlert
+  ShieldAlert,
+  Wallet,
+  Copy
 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
 import { 
@@ -113,6 +115,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Dashboard");
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [profileData, setProfileData] = useState({ bio: "Ready to dominate the arena. Tactical shooter veteran.", country: "Israel", twitter: "", twitch: "" });
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -141,20 +144,20 @@ export default function App() {
             const initialProfile = {
               username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
               email: firebaseUser.email,
-              role: firebaseUser.email === "Danielnotexist@gmail.com" ? "admin" : "user",
-              kycStatus: firebaseUser.email === "Danielnotexist@gmail.com" ? "verified" : "none",
+              role: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "admin" : "user",
+              kycStatus: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "verified" : "none",
               bio: "Ready to dominate the arena. Tactical shooter veteran.",
               country: "Israel",
               twitter: "",
               twitch: "",
               createdAt: serverTimestamp(),
               stats: {
-                credits: 2450,
-                level: 42,
-                rank: "Diamond III",
-                winRate: "64.5%",
-                kdRatio: 1.42,
-                headshotPct: "52.1%"
+                credits: 0,
+                level: 1,
+                rank: "Bronze I",
+                winRate: "0%",
+                kdRatio: 0,
+                headshotPct: "0%"
               }
             };
             await setDoc(doc(db, "users", firebaseUser.uid), initialProfile);
@@ -210,6 +213,7 @@ export default function App() {
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
     { id: "Nexus TV", icon: <PlayCircle size={20} />, label: "Nexus TV" },
     { id: "Pulse", icon: <Zap size={20} />, label: "Pulse" },
+    { id: "Deposit", icon: <Wallet size={20} />, label: "Deposit", highlight: true },
   ];
 
   const collectiveItems = [
@@ -228,7 +232,7 @@ export default function App() {
       role: userData.role || "user",
       kycStatus: userData.kycStatus || "none"
     };
-    setIsAdmin(userProfile.role === "admin");
+    setIsAdmin(userProfile.role === "admin" || userProfile.email?.toLowerCase() === "danielnotexist@gmail.com");
     setUser(userProfile);
     setView("dashboard");
     addToast(`Welcome back, ${userProfile.username}!`, "success");
@@ -376,7 +380,7 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-              {isLoggedIn && !isAdmin && user?.kycStatus !== 'verified' && (
+              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
                 <div className="absolute inset-0 z-[30] bg-esport-bg/60 backdrop-blur-md flex items-center justify-center p-8">
                   <motion.div 
                     initial={{ scale: 0.9, opacity: 0 }}
@@ -429,6 +433,7 @@ export default function App() {
                     transition={{ duration: 0.2 }}
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
+                    {activeTab === "Deposit" && <DepositPage addToast={addToast} />}
                     {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} />}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
@@ -2314,6 +2319,88 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DepositPage({ addToast }: { addToast: any }) {
+  const btcAddress = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"; // Placeholder BTC Address
+  
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(btcAddress);
+    addToast("Address copied to clipboard!", "success");
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8">
+      <div className="text-center space-y-4">
+        <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white">Crypto Deposit</h3>
+        <p className="text-esport-text-muted max-w-xl mx-auto">
+          Fund your account with Bitcoin to start competing in high-stakes tournaments. 
+          Credits are added automatically after 2 network confirmations.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="esport-card p-8 flex flex-col items-center justify-center space-y-6">
+          <div className="bg-white p-4 rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+            <img 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${btcAddress}`} 
+              alt="BTC QR Code" 
+              className="w-48 h-48"
+            />
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] font-bold text-esport-accent uppercase tracking-widest mb-1">Scan to Pay</div>
+            <div className="text-xs text-esport-text-muted">Supports all major BTC wallets</div>
+          </div>
+        </div>
+
+        <div className="esport-card p-8 space-y-8">
+          <div className="space-y-4">
+            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Your Personal BTC Address</label>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-black/40 border border-esport-border rounded-xl px-4 py-4 font-mono text-sm break-all text-white">
+                {btcAddress}
+              </div>
+              <button 
+                onClick={copyToClipboard}
+                className="p-4 bg-esport-accent/10 border border-esport-accent/20 rounded-xl text-esport-accent hover:bg-esport-accent hover:text-esport-bg transition-all"
+              >
+                <Copy size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-white/5 border border-esport-border rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-esport-secondary/10 flex items-center justify-center text-esport-secondary">
+                <Shield size={20} />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">Secure Transaction</div>
+                <div className="text-[10px] text-esport-text-muted">Funds are held in escrow until confirmation</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-4 bg-white/5 border border-esport-border rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-esport-success/10 flex items-center justify-center text-esport-success">
+                <Activity size={20} />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">Live Tracking</div>
+                <div className="text-[10px] text-esport-text-muted">Status updates in real-time below</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="esport-card p-6">
+        <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Recent Deposits</h4>
+        <div className="text-center py-12 text-esport-text-muted text-sm italic">
+          No recent transactions found.
+        </div>
+      </div>
     </div>
   );
 }
