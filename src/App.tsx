@@ -61,9 +61,10 @@ import {
   Server,
   ShieldAlert,
   Wallet,
-  Copy
+  Copy,
+  FileText
 } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   auth, 
   db, 
@@ -2234,15 +2235,41 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
 function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [documents, setDocuments] = useState<{ idFront?: string, addressProof?: string, selfie?: string }>({});
+  
+  const idInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const selfieInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idFront' | 'addressProof' | 'selfie') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        addToast("File is too large (max 2MB)", "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDocuments(prev => ({ ...prev, [type]: reader.result as string }));
+        addToast(`${type.replace(/([A-Z])/g, ' $1')} uploaded!`, "success");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const submitKYC = async () => {
     if (!user?.id) return;
+    if (!documents.idFront || !documents.addressProof || !documents.selfie) {
+      addToast("Please upload all required documents", "error");
+      return;
+    }
     setLoading(true);
     try {
       await updateDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
-        kycMessage: null
+        kycMessage: null,
+        kycDocuments: documents
       });
       addToast("KYC Documents submitted for review!", "success");
     } catch (error) {
@@ -2255,6 +2282,10 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
 
   return (
     <div className="space-y-6">
+      <input type="file" ref={idInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'idFront')} />
+      <input type="file" ref={addressInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'addressProof')} />
+      <input type="file" ref={selfieInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'selfie')} />
+
       {user?.kycStatus === 'rejected' && (
         <div className="p-4 bg-esport-danger/10 border border-esport-danger/30 rounded-xl text-esport-danger text-sm font-bold flex items-center gap-3">
           <ShieldAlert size={20} />
@@ -2278,24 +2309,48 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
       {step === 1 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Please upload a clear photo of your government-issued ID (Passport or Driver's License).</p>
-          <div className="h-40 border-2 border-dashed border-esport-border rounded-xl flex flex-col items-center justify-center gap-3 hover:border-esport-accent/50 transition-all cursor-pointer bg-white/5">
-            <Plus size={32} className="text-esport-text-muted" />
-            <span className="text-xs font-bold text-esport-text-muted uppercase">Upload ID Front</span>
+          <div 
+            onClick={() => idInputRef.current?.click()}
+            className={cn(
+              "h-40 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer",
+              documents.idFront ? "border-esport-success bg-esport-success/5" : "border-esport-border bg-white/5 hover:border-esport-accent/50"
+            )}
+          >
+            {documents.idFront ? (
+              <img src={documents.idFront} className="h-full w-full object-contain p-2" />
+            ) : (
+              <>
+                <Plus size={32} className="text-esport-text-muted" />
+                <span className="text-xs font-bold text-esport-text-muted uppercase">Upload ID Front</span>
+              </>
+            )}
           </div>
-          <button onClick={() => setStep(2)} className="esport-btn-primary w-full">Next Step</button>
+          <button onClick={() => setStep(2)} disabled={!documents.idFront} className="esport-btn-primary w-full disabled:opacity-50">Next Step</button>
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Please provide a utility bill or bank statement from the last 3 months as proof of residence.</p>
-          <div className="h-40 border-2 border-dashed border-esport-border rounded-xl flex flex-col items-center justify-center gap-3 hover:border-esport-accent/50 transition-all cursor-pointer bg-white/5">
-            <Plus size={32} className="text-esport-text-muted" />
-            <span className="text-xs font-bold text-esport-text-muted uppercase">Upload Proof of Address</span>
+          <div 
+            onClick={() => addressInputRef.current?.click()}
+            className={cn(
+              "h-40 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer",
+              documents.addressProof ? "border-esport-success bg-esport-success/5" : "border-esport-border bg-white/5 hover:border-esport-accent/50"
+            )}
+          >
+            {documents.addressProof ? (
+              <img src={documents.addressProof} className="h-full w-full object-contain p-2" />
+            ) : (
+              <>
+                <Plus size={32} className="text-esport-text-muted" />
+                <span className="text-xs font-bold text-esport-text-muted uppercase">Upload Proof of Address</span>
+              </>
+            )}
           </div>
           <div className="flex gap-4">
             <button onClick={() => setStep(1)} className="esport-btn-secondary flex-1">Back</button>
-            <button onClick={() => setStep(3)} className="esport-btn-primary flex-1">Next Step</button>
+            <button onClick={() => setStep(3)} disabled={!documents.addressProof} className="esport-btn-primary flex-1 disabled:opacity-50">Next Step</button>
           </div>
         </div>
       )}
@@ -2303,16 +2358,28 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
       {step === 3 && (
         <div className="space-y-4">
           <p className="text-sm text-esport-text-muted">Finally, take a live selfie holding your ID to verify your identity.</p>
-          <div className="h-40 border-2 border-dashed border-esport-border rounded-xl flex flex-col items-center justify-center gap-3 hover:border-esport-accent/50 transition-all cursor-pointer bg-white/5">
-            <User size={32} className="text-esport-text-muted" />
-            <span className="text-xs font-bold text-esport-text-muted uppercase">Take Selfie</span>
+          <div 
+            onClick={() => selfieInputRef.current?.click()}
+            className={cn(
+              "h-40 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer",
+              documents.selfie ? "border-esport-success bg-esport-success/5" : "border-esport-border bg-white/5 hover:border-esport-accent/50"
+            )}
+          >
+            {documents.selfie ? (
+              <img src={documents.selfie} className="h-full w-full object-contain p-2" />
+            ) : (
+              <>
+                <User size={32} className="text-esport-text-muted" />
+                <span className="text-xs font-bold text-esport-text-muted uppercase">Upload Selfie</span>
+              </>
+            )}
           </div>
           <div className="flex gap-4">
             <button onClick={() => setStep(2)} className="esport-btn-secondary flex-1">Back</button>
             <button 
               onClick={submitKYC} 
-              disabled={loading}
-              className="esport-btn-primary flex-1"
+              disabled={loading || !documents.selfie}
+              className="esport-btn-primary flex-1 disabled:opacity-50"
             >
               {loading ? "Submitting..." : "Submit KYC"}
             </button>
@@ -2670,15 +2737,22 @@ function AdminPanel({ addToast }: { addToast: any }) {
                       </div>
                     </td>
                     <td className="p-6">
-                      <span className={cn(
-                        "badge",
-                        user.kycStatus === 'verified' ? 'badge-success' : 
-                        user.kycStatus === 'pending' ? 'badge-accent' : 
-                        user.kycStatus === 'rejected' ? 'badge-danger' : 
-                        'bg-white/10 text-white'
-                      )}>
-                        {user.kycStatus || 'none'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "badge",
+                          user.kycStatus === 'verified' ? 'badge-success' : 
+                          user.kycStatus === 'pending' ? 'badge-accent' : 
+                          user.kycStatus === 'rejected' ? 'badge-danger' : 
+                          'bg-white/10 text-white'
+                        )}>
+                          {user.kycStatus || 'none'}
+                        </span>
+                        {user.kycDocuments && (
+                          <div className="text-esport-accent" title="Documents Uploaded">
+                            <FileText size={14} />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-6 text-right">
                       <div className="flex justify-end gap-2">
@@ -2793,6 +2867,29 @@ function AdminPanel({ addToast }: { addToast: any }) {
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">KYC Documents</label>
+              {editingUser.kycDocuments ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(editingUser.kycDocuments).map(([key, url]: [string, any]) => (
+                    <div key={key} className="space-y-1">
+                      <div className="text-[8px] uppercase font-bold text-esport-text-muted">{key}</div>
+                      <div 
+                        className="aspect-square bg-black/40 rounded-lg border border-esport-border overflow-hidden cursor-pointer hover:border-esport-accent transition-all"
+                        onClick={() => window.open(url, '_blank')}
+                      >
+                        <img src={url} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-white/5 rounded-xl text-center text-xs text-esport-text-muted italic">
+                  No documents uploaded.
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
