@@ -908,6 +908,9 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
 
 function BattlefieldView({ addToast, openModal, user }: any) {
   const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const kycStatus = user?.kycStatus || "none";
+  const isKycPending = kycStatus === "pending";
+  const isKycRejected = kycStatus === "rejected";
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -980,15 +983,25 @@ function BattlefieldView({ addToast, openModal, user }: any) {
         <div className="space-y-2">
           <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield Locked</h2>
           <p className="text-esport-text-muted max-w-md mx-auto">
-            You must complete your KYC verification before you can enter the battlefield and compete for prizes.
+            {isKycPending
+              ? "Your KYC is currently under review. You'll unlock Battlefield as soon as verification is approved."
+              : isKycRejected
+              ? "Your KYC was rejected. Please update your information and submit again to unlock Battlefield."
+              : "You must complete your KYC verification before you can enter the battlefield and compete for prizes."}
           </p>
         </div>
-        <button 
-          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
-          className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
-        >
-          Verify Identity Now
-        </button>
+        {isKycPending ? (
+          <div className="px-8 py-4 uppercase tracking-widest text-sm font-bold rounded-lg border border-esport-accent/40 bg-esport-accent/10 text-esport-accent">
+            Under Review
+          </div>
+        ) : (
+          <button 
+            onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+            className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
+          >
+            {isKycRejected ? "Update KYC Info" : "Verify Identity Now"}
+          </button>
+        )}
       </div>
     );
   }
