@@ -129,18 +129,12 @@ export default function App() {
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Real-time profile listener
-        profileUnsubscribe = onSnapshot(doc(db, "users", firebaseUser.uid), async (snapshot) => {
-          if (snapshot.exists()) {
-            const profile = snapshot.data();
-            handleLogin({ ...firebaseUser, ...profile });
-            setProfileData({
-              bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
-              country: profile.country || "Israel",
-              twitter: profile.twitter || "",
-              twitch: profile.twitch || ""
-            });
-          } else {
+        try {
+          // Check if profile exists
+          const userDocRef = doc(db, "users", firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (!userDoc.exists()) {
             // Create initial profile if it doesn't exist
             const initialProfile = {
               username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
@@ -161,9 +155,27 @@ export default function App() {
                 headshotPct: "0%"
               }
             };
-            await setDoc(doc(db, "users", firebaseUser.uid), initialProfile);
+            await setDoc(userDocRef, initialProfile);
           }
-        });
+
+          // Real-time profile listener
+          profileUnsubscribe = onSnapshot(userDocRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const profile = snapshot.data();
+              handleLogin({ ...firebaseUser, ...profile });
+              setProfileData({
+                bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
+                country: profile.country || "Israel",
+                twitter: profile.twitter || "",
+                twitch: profile.twitch || ""
+              });
+            }
+          }, (err) => {
+            console.error("Profile snapshot error:", err);
+          });
+        } catch (err) {
+          console.error("Auth state change error:", err);
+        }
       } else {
         setIsLoggedIn(false);
         setUser(null);
@@ -2284,17 +2296,44 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   const addressInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
 
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 600): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Compress to JPEG with 60% quality
+      };
+    });
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'idFront' | 'addressProof' | 'selfie') => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        addToast("File is too large (max 2MB)", "error");
-        return;
-      }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setDocuments(prev => ({ ...prev, [type]: reader.result as string }));
-        addToast(`${type.replace(/([A-Z])/g, ' $1')} uploaded!`, "success");
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setDocuments(prev => ({ ...prev, [type]: compressed }));
+        addToast(`${type.replace(/([A-Z])/g, ' $1')} uploaded and optimized!`, "success");
       };
       reader.readAsDataURL(file);
     }
