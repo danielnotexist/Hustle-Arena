@@ -2411,14 +2411,14 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
         }
       });
 
-      await updateDoc(doc(db, "users", user.id), {
+      await setDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
         kycMessage: null,
         kycDocuments: uploadedDocs,
         kycUploadsComplete: Object.keys(uploadedDocs).length === 3,
         kycDetails: personalInfo
-      });
+      }, { merge: true });
 
       if (Object.keys(uploadedDocs).length === 3) {
         addToast("KYC Documents submitted for review!", "success");
@@ -2428,14 +2428,14 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     } catch (error) {
       console.error("KYC submission error:", error);
       try {
-        await updateDoc(doc(db, "users", user.id), {
+        await setDoc(doc(db, "users", user.id), {
           kycStatus: "pending",
           kycUpdatedAt: serverTimestamp(),
           kycMessage: "Uploads failed - review requested without full documents",
           kycDocuments: {},
           kycUploadsComplete: false,
           kycDetails: personalInfo
-        });
+        }, { merge: true });
         addToast("KYC sent for review without files (upload failed). Please retry documents later.", "info");
       } catch (fallbackError) {
         console.error("KYC fallback submission error:", fallbackError);
