@@ -1,0 +1,120 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{userId}
+// Document ID: userId (Firebase Auth UID)
+// Fields:
+//   - username: string (required)
+//   - email: string (required, email format)
+//   - role: string (required, enum: ['user', 'admin'])
+//   - bio: string (optional)
+//   - country: string (optional)
+//   - twitter: string (optional)
+//   - twitch: string (optional)
+//   - stats: map (optional)
+//     - credits: integer
+//     - level: integer
+//     - rank: string
+//     - winRate: string
+//     - kdRatio: number
+//     - headshotPct: string
+//   - kycStatus: string (optional, enum: ['none', 'pending', 'verified'])
+//   - createdAt: timestamp (optional)
+//
+// Collection: /users/{userId}/matches/{matchId}
+// Document ID: matchId
+// Fields:
+//   - userId: string (required)
+//   - type: string (required)
+//   - map: string (required)
+//   - result: string (required, enum: ['VICTORY', 'DEFEAT'])
+//   - score: string (optional)
+//   - eloChange: integer (optional)
+//   - timestamp: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "Danielnotexist@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['username', 'email', 'role']) &&
+             data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
+             isValidEmail(data.email) &&
+             data.role in ['user', 'admin'] &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() < 500)) &&
+             (!('country' in data) || (data.country is string && data.country.size() < 100)) &&
+             (!('kycStatus' in data) || data.kycStatus in ['none', 'pending', 'verified']);
+    }
+
+    function isValidMatch(data) {
+      return hasRequiredFields(['userId', 'type', 'map', 'result', 'timestamp']) &&
+             data.userId is string &&
+             data.type is string &&
+             data.map is string &&
+             data.result in ['VICTORY', 'DEFEAT'] &&
+             data.timestamp is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can read their own profile. Admins can read all profiles.
+      // Public profiles are allowed if we want to show other players, but let's stick to owner/admin for now as PII might be present.
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: User can create their own profile if it doesn't exist.
+      // Role must be 'user' unless they are an admin.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == 'user' || isAdmin());
+      
+      // Update: User can update their own profile. Cannot change role unless admin.
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == resource.data.role || isAdmin());
+      
+      match /matches/{matchId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidMatch(request.resource.data);
+        allow delete: if isAdmin(); // Only admins can delete match history for now
+      }
+    }
+  }
+}

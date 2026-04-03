@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile and statistics",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "bio": { "type": "string" },
+        "country": { "type": "string" },
+        "twitter": { "type": "string" },
+        "twitch": { "type": "string" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "credits": { "type": "integer" },
+            "level": { "type": "integer" },
+            "rank": { "type": "string" },
+            "winRate": { "type": "string" },
+            "kdRatio": { "type": "number" },
+            "headshotPct": { "type": "string" }
+          }
+        },
+        "kycStatus": { "type": "string", "enum": ["none", "pending", "verified"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["username", "email", "role"]
+    },
+    "Match": {
+      "title": "Match History",
+      "description": "History of matches played by users",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "map": { "type": "string" },
+        "result": { "type": "string", "enum": ["VICTORY", "DEFEAT"] },
+        "score": { "type": "string" },
+        "eloChange": { "type": "integer" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "map", "result", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/matches/{matchId}": {
+      "schema": "Match",
+      "description": "User match history"
+    }
+  }
+}

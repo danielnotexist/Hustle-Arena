@@ -42,7 +42,21 @@ import {
   ShieldAlert
 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
-import { supabase } from "./lib/supabase";
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged, 
+  signOut,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+  onSnapshot
+} from "./firebase";
 
 // --- Types ---
 interface UserStats {
@@ -81,15 +95,52 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
 
-  // Fetch initial stats
+  // Fetch initial session
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        handleLogin(session.user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch profile from Firestore
+        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+        if (userDoc.exists()) {
+          const profile = userDoc.data();
+          handleLogin({ ...firebaseUser, ...profile });
+          setProfileData({
+            bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
+            country: profile.country || "Israel",
+            twitter: profile.twitter || "",
+            twitch: profile.twitch || ""
+          });
+        } else {
+          // Create initial profile if it doesn't exist
+          const initialProfile = {
+            username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
+            email: firebaseUser.email,
+            role: "user",
+            kycStatus: "none",
+            bio: "Ready to dominate the arena. Tactical shooter veteran.",
+            country: "Israel",
+            twitter: "",
+            twitch: "",
+            createdAt: serverTimestamp(),
+            stats: {
+              credits: 2450,
+              level: 42,
+              rank: "Diamond III",
+              winRate: "64.5%",
+              kdRatio: 1.42,
+              headshotPct: "52.1%"
+            }
+          };
+          await setDoc(doc(db, "users", firebaseUser.uid), initialProfile);
+          handleLogin({ ...firebaseUser, ...initialProfile });
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUser(null);
+        setIsAdmin(false);
       }
-    };
-    checkSession();
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -140,13 +191,12 @@ export default function App() {
 
   const handleLogin = (userData: any) => {
     setIsLoggedIn(true);
-    // Map Supabase user metadata or use defaults
     const userProfile = {
-      id: userData.id,
-      username: userData.user_metadata?.username || userData.email?.split('@')[0] || "Player",
+      id: userData.uid || userData.id,
+      username: userData.username || userData.displayName || userData.email?.split('@')[0] || "Player",
       email: userData.email,
-      role: userData.user_metadata?.role || "user",
-      kycStatus: userData.user_metadata?.kycStatus || "none"
+      role: userData.role || "user",
+      kycStatus: userData.kycStatus || "none"
     };
     setIsAdmin(userProfile.role === "admin");
     setUser(userProfile);
@@ -156,7 +206,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     setIsLoggedIn(false);
     setIsAdmin(false);
     setUser(null);
@@ -522,10 +572,19 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast }:
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(profileData);
 
-  const handleSave = () => {
-    setProfileData(editForm);
-    setIsEditing(false);
-    addToast("Profile updated successfully!", "success");
+  const handleSave = async () => {
+    if (!user?.id) return;
+    try {
+      await setDoc(doc(db, "users", user.id), {
+        ...editForm
+      }, { merge: true });
+      setProfileData(editForm);
+      setIsEditing(false);
+      addToast("Profile updated successfully!", "success");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      addToast("Failed to update profile", "error");
+    }
   };
 
   return (
@@ -1140,25 +1199,14 @@ function MissionsView({ addToast }: any) {
   useEffect(() => {
     const fetchMissions = async () => {
       try {
-        const { data, error } = await supabase.from('missions').select('*');
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setMissions(data);
-        } else {
-          // Fallback to mock if table empty or missing
-          setMissions([
-            { id: 1, title: 'Data Heist', reward: 500, difficulty: 'Hard', time: '2h left' },
-            { id: 2, title: 'Nexus Defense', reward: 200, difficulty: 'Easy', time: '5h left' },
-            { id: 3, title: 'Silent Assassin', reward: 1200, difficulty: 'Extreme', time: '12h left' }
-          ]);
-        }
-      } catch (err) {
-        console.warn("Supabase missions fetch failed, using mock data:", err);
+        // For now, use mock data. In a real app, we'd fetch from Firestore.
         setMissions([
           { id: 1, title: 'Data Heist', reward: 500, difficulty: 'Hard', time: '2h left' },
           { id: 2, title: 'Nexus Defense', reward: 200, difficulty: 'Easy', time: '5h left' },
           { id: 3, title: 'Silent Assassin', reward: 1200, difficulty: 'Extreme', time: '12h left' }
         ]);
+      } catch (err) {
+        console.error("Missions fetch failed:", err);
       } finally {
         setLoading(false);
       }
@@ -1961,51 +2009,39 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isSupabaseConfigured = 
-    import.meta.env.VITE_SUPABASE_URL && 
-    import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
+  const isFirebaseConfigured = true; // Since we are using the provisioned Firebase
 
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
 
-    if (!isSupabaseConfigured) {
-      setError("Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.");
-      setLoading(false);
-      return;
-    }
-
     try {
       if (mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        if (data.user) {
-          onLogin(data.user);
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username,
-              role: "user",
-              kycStatus: "none"
-            }
-          }
-        });
-        if (error) throw error;
-        if (data.user) {
-          setMode("login");
-          alert("Registration successful! Please check your email for verification (if enabled) or sign in.");
-        }
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // Profile creation is handled in onAuthStateChanged
+        setMode("login");
+        alert("Registration successful! You can now sign in.");
       }
     } catch (err: any) {
       console.error("Auth error:", err);
       setError(err.message || "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged will handle the rest
+    } catch (err: any) {
+      console.error("Google Auth error:", err);
+      setError(err.message || "Google Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -2030,16 +2066,13 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
 
       {error && <div className="p-3 bg-esport-danger/20 border border-esport-danger/50 text-esport-danger text-xs rounded-lg text-center font-bold uppercase tracking-widest">{error}</div>}
 
-      {!isSupabaseConfigured && (
+      {!isFirebaseConfigured && (
         <div className="p-4 rounded-xl bg-esport-accent/10 border border-esport-accent/30 text-esport-accent text-[10px] leading-relaxed font-medium">
           <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
             <AlertCircle size={14} />
             Configuration Required
           </div>
-          To enable authentication, you must set up your Supabase environment variables in Vercel or your .env file. 
-          <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="block mt-2 underline hover:text-white transition-colors">
-            Go to Supabase Dashboard →
-          </a>
+          Firebase is not configured.
         </div>
       )}
 
@@ -2096,8 +2129,11 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
           <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
           Steam
         </button>
-        <button className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Google_Plus_icon_%282015-2019%29.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+        <button 
+          onClick={handleGoogleSignIn}
+          className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group"
+        >
+          <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
           Google
         </button>
       </div>
