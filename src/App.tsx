@@ -5,6 +5,26 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+import { 
   Search, 
   Users, 
   Trophy, 
@@ -2303,6 +2323,9 @@ function AdminPanel({ addToast }: { addToast: any }) {
   const [loading, setLoading] = useState(true);
   const [rejectingUser, setRejectingUser] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   useEffect(() => {
     const q = query(collection(db, "users"));
@@ -2342,84 +2365,272 @@ function AdminPanel({ addToast }: { addToast: any }) {
     }
   };
 
+  const updateUserField = async (userId: string, field: string, value: any) => {
+    try {
+      await updateDoc(doc(db, "users", userId), { [field]: value });
+      addToast(`User ${field} updated`, "success");
+    } catch (error) {
+      addToast("Update failed", "error");
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterStatus === "all" || user.kycStatus === filterStatus;
+    return matchesSearch && matchesFilter;
+  });
+
+  const stats = {
+    total: users.length,
+    verified: users.filter(u => u.kycStatus === 'verified').length,
+    pending: users.filter(u => u.kycStatus === 'pending').length,
+    totalCredits: users.reduce((acc, u) => acc + (u.stats?.credits || 0), 0),
+    admins: users.filter(u => u.role === 'admin').length
+  };
+
+  // Mock data for chart
+  const chartData = [
+    { name: 'Mon', users: 12, growth: 5 },
+    { name: 'Tue', users: 19, growth: 8 },
+    { name: 'Wed', users: 15, growth: 12 },
+    { name: 'Thu', users: 22, growth: 15 },
+    { name: 'Fri', users: 30, growth: 20 },
+    { name: 'Sat', users: 45, growth: 25 },
+    { name: 'Sun', users: stats.total, growth: 30 },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 pb-20">
+      {/* Header & Stats Grid */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Admin Control Center</h3>
-          <p className="text-sm text-esport-text-muted">Manage users, verify KYC, and monitor platform health.</p>
+          <h3 className="text-3xl font-display font-bold uppercase tracking-tight text-white">Admin Control Center</h3>
+          <p className="text-sm text-esport-text-muted">Real-time platform monitoring and user management.</p>
         </div>
-        <div className="flex gap-3">
-          <div className="esport-card px-6 py-3 flex items-center gap-4">
-            <div className="text-right">
+        <div className="flex flex-wrap gap-4">
+          <div className="esport-card px-5 py-3 flex items-center gap-4 bg-white/5 border-esport-accent/20">
+            <div className="w-10 h-10 rounded-lg bg-esport-accent/10 flex items-center justify-center">
+              <Users className="text-esport-accent" size={20} />
+            </div>
+            <div>
               <div className="text-[10px] font-bold text-esport-text-muted uppercase">Total Users</div>
-              <div className="text-xl font-display font-bold">{users.length}</div>
+              <div className="text-xl font-display font-bold">{stats.total}</div>
             </div>
-            <Users className="text-esport-accent" size={24} />
           </div>
-          <div className="esport-card px-6 py-3 flex items-center gap-4">
-            <div className="text-right">
+          <div className="esport-card px-5 py-3 flex items-center gap-4 bg-white/5 border-esport-secondary/20">
+            <div className="w-10 h-10 rounded-lg bg-esport-secondary/10 flex items-center justify-center">
+              <ShieldAlert className="text-esport-secondary" size={20} />
+            </div>
+            <div>
               <div className="text-[10px] font-bold text-esport-text-muted uppercase">Pending KYC</div>
-              <div className="text-xl font-display font-bold text-esport-accent">{users.filter(u => u.kycStatus === 'pending').length}</div>
+              <div className="text-xl font-display font-bold text-esport-secondary">{stats.pending}</div>
             </div>
-            <ShieldAlert className="text-esport-accent" size={24} />
+          </div>
+          <div className="esport-card px-5 py-3 flex items-center gap-4 bg-white/5 border-esport-success/20">
+            <div className="w-10 h-10 rounded-lg bg-esport-success/10 flex items-center justify-center">
+              <Star className="text-esport-success" size={20} />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold text-esport-text-muted uppercase">Credits Circ.</div>
+              <div className="text-xl font-display font-bold">{stats.totalCredits.toLocaleString()}</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="esport-card overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_150px_150px_200px] p-6 border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
-          <div className="px-4">User</div>
-          <div>Email</div>
-          <div className="text-center">Role</div>
-          <div className="text-center">KYC Status</div>
-          <div className="text-right px-4">Actions</div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 esport-card p-6 min-h-[300px]">
+          <div className="flex justify-between items-center mb-6">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-white">User Growth Trend</h4>
+            <div className="flex gap-2">
+              <span className="flex items-center gap-1 text-[10px] text-esport-accent uppercase font-bold">
+                <div className="w-2 h-2 rounded-full bg-esport-accent" /> New Users
+              </span>
+            </div>
+          </div>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#00f2ff" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                <XAxis dataKey="name" stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#ffffff40" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0a0a0c', border: '1px solid #ffffff10', borderRadius: '8px' }}
+                  itemStyle={{ color: '#00f2ff', fontSize: '12px' }}
+                />
+                <Area type="monotone" dataKey="users" stroke="#00f2ff" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="divide-y divide-esport-border">
-          {loading ? (
-            <div className="p-12 text-center text-esport-text-muted">Loading user data...</div>
-          ) : (
-            users.map(user => (
-              <div key={user.id} className="grid grid-cols-[1fr_1fr_150px_150px_200px] p-6 items-center hover:bg-white/5 transition-colors">
-                <div className="px-4 flex items-center gap-3">
-                  <img src={`https://ui-avatars.com/api/?name=${user.username}&background=random`} className="w-8 h-8 rounded-full" />
-                  <span className="font-bold text-sm">{user.username}</span>
-                </div>
-                <div className="text-sm text-esport-text-muted">{user.email}</div>
-                <div className="text-center">
-                  <span className={`badge ${user.role === 'admin' ? 'badge-secondary' : 'bg-white/10 text-white'}`}>{user.role}</span>
-                </div>
-                <div className="text-center">
-                  <span className={`badge ${
-                    user.kycStatus === 'verified' ? 'badge-success' : 
-                    user.kycStatus === 'pending' ? 'badge-accent' : 
-                    user.kycStatus === 'rejected' ? 'badge-danger' : 
-                    'bg-white/10 text-white'
-                  }`}>
-                    {user.kycStatus || 'none'}
-                  </span>
-                </div>
-                <div className="text-right px-4 flex justify-end gap-2">
-                  {user.kycStatus === 'pending' && (
-                    <>
-                      <button onClick={() => handleKYC(user.id, "approve")} className="p-2 bg-esport-success/10 text-esport-success hover:bg-esport-success hover:text-white rounded-lg transition-all">
-                        <CheckCircle2 size={16} />
-                      </button>
-                      <button onClick={() => setRejectingUser(user)} className="p-2 bg-esport-danger/10 text-esport-danger hover:bg-esport-danger hover:text-white rounded-lg transition-all">
-                        <X size={16} />
-                      </button>
-                    </>
-                  )}
-                  <button className="p-2 bg-white/5 text-esport-text-muted hover:text-white rounded-lg transition-all">
-                    <MoreVertical size={16} />
-                  </button>
-                </div>
+
+        <div className="esport-card p-6 flex flex-col">
+          <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-6">KYC Distribution</h4>
+          <div className="flex-1 flex flex-col justify-center gap-6">
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-esport-success">Verified</span>
+                <span>{Math.round((stats.verified / stats.total) * 100) || 0}%</span>
               </div>
-            ))
-          )}
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-esport-success" style={{ width: `${(stats.verified / stats.total) * 100}%` }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-esport-accent">Pending</span>
+                <span>{Math.round((stats.pending / stats.total) * 100) || 0}%</span>
+              </div>
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-esport-accent" style={{ width: `${(stats.pending / stats.total) * 100}%` }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                <span className="text-esport-text-muted">Unverified</span>
+                <span>{Math.round(((stats.total - stats.verified - stats.pending) / stats.total) * 100) || 0}%</span>
+              </div>
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-white/20" style={{ width: `${((stats.total - stats.verified - stats.pending) / stats.total) * 100}%` }} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* User Table Section */}
+      <div className="esport-card overflow-hidden">
+        <div className="p-6 border-b border-esport-border flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-esport-text-muted" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search by username or email..." 
+              className="w-full bg-white/5 border border-esport-border rounded-xl pl-12 pr-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+            {['all', 'pending', 'verified', 'rejected', 'none'].map(status => (
+              <button 
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                  filterStatus === status 
+                    ? "bg-esport-accent text-esport-bg border-esport-accent" 
+                    : "bg-white/5 text-esport-text-muted border-esport-border hover:border-white/30"
+                )}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
+                <th className="p-6">User</th>
+                <th className="p-6">Role</th>
+                <th className="p-6">Credits</th>
+                <th className="p-6">KYC Status</th>
+                <th className="p-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-esport-border">
+              {loading ? (
+                <tr><td colSpan={5} className="p-12 text-center text-esport-text-muted">Loading user data...</td></tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr><td colSpan={5} className="p-12 text-center text-esport-text-muted">No users found matching your criteria.</td></tr>
+              ) : (
+                filteredUsers.map(user => (
+                  <tr key={user.id} className="hover:bg-white/5 transition-colors group">
+                    <td className="p-6">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <img src={`https://ui-avatars.com/api/?name=${user.username}&background=random`} className="w-10 h-10 rounded-xl border border-white/10" />
+                          {user.role === 'admin' && <div className="absolute -top-1 -right-1 w-4 h-4 bg-esport-secondary rounded-full flex items-center justify-center ring-2 ring-esport-bg"><Shield size={8} className="text-white" /></div>}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-white">{user.username}</div>
+                          <div className="text-xs text-esport-text-muted">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <span className={cn(
+                        "badge",
+                        user.role === 'admin' ? "badge-secondary" : "bg-white/10 text-white"
+                      )}>
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex items-center gap-2 font-mono font-bold text-esport-accent">
+                        <Star size={14} />
+                        {user.stats?.credits?.toLocaleString() || 0}
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <span className={cn(
+                        "badge",
+                        user.kycStatus === 'verified' ? 'badge-success' : 
+                        user.kycStatus === 'pending' ? 'badge-accent' : 
+                        user.kycStatus === 'rejected' ? 'badge-danger' : 
+                        'bg-white/10 text-white'
+                      )}>
+                        {user.kycStatus || 'none'}
+                      </span>
+                    </td>
+                    <td className="p-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        {user.kycStatus === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handleKYC(user.id, "approve")} 
+                              className="p-2 bg-esport-success/10 text-esport-success hover:bg-esport-success hover:text-white rounded-lg transition-all"
+                              title="Approve KYC"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => setRejectingUser(user)} 
+                              className="p-2 bg-esport-danger/10 text-esport-danger hover:bg-esport-danger hover:text-white rounded-lg transition-all"
+                              title="Reject KYC"
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        )}
+                        <button 
+                          onClick={() => setEditingUser(user)}
+                          className="p-2 bg-white/5 text-esport-text-muted hover:text-white rounded-lg transition-all"
+                          title="Manage User"
+                        >
+                          <Settings size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modals */}
       {rejectingUser && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <motion.div 
@@ -2448,6 +2659,91 @@ function AdminPanel({ addToast }: { addToast: any }) {
                 Confirm Rejection
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="esport-card max-w-lg w-full p-8 space-y-8"
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <img src={`https://ui-avatars.com/api/?name=${editingUser.username}&background=random`} className="w-12 h-12 rounded-xl" />
+                <div>
+                  <h3 className="text-xl font-display font-bold uppercase">Manage User</h3>
+                  <p className="text-xs text-esport-text-muted">{editingUser.email}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingUser(null)}><X size={20} /></button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Role</label>
+                <select 
+                  className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+                  value={editingUser.role}
+                  onChange={(e) => updateUserField(editingUser.id, "role", e.target.value)}
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">KYC Status</label>
+                <select 
+                  className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
+                  value={editingUser.kycStatus}
+                  onChange={(e) => updateUserField(editingUser.id, "kycStatus", e.target.value)}
+                >
+                  <option value="none">None</option>
+                  <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Quick Actions</label>
+              <div className="grid grid-cols-2 gap-4">
+                <button 
+                  onClick={() => {
+                    const amount = prompt("Enter credits to add:");
+                    if (amount) {
+                      const newCredits = (editingUser.stats?.credits || 0) + parseInt(amount);
+                      updateUserField(editingUser.id, "stats", { ...editingUser.stats, credits: newCredits });
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 p-4 bg-esport-accent/10 border border-esport-accent/20 rounded-xl text-esport-accent font-bold text-xs hover:bg-esport-accent hover:text-esport-bg transition-all"
+                >
+                  <Star size={16} /> Add Credits
+                </button>
+                <button 
+                  onClick={() => {
+                    if (confirm("Are you sure you want to reset this user's stats?")) {
+                      updateUserField(editingUser.id, "stats", {
+                        credits: 0,
+                        level: 1,
+                        rank: "Bronze I",
+                        winRate: "0%",
+                        kdRatio: 0,
+                        headshotPct: "0%"
+                      });
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 p-4 bg-esport-danger/10 border border-esport-danger/20 rounded-xl text-esport-danger font-bold text-xs hover:bg-esport-danger hover:text-white transition-all"
+                >
+                  <ShieldAlert size={16} /> Reset Stats
+                </button>
+              </div>
+            </div>
+
+            <button onClick={() => setEditingUser(null)} className="esport-btn-primary w-full">Done</button>
           </motion.div>
         </div>
       )}
