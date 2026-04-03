@@ -82,7 +82,11 @@ import {
   updateDoc,
   getDocs,
   collection,
-  query
+  query,
+  storage,
+  ref,
+  uploadString,
+  getDownloadURL
 } from "./firebase";
 
 // --- Types ---
@@ -2346,6 +2350,12 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     }
   };
 
+  const uploadKycDocument = async (type: 'idFront' | 'addressProof' | 'selfie', dataUrl: string) => {
+    const docRef = ref(storage, `kyc/${user.id}/${type}-${Date.now()}.jpg`);
+    await uploadString(docRef, dataUrl, "data_url");
+    return getDownloadURL(docRef);
+  };
+
   const submitKYC = async () => {
     if (!user?.id) return;
     if (!documents.idFront || !documents.addressProof || !documents.selfie) {
@@ -2358,17 +2368,27 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     }
     setLoading(true);
     try {
+      const [idFrontUrl, addressProofUrl, selfieUrl] = await Promise.all([
+        uploadKycDocument("idFront", documents.idFront!),
+        uploadKycDocument("addressProof", documents.addressProof!),
+        uploadKycDocument("selfie", documents.selfie!),
+      ]);
+
       await updateDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
         kycMessage: null,
-        kycDocuments: documents,
+        kycDocuments: {
+          idFront: idFrontUrl,
+          addressProof: addressProofUrl,
+          selfie: selfieUrl
+        },
         kycDetails: personalInfo
       });
       addToast("KYC Documents submitted for review!", "success");
     } catch (error) {
       console.error("KYC submission error:", error);
-      addToast("Failed to submit KYC", "error");
+      addToast("Failed to submit KYC. Please check Firebase Storage rules/config.", "error");
     } finally {
       setLoading(false);
     }
