@@ -2622,6 +2622,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const kycFilterOptions = ["all", "none", "pending", "verified", "rejected"] as const;
 
   useEffect(() => {
     const q = query(collection(db, "users"));
@@ -2673,9 +2674,18 @@ function AdminPanel({ addToast }: { addToast: any }) {
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          user.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === "all" || user.kycStatus === filterStatus;
+    const userKycStatus = user.kycStatus || "none";
+    const matchesFilter = filterStatus === "all" || userKycStatus === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const kycCounts = {
+    all: users.length,
+    none: users.filter(u => (u.kycStatus || "none") === "none").length,
+    pending: users.filter(u => u.kycStatus === "pending").length,
+    verified: users.filter(u => u.kycStatus === "verified").length,
+    rejected: users.filter(u => u.kycStatus === "rejected").length,
+  };
 
   const stats = {
     total: users.length,
@@ -2815,8 +2825,10 @@ function AdminPanel({ addToast }: { addToast: any }) {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-            {['all', 'pending', 'verified', 'rejected', 'none'].map(status => (
+          <div className="w-full md:w-auto">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-2">Filter by KYC Status</div>
+            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            {kycFilterOptions.map(status => (
               <button 
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -2827,9 +2839,10 @@ function AdminPanel({ addToast }: { addToast: any }) {
                     : "bg-white/5 text-esport-text-muted border-esport-border hover:border-white/30"
                 )}
               >
-                {status}
+                {status} ({kycCounts[status]})
               </button>
             ))}
+            </div>
           </div>
         </div>
 
