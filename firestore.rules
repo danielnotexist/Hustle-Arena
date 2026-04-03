@@ -98,17 +98,16 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. Admins can read all profiles.
-      // Public profiles are allowed if we want to show other players, but let's stick to owner/admin for now as PII might be present.
       allow read: if isOwner(userId) || isAdmin();
       
       // Create: User can create their own profile if it doesn't exist.
-      // Role must be 'user' unless they are an admin.
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
                       (request.resource.data.role == 'user' || isAdmin());
       
-      // Update: User can update their own profile. Cannot change role unless admin.
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == resource.data.role || isAdmin());
+      // Update: User can update their own profile (except role). 
+      // Admin can update everything.
+      allow update: if isAdmin() || (isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == resource.data.role));
       
       match /matches/{matchId} {
         allow read: if isOwner(userId) || isAdmin();

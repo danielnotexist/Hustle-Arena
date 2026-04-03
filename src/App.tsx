@@ -55,7 +55,11 @@ import {
   getDoc,
   setDoc,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  updateDoc,
+  getDocs,
+  collection,
+  query
 } from "./firebase";
 
 // --- Types ---
@@ -95,52 +99,58 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
 
-  // Fetch initial session
+  // Fetch initial session and profile
   useEffect(() => {
+    let profileUnsubscribe: (() => void) | null = null;
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch profile from Firestore
-        const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (userDoc.exists()) {
-          const profile = userDoc.data();
-          handleLogin({ ...firebaseUser, ...profile });
-          setProfileData({
-            bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
-            country: profile.country || "Israel",
-            twitter: profile.twitter || "",
-            twitch: profile.twitch || ""
-          });
-        } else {
-          // Create initial profile if it doesn't exist
-          const initialProfile = {
-            username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
-            email: firebaseUser.email,
-            role: "user",
-            kycStatus: "none",
-            bio: "Ready to dominate the arena. Tactical shooter veteran.",
-            country: "Israel",
-            twitter: "",
-            twitch: "",
-            createdAt: serverTimestamp(),
-            stats: {
-              credits: 2450,
-              level: 42,
-              rank: "Diamond III",
-              winRate: "64.5%",
-              kdRatio: 1.42,
-              headshotPct: "52.1%"
-            }
-          };
-          await setDoc(doc(db, "users", firebaseUser.uid), initialProfile);
-          handleLogin({ ...firebaseUser, ...initialProfile });
-        }
+        // Real-time profile listener
+        profileUnsubscribe = onSnapshot(doc(db, "users", firebaseUser.uid), async (snapshot) => {
+          if (snapshot.exists()) {
+            const profile = snapshot.data();
+            handleLogin({ ...firebaseUser, ...profile });
+            setProfileData({
+              bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
+              country: profile.country || "Israel",
+              twitter: profile.twitter || "",
+              twitch: profile.twitch || ""
+            });
+          } else {
+            // Create initial profile if it doesn't exist
+            const initialProfile = {
+              username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
+              email: firebaseUser.email,
+              role: firebaseUser.email === "Danielnotexist@gmail.com" ? "admin" : "user",
+              kycStatus: firebaseUser.email === "Danielnotexist@gmail.com" ? "verified" : "none",
+              bio: "Ready to dominate the arena. Tactical shooter veteran.",
+              country: "Israel",
+              twitter: "",
+              twitch: "",
+              createdAt: serverTimestamp(),
+              stats: {
+                credits: 2450,
+                level: 42,
+                rank: "Diamond III",
+                winRate: "64.5%",
+                kdRatio: 1.42,
+                headshotPct: "52.1%"
+              }
+            };
+            await setDoc(doc(db, "users", firebaseUser.uid), initialProfile);
+          }
+        });
       } else {
         setIsLoggedIn(false);
         setUser(null);
         setIsAdmin(false);
+        if (profileUnsubscribe) profileUnsubscribe();
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (profileUnsubscribe) profileUnsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -290,10 +300,18 @@ export default function App() {
                     <div className="text-[10px] text-esport-accent font-bold uppercase tracking-wider">Level {stats?.level || 0}</div>
                     {!isAdmin && (
                       <button 
-                        onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} />)}
-                        className="text-[8px] px-1.5 py-0.5 bg-esport-secondary/20 text-esport-secondary border border-esport-secondary/30 rounded uppercase font-bold hover:bg-esport-secondary hover:text-white transition-all"
+                        onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+                        className={`text-[8px] px-1.5 py-0.5 border rounded uppercase font-bold transition-all ${
+                          user?.kycStatus === 'verified' ? 'bg-esport-success/20 text-esport-success border-esport-success/30' :
+                          user?.kycStatus === 'pending' ? 'bg-esport-accent/20 text-esport-accent border-esport-accent/30' :
+                          user?.kycStatus === 'rejected' ? 'bg-esport-danger/20 text-esport-danger border-esport-danger/30' :
+                          'bg-esport-secondary/20 text-esport-secondary border-esport-secondary/30 hover:bg-esport-secondary hover:text-white'
+                        }`}
                       >
-                        Verify KYC
+                        {user?.kycStatus === 'verified' ? 'Verified' : 
+                         user?.kycStatus === 'pending' ? 'Pending' : 
+                         user?.kycStatus === 'rejected' ? 'Rejected' : 
+                         'Verify KYC'}
                       </button>
                     )}
                   </div>
@@ -337,7 +355,50 @@ export default function App() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+              {isLoggedIn && !isAdmin && user?.kycStatus !== 'verified' && (
+                <div className="absolute inset-0 z-[30] bg-esport-bg/60 backdrop-blur-md flex items-center justify-center p-8">
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="esport-card max-w-lg w-full p-10 text-center space-y-6 border-2 border-esport-accent/30"
+                  >
+                    <div className="w-20 h-20 bg-esport-accent/10 rounded-full flex items-center justify-center mx-auto">
+                      <ShieldAlert size={40} className="text-esport-accent" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-display font-bold uppercase tracking-tight">KYC Verification Required</h3>
+                      <p className="text-esport-text-muted">To maintain a secure and fair gaming environment, all players must verify their identity before accessing the battlefield.</p>
+                    </div>
+                    
+                    {user?.kycStatus === 'pending' ? (
+                      <div className="p-4 bg-esport-accent/10 border border-esport-accent/30 rounded-xl text-esport-accent font-bold">
+                        Your documents are currently under review. Please wait for an administrator to approve your request.
+                      </div>
+                    ) : user?.kycStatus === 'rejected' ? (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-esport-danger/10 border border-esport-danger/30 rounded-xl text-esport-danger font-bold">
+                          <div>Verification Rejected</div>
+                          <div className="text-xs opacity-80 font-normal mt-1">{user.kycMessage || "Please re-submit your documents."}</div>
+                        </div>
+                        <button 
+                          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+                          className="esport-btn-primary w-full py-4"
+                        >
+                          Re-submit Documents
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+                        className="esport-btn-primary w-full py-4"
+                      >
+                        Start Verification
+                      </button>
+                    )}
+                  </motion.div>
+                </div>
+              )}
               <div className="max-w-[1400px] mx-auto p-8">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -2041,7 +2102,11 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
       // onAuthStateChanged will handle the rest
     } catch (err: any) {
       console.error("Google Auth error:", err);
-      setError(err.message || "Google Authentication failed");
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("Domain not authorized. Please add '" + window.location.hostname + "' to your Firebase Console -> Authentication -> Settings -> Authorized domains.");
+      } else {
+        setError(err.message || "Google Authentication failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -2141,11 +2206,39 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
   );
 }
 
-function KYCForm({ addToast }: { addToast: any }) {
+function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  const submitKYC = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "users", user.id), {
+        kycStatus: "pending",
+        kycUpdatedAt: serverTimestamp(),
+        kycMessage: null
+      });
+      addToast("KYC Documents submitted for review!", "success");
+    } catch (error) {
+      console.error("KYC submission error:", error);
+      addToast("Failed to submit KYC", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {user?.kycStatus === 'rejected' && (
+        <div className="p-4 bg-esport-danger/10 border border-esport-danger/30 rounded-xl text-esport-danger text-sm font-bold flex items-center gap-3">
+          <ShieldAlert size={20} />
+          <div>
+            <div>KYC Rejected</div>
+            <div className="text-xs opacity-80 font-normal mt-1">{user.kycMessage || "Please re-submit your documents."}</div>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between mb-8">
         {[1, 2, 3].map(i => (
           <div key={i} className={`flex items-center gap-2 ${step >= i ? 'text-esport-accent' : 'text-esport-text-muted'}`}>
@@ -2192,12 +2285,11 @@ function KYCForm({ addToast }: { addToast: any }) {
           <div className="flex gap-4">
             <button onClick={() => setStep(2)} className="esport-btn-secondary flex-1">Back</button>
             <button 
-              onClick={() => {
-                addToast("KYC Documents submitted for review!", "success");
-              }} 
+              onClick={submitKYC} 
+              disabled={loading}
               className="esport-btn-primary flex-1"
             >
-              Submit KYC
+              {loading ? "Submitting..." : "Submit KYC"}
             </button>
           </div>
         </div>
@@ -2209,29 +2301,45 @@ function KYCForm({ addToast }: { addToast: any }) {
 function AdminPanel({ addToast }: { addToast: any }) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rejectingUser, setRejectingUser] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/users")
-      .then(res => res.json())
-      .then(data => {
-        setUsers(data);
-        setLoading(false);
-      });
+    const q = query(collection(db, "users"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUsers(usersList);
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleKYC = (userId: number, action: "approve" | "reject") => {
-    fetch(`/api/admin/kyc/${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        addToast(data.message, action === "approve" ? "success" : "error");
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, kycStatus: action === "approve" ? "verified" : "rejected" } : u));
+  const handleKYC = async (userId: string, action: "approve" | "reject") => {
+    try {
+      if (action === "approve") {
+        await updateDoc(doc(db, "users", userId), {
+          kycStatus: "verified",
+          kycUpdatedAt: serverTimestamp(),
+          kycMessage: null
+        });
+        addToast("KYC Approved successfully", "success");
+      } else {
+        await updateDoc(doc(db, "users", userId), {
+          kycStatus: "rejected",
+          kycUpdatedAt: serverTimestamp(),
+          kycMessage: rejectReason
+        });
+        addToast("KYC Rejected", "error");
+        setRejectingUser(null);
+        setRejectReason("");
       }
-    });
+    } catch (error) {
+      console.error("Error updating KYC:", error);
+      addToast("Failed to update KYC", "error");
+    }
   };
 
   return (
@@ -2248,6 +2356,13 @@ function AdminPanel({ addToast }: { addToast: any }) {
               <div className="text-xl font-display font-bold">{users.length}</div>
             </div>
             <Users className="text-esport-accent" size={24} />
+          </div>
+          <div className="esport-card px-6 py-3 flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-[10px] font-bold text-esport-text-muted uppercase">Pending KYC</div>
+              <div className="text-xl font-display font-bold text-esport-accent">{users.filter(u => u.kycStatus === 'pending').length}</div>
+            </div>
+            <ShieldAlert className="text-esport-accent" size={24} />
           </div>
         </div>
       </div>
@@ -2290,7 +2405,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                       <button onClick={() => handleKYC(user.id, "approve")} className="p-2 bg-esport-success/10 text-esport-success hover:bg-esport-success hover:text-white rounded-lg transition-all">
                         <CheckCircle2 size={16} />
                       </button>
-                      <button onClick={() => handleKYC(user.id, "reject")} className="p-2 bg-esport-danger/10 text-esport-danger hover:bg-esport-danger hover:text-white rounded-lg transition-all">
+                      <button onClick={() => setRejectingUser(user)} className="p-2 bg-esport-danger/10 text-esport-danger hover:bg-esport-danger hover:text-white rounded-lg transition-all">
                         <X size={16} />
                       </button>
                     </>
@@ -2304,6 +2419,38 @@ function AdminPanel({ addToast }: { addToast: any }) {
           )}
         </div>
       </div>
+
+      {rejectingUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="esport-card max-w-md w-full p-8 space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-display font-bold uppercase">Reject KYC</h3>
+              <button onClick={() => setRejectingUser(null)}><X size={20} /></button>
+            </div>
+            <p className="text-sm text-esport-text-muted">Rejecting KYC for <span className="text-white font-bold">{rejectingUser.username}</span>. Please provide a reason.</p>
+            <textarea 
+              className="w-full bg-white/5 border border-esport-border rounded-xl p-4 text-sm focus:outline-none focus:border-esport-danger/50 min-h-[120px]"
+              placeholder="e.g. ID photo is blurry, document expired..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+            <div className="flex gap-4">
+              <button onClick={() => setRejectingUser(null)} className="esport-btn-secondary flex-1">Cancel</button>
+              <button 
+                onClick={() => handleKYC(rejectingUser.id, "reject")} 
+                disabled={!rejectReason}
+                className="esport-btn-danger flex-1"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

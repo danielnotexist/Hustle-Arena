@@ -23,7 +23,9 @@
             "headshotPct": { "type": "string" }
           }
         },
-        "kycStatus": { "type": "string", "enum": ["none", "pending", "verified"] },
+        "kycStatus": { "type": "string", "enum": ["none", "pending", "verified", "rejected"] },
+        "kycMessage": { "type": "string" },
+        "kycUpdatedAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["username", "email", "role"]

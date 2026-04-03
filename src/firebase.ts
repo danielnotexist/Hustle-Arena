@@ -18,6 +18,7 @@ import {
   query, 
   where, 
   getDocs,
+  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp
@@ -45,6 +46,7 @@ export {
   query,
   where,
   getDocs,
+  updateDoc,
   onSnapshot,
   Timestamp,
   serverTimestamp
