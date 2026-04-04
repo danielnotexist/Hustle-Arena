@@ -46,6 +46,6 @@ This project is now the source of truth for the React + Vite architecture.
 - Abandon timers, surrender/risk vote window, cooldown penalties
 - Funds split rules and notification popups
 
-## Important notes
+## Important notes.
 - We are intentionally migrating in slices to keep the app stable.
 - Existing Firebase flow can remain during transition until each feature is fully replaced.
