@@ -1160,77 +1160,6 @@ function SquadHubView({ addToast, user }: any) {
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
     [friendsList, selectedFriendId]
   );
-
-  type PartyMember = { id: string; username: string; ready: boolean };
-  const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
-
-  const isPartyLeader = partyMembers[0]?.id === user?.id;
-  const availablePartyFriends = useMemo(
-    () => friendsList.filter((friend) => !partyMembers.some((member) => member.id === friend.id)),
-    [friendsList, partyMembers]
-  );
-
-  const addFriendToParty = (friend: { id: string; username: string }) => {
-    if (!isPartyLeader) {
-      addToast('Only the party leader can add teammates.', 'error');
-      return;
-    }
-
-    setPartyMembers((prev) => {
-      if (prev.some((member) => member.id === friend.id)) {
-        return prev;
-      }
-      if (prev.length >= 5) {
-        addToast('Party is full (max 5 players).', 'error');
-        return prev;
-      }
-      return [...prev, { id: friend.id, username: friend.username, ready: false }];
-    });
-  };
-
-  const removePartyMember = (memberId: string) => {
-    if (!isPartyLeader) {
-      addToast('Only the party leader can remove teammates.', 'error');
-      return;
-    }
-    if (memberId === user?.id) {
-      addToast('Party leader cannot remove themselves. Use Disband Party.', 'info');
-      return;
-    }
-
-    setPartyMembers((prev) => prev.filter((member) => member.id !== memberId));
-  };
-
-  const togglePartyReady = (memberId: string) => {
-    if (memberId !== user?.id) {
-      addToast('Each player must set ready on their own account.', 'info');
-      return;
-    }
-
-    setPartyMembers((prev) =>
-      prev.map((member) =>
-        member.id === memberId ? { ...member, ready: !member.ready } : member
-      )
-    );
-  };
-
-  const disbandParty = () => {
-    if (!user?.id) return;
-    if (!isPartyLeader) {
-      addToast('Only the party leader can disband the party.', 'error');
-      return;
-    }
-
-    setPartyMembers([
-      {
-        id: user.id,
-        username: user.username ?? 'Player',
-        ready: false
-      }
-    ]);
-    addToast('Party disbanded.', 'info');
-  };
-
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -1435,125 +1364,6 @@ function SquadHubView({ addToast, user }: any) {
     setMessageDraft('');
   };
 
-  useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    const boot = async () => {
-      setLoading(true);
-      await Promise.all([loadFriends(), loadPendingRequests(), loadUnreadCounts()]);
-      setLoading(false);
-    };
-
-    boot().catch((err) => {
-      console.error(err);
-      setLoading(false);
-    });
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!selectedFriendId && friendsList.length) {
-      setSelectedFriendId(friendsList[0].id);
-    }
-  }, [friendsList, selectedFriendId]);
-
-  useEffect(() => {
-    loadThread(selectedFriendId).catch((err) => console.error(err));
-  }, [selectedFriendId, user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel('dm:' + user.id)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'direct_messages' },
-        (payload: any) => {
-          const row = payload.new ?? payload.old;
-          if (!row) return;
-          const involvesUser = row.sender_id === user.id || row.receiver_id === user.id;
-          if (!involvesUser) return;
-
-          loadUnreadCounts().catch((err) => console.error(err));
-
-          if (selectedFriendId && (row.sender_id === selectedFriendId || row.receiver_id === selectedFriendId)) {
-            loadThread(selectedFriendId).catch((err) => console.error(err));
-          }
-        }
-      )
-      .subscribe();
-
-    const requestsChannel = supabase
-      .channel('friend-requests:' + user.id)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'friend_requests', filter: 'target_id=eq.' + user.id },
-        () => {
-          loadPendingRequests().catch((err) => console.error(err));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(requestsChannel);
-    };
-    }, [user?.id, selectedFriendId]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setPartyMembers([]);
-      return;
-    }
-
-    setPartyMembers((prev) => {
-      const seen = new Set<string>();
-      const normalized: PartyMember[] = [];
-
-      normalized.push({
-        id: user.id,
-        username: user.username ?? 'Player',
-        ready: prev.find((m) => m.id === user.id)?.ready ?? false
-      });
-      seen.add(user.id);
-
-      for (const member of prev) {
-        if (seen.has(member.id)) continue;
-        if (normalized.length >= 5) break;
-        normalized.push(member);
-        seen.add(member.id);
-      }
-
-      return normalized;
-    });
-  }, [user?.id, user?.username]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const friendLookup = new Map(friendsList.map((friend) => [friend.id, friend.username]));
-    setPartyMembers((prev) => {
-      const next = prev
-        .filter((member) => member.id === user.id || friendLookup.has(member.id))
-        .map((member) => ({
-          ...member,
-          username: member.id === user.id ? (user.username ?? member.username) : (friendLookup.get(member.id) ?? member.username)
-        }));
-
-      if (!next.some((member) => member.id === user.id)) {
-        next.unshift({ id: user.id, username: user.username ?? 'Player', ready: false });
-      }
-
-      return next.slice(0, 5);
-    });
-  }, [friendsList, user?.id, user?.username]);
-
-  const readyCount = partyMembers.filter((member) => member.ready).length;
-  const canQueueAsParty = partyMembers.length > 1 && partyMembers.length <= 5 && readyCount === partyMembers.length;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1561,69 +1371,7 @@ function SquadHubView({ addToast, user }: any) {
           <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
           <p className="text-sm text-esport-text-muted">Direct messages + friend requests are fully dynamic now.</p>
         </div>
-      </div>
-
-            <div className="esport-card p-4 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">Squad Party (5 Max)</div>
-            <div className="text-sm text-white">{partyMembers.length}/5 players | {readyCount}/{partyMembers.length || 1} ready</div>
-          </div>
-          <div className="flex gap-2">
-            {isPartyLeader ? (
-              <button className="esport-btn-secondary" onClick={disbandParty}>Disband Party</button>
-            ) : null}
-            <button
-              className="esport-btn-primary disabled:opacity-40"
-              disabled={!canQueueAsParty}
-              onClick={() => addToast('Party queue matchmaking flow is the next step we will connect.', 'info')}
-            >
-              Find Match As Party
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-          <div className="space-y-2">
-            {partyMembers.map((member, index) => (
-              <div key={member.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-bold text-sm truncate">{member.username}</span>
-                  {index === 0 ? <span className="badge badge-accent">Leader</span> : null}
-                  {member.ready ? <span className="badge bg-esport-success/20 text-esport-success border border-esport-success/40">Ready</span> : <span className="badge bg-white/10 text-esport-text-muted border border-esport-border">Not Ready</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="esport-btn-secondary" onClick={() => togglePartyReady(member.id)}>
-                    {member.id === user?.id ? (member.ready ? 'Unready' : 'Ready') : 'Ready'}
-                  </button>
-                  {isPartyLeader && member.id !== user?.id ? (
-                    <button className="esport-btn-secondary" onClick={() => removePartyMember(member.id)}>Remove</button>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-lg border border-esport-border bg-black/20 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-2">Invite Teammates</div>
-            {!availablePartyFriends.length ? (
-              <div className="text-sm text-esport-text-muted">No available friends to add.</div>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                {availablePartyFriends.map((friend) => (
-                  <div key={friend.id} className="flex items-center justify-between gap-2 p-2 rounded border border-esport-border bg-white/5">
-                    <span className="text-sm truncate">{friend.username}</span>
-                    <button className="esport-btn-primary disabled:opacity-40" disabled={!isPartyLeader || partyMembers.length >= 5} onClick={() => addFriendToParty(friend)}>
-                      Add
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-<div className="esport-card p-4">
+      </div>      <div className="esport-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
         <div className="flex gap-2">
           <input
@@ -3717,6 +3465,13 @@ function AdminPanel({ addToast }: { addToast: any }) {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 
