@@ -183,6 +183,14 @@ export default function App() {
                 twitter: profile.twitter || "",
                 twitch: profile.twitch || ""
               });
+              setStats({
+                credits: profile.stats?.credits ?? 0,
+                level: profile.stats?.level ?? 1,
+                rank: profile.stats?.rank ?? "Bronze I",
+                winRate: profile.stats?.winRate ?? "0%",
+                kdRatio: profile.stats?.kdRatio ?? 0,
+                headshotPct: profile.stats?.headshotPct ?? "0%"
+              });
             }
           }, (err) => {
             console.error("Profile snapshot error:", err);
@@ -194,6 +202,7 @@ export default function App() {
         setIsLoggedIn(false);
         setUser(null);
         setIsAdmin(false);
+        setStats(null);
         if (profileUnsubscribe) profileUnsubscribe();
       }
     });
@@ -202,21 +211,6 @@ export default function App() {
       if (profileUnsubscribe) profileUnsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      // For now, keep mock stats or fetch from Supabase if table exists
-      // fetch("/api/user/stats")
-      setStats({
-        credits: 2450,
-        level: 42,
-        rank: "Diamond III",
-        winRate: "64.5%",
-        kdRatio: 1.42,
-        headshotPct: "52.1%"
-      });
-    }
-  }, [isLoggedIn]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -404,7 +398,7 @@ export default function App() {
                   <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
                     <Star size={12} className="text-white fill-white" />
                   </div>
-                  <span className="text-xs font-bold">{stats?.credits.toLocaleString() || 0} CR</span>
+                  <span className="text-xs font-bold">${(stats?.credits ?? 0).toLocaleString()} USDT</span>
                   <Plus size={14} className="text-esport-text-muted" />
                 </div>
                 
@@ -456,7 +450,7 @@ export default function App() {
                     transition={{ duration: 0.2 }}
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
-                    {activeTab === "Deposit" && <DepositPage addToast={addToast} />}
+                    {activeTab === "Deposit" && <DepositPage addToast={addToast} user={user} />}
                     {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} openModal={openModal} />}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
@@ -1418,7 +1412,7 @@ function MissionsView({ addToast }: any) {
                 <span className="flex items-center gap-1"><Clock size={10} /> {mission.time}</span>
               </div>
               <div className="flex items-center justify-between pt-6 border-t border-esport-border">
-                <div className="text-esport-secondary font-display font-bold text-xl">{mission.reward} CR</div>
+                <div className="text-esport-secondary font-display font-bold text-xl">${mission.reward} USDT</div>
                 <button 
                   onClick={() => acceptMission(mission.id)}
                   className="esport-btn-primary py-2 px-4 text-[10px]"
@@ -2611,12 +2605,33 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   );
 }
 
-function DepositPage({ addToast }: { addToast: any }) {
+function DepositPage({ addToast, user }: { addToast: any, user: any }) {
   const btcAddress = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"; // Placeholder BTC Address
+  const [depositAmount, setDepositAmount] = useState(100);
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(btcAddress);
     addToast("Address copied to clipboard!", "success");
+  };
+
+  const confirmDeposit = async () => {
+    if (!user?.id) {
+      addToast("Please sign in first", "error");
+      return;
+    }
+
+    const userRef = doc(db, "users", user.id);
+    const snap = await getDoc(userRef);
+    const currentCredits = snap.data()?.stats?.credits || 0;
+
+    await setDoc(userRef, {
+      stats: {
+        ...(snap.data()?.stats || {}),
+        credits: currentCredits + depositAmount
+      }
+    }, { merge: true });
+
+    addToast(`Deposit confirmed: +$${depositAmount} USDT`, "success");
   };
 
   return (
@@ -2658,6 +2673,20 @@ function DepositPage({ addToast }: { addToast: any }) {
                 <Copy size={20} />
               </button>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Deposit Amount (USDT)</label>
+            <input
+              type="number"
+              min={1}
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(Math.max(1, Number(e.target.value) || 1))}
+              className="w-full bg-black/40 border border-esport-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-esport-accent/50"
+            />
+            <button onClick={confirmDeposit} className="esport-btn-primary w-full">
+              Confirm Deposit
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -2832,7 +2861,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
               <Star className="text-esport-success" size={20} />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-esport-text-muted uppercase">Credits Circ.</div>
+              <div className="text-[10px] font-bold text-esport-text-muted uppercase">USDT Circ.</div>
               <div className="text-xl font-display font-bold">{stats.totalCredits.toLocaleString()}</div>
             </div>
           </div>
@@ -2982,7 +3011,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                     <td className="p-6">
                       <div className="flex items-center gap-2 font-mono font-bold text-esport-accent">
                         <Star size={14} />
-                        {user.stats?.credits?.toLocaleString() || 0}
+                        ${user.stats?.credits?.toLocaleString() || 0} USDT
                       </div>
                     </td>
                     <td className="p-6">
@@ -3178,7 +3207,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={() => {
-                    const amount = prompt("Enter credits to add:");
+                    const amount = prompt("Enter USDT amount to add:");
                     if (amount) {
                       const newCredits = (editingUser.stats?.credits || 0) + parseInt(amount);
                       updateUserField(editingUser.id, "stats", { ...editingUser.stats, credits: newCredits });
