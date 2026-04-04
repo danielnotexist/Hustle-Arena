@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "hustle-arena",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,8 +7,10 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "clean": "node scripts/clean-dist.mjs",
+    "lint": "tsc --noEmit",
+    "validate:migrations": "node scripts/validate-migrations.mjs",
+    "check": "npm run lint && npm run validate:migrations && npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

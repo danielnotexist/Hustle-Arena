@@ -1,0 +1,126 @@
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import {
+  fetchExtendedProfile,
+  fetchMyProfile,
+  fetchWallet,
+  mapSupabaseProfileToArenaUser,
+  mapSupabaseProfileToProfileData,
+  mapSupabaseProfileToStats,
+  mapWalletSnapshot,
+  setDemoBalance,
+  updateAccountMode,
+} from "../lib/supabase/profile";
+import type { AccountMode, PlatformSessionState, ProfileData, WalletSnapshot, UserStats } from "./types";
+import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./use-legacy-firebase-session";
+
+export function useSupabaseSession(enabled = true): PlatformSessionState {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<PlatformSessionState["user"]>(null);
+  const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
+  const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
+  const [accountMode, setAccountMode] = useState<AccountMode>("live");
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const hydrateSession = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+
+      if (!session?.user) {
+        if (!isCancelled) {
+          setIsLoggedIn(false);
+          setIsAdmin(false);
+          setUser(null);
+          setStats(DEFAULT_STATS);
+          setWallet(DEFAULT_WALLET);
+          setProfileData(DEFAULT_PROFILE_DATA);
+          setAccountMode("live");
+        }
+        return;
+      }
+
+      try {
+        const userId = session.user.id;
+        const myProfile = await fetchMyProfile();
+        const fullProfile = myProfile ? await fetchExtendedProfile(userId) : await fetchExtendedProfile(userId);
+        const walletRow = await fetchWallet(userId);
+
+        if (isCancelled) {
+          return;
+        }
+
+        const nextUser = mapSupabaseProfileToArenaUser(fullProfile);
+        setIsLoggedIn(true);
+        setIsAdmin(nextUser.role === "admin");
+        setUser(nextUser);
+        setStats(mapSupabaseProfileToStats(fullProfile, walletRow));
+        setWallet(mapWalletSnapshot(walletRow));
+        setProfileData(mapSupabaseProfileToProfileData(fullProfile));
+        setAccountMode(nextUser.accountMode || "live");
+      } catch (error) {
+        console.error("Supabase session hydrate error:", error);
+        if (!isCancelled) {
+          setIsLoggedIn(false);
+          setIsAdmin(false);
+          setUser(null);
+        }
+      }
+    };
+
+    hydrateSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      void hydrateSession();
+    });
+
+    return () => {
+      isCancelled = true;
+      authListener.subscription.unsubscribe();
+    };
+  }, [enabled]);
+
+  const switchAccountMode = async (mode: AccountMode) => {
+    if (!user?.id) {
+      throw new Error("You must be logged in to switch account modes.");
+    }
+
+    await updateAccountMode(user.id, mode);
+    setAccountMode(mode);
+    setUser((currentUser) => (currentUser ? { ...currentUser, accountMode: mode } : currentUser));
+  };
+
+  const topUpDemoBalance = async (amount: number) => {
+    if (!user?.id) {
+      throw new Error("You must be logged in to update demo balance.");
+    }
+
+    await setDemoBalance(user.id, amount);
+    setWallet((currentWallet) => ({
+      ...currentWallet,
+      demoBalance: amount,
+    }));
+  };
+
+  return {
+    authProvider: "supabase",
+    isLoggedIn,
+    isAdmin,
+    user,
+    stats,
+    wallet,
+    accountMode,
+    visibleBalance: accountMode === "demo" ? wallet.demoBalance : wallet.availableBalance,
+    profileData,
+    setProfileData,
+    switchAccountMode,
+    topUpDemoBalance,
+  };
+}

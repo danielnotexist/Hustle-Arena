@@ -3,12 +3,40 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
+import crypto from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database Initialization
 const db = new Database("hustle_arena.db");
+
+function hashPassword(password: string) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, storedValue: string) {
+  if (!storedValue.includes(":")) {
+    return password === storedValue;
+  }
+
+  const [salt, hash] = storedValue.split(":");
+  if (!salt || !hash) {
+    return false;
+  }
+
+  const candidate = crypto.scryptSync(password, salt, 64).toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(candidate, "hex"));
+}
+
+function getAuthPayload(body: Record<string, unknown>) {
+  const username = typeof body.username === "string" ? body.username.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  return { username, email, password };
+}
 
 // Create Tables
 db.exec(`
@@ -45,10 +73,19 @@ async function startServer() {
 
   // --- Auth Endpoints ---
   app.post("/api/auth/register", (req, res) => {
-    const { username, email, password } = req.body;
+    const { username, email, password } = getAuthPayload(req.body ?? {});
+
+    if (!username || !email || password.length < 6) {
+      res.status(400).json({
+        success: false,
+        message: "Username, valid email, and a password of at least 6 characters are required.",
+      });
+      return;
+    }
+
     try {
       const stmt = db.prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
-      const result = stmt.run(username, email, password);
+      const result = stmt.run(username, email, hashPassword(password));
       res.json({ success: true, userId: result.lastInsertRowid });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message });
@@ -56,13 +93,24 @@ async function startServer() {
   });
 
   app.post("/api/auth/login", (req, res) => {
-    const { email, password } = req.body;
-    const user = db.prepare("SELECT * FROM users WHERE email = ? AND password = ?").get(email, password) as any;
-    if (user) {
-      res.json({ success: true, user: { id: user.id, username: user.username, role: user.role, kycStatus: user.kyc_status } });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
+    const { email, password } = getAuthPayload(req.body ?? {});
+
+    if (!email || !password) {
+      res.status(400).json({ success: false, message: "Email and password are required." });
+      return;
     }
+
+    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
+    if (!user || !verifyPassword(password, user.password)) {
+      res.status(401).json({ success: false, message: "Invalid credentials" });
+      return;
+    }
+
+    if (!user.password.includes(":")) {
+      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashPassword(password), user.id);
+    }
+
+    res.json({ success: true, user: { id: user.id, username: user.username, role: user.role, kycStatus: user.kyc_status } });
   });
 
   // --- User Stats ---

@@ -1,14 +1,26 @@
-﻿# Hustle Arena React Migration Plan
+﻿# Hustle Arena Workspace
 
-This project is now the source of truth for the React + Vite architecture.
+This project is the active React + Vite workspace for Hustle Arena.
 
 ## Current status
 - UI shell works.
 - Firebase auth/profile is active in `src/firebase.ts` and `src/App.tsx`.
 - Supabase client exists in `src/lib/supabase.ts`.
-- Core Supabase platform schema has been prepared in:
+- Supabase is the target backend and schema source of truth.
+- Core Supabase platform schema lives in:
   - `supabase_setup.sql`
   - `supabase/migrations/20260404_0001_platform_core.sql`
+- Migration validation is available through `npm run validate:migrations`.
+- Full workspace verification is available through `npm run check`.
+
+## Workspace guardrails
+- `supabase_setup.sql` should stay aligned with the migration files.
+- New backend features should target Supabase first; Firebase is transitional.
+- `server.ts` is local dev scaffolding, not the long-term production backend.
+- Platform domain boundaries are documented in `docs/platform-architecture-baseline.md`.
+- Session access should flow through `src/features/use-platform-session.ts`.
+- Typed Supabase profile and wallet access now lives under `src/lib/supabase/`.
+- The platform hot wallet display config is provided through `VITE_PLATFORM_HOT_WALLET_ADDRESS` and `VITE_PLATFORM_HOT_WALLET_NETWORK`.
 
 ## Phase-by-phase migration (safe path)
 1. Data foundation (done in this step)
@@ -46,6 +58,7 @@ This project is now the source of truth for the React + Vite architecture.
 - Abandon timers, surrender/risk vote window, cooldown penalties
 - Funds split rules and notification popups
 
-## Important notes.
+## Important notes
 - We are intentionally migrating in slices to keep the app stable.
 - Existing Firebase flow can remain during transition until each feature is fully replaced.
+- The workspace currently passes TypeScript, migration validation, and production build checks.

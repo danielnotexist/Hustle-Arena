@@ -698,6 +698,10 @@ alter table public.profiles add column if not exists bio text default 'Ready to 
 alter table public.profiles add column if not exists country text default 'Israel';
 alter table public.profiles add column if not exists twitter text default '';
 alter table public.profiles add column if not exists twitch text default '';
+alter table public.profiles add column if not exists kyc_message text;
+alter table public.profiles add column if not exists kyc_updated_at timestamptz;
+alter table public.profiles add column if not exists kyc_documents jsonb default '{}'::jsonb;
+alter table public.profiles add column if not exists kyc_details jsonb default '{}'::jsonb;
 alter table public.profiles add column if not exists rank text default 'Bronze I';
 alter table public.profiles add column if not exists win_rate text default '0%';
 alter table public.profiles add column if not exists kd_ratio numeric(10,2) default 0;
