@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "./lib/supabase";
+import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { 
   auth, 
   db, 
@@ -234,7 +235,7 @@ export default function App() {
     { id: "Squad Hub", icon: <Users size={20} />, label: "Squad Hub" },
     { id: "Apex List", icon: <Trophy size={20} />, label: "Apex List" },
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
-    { id: "Nexus TV", icon: <PlayCircle size={20} />, label: "Nexus TV" },
+    { id: "Live Matches TV", icon: <PlayCircle size={20} />, label: "Live Matches TV" },
     { id: "Pulse", icon: <Zap size={20} />, label: "Pulse" },
     { id: "Deposit", icon: <Wallet size={20} />, label: "Deposit", highlight: true },
   ];
@@ -281,11 +282,13 @@ export default function App() {
           <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
             <div className="p-6">
               <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <div className="flex items-center gap-2 h-10">
-                  <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
-                    <Gamepad2 className="text-black w-3/4 h-3/4" />
-                  </div>
-                  <span className="font-display font-bold text-xl tracking-wider text-white">HUSTLE</span>
+                <div className="flex items-center gap-3 h-12">
+                  <img
+                    src={hustleArenaLogo}
+                    alt="Hustle Arena"
+                    className="h-full w-12 rounded-lg object-cover border border-esport-border"
+                  />
+                  <span className="font-display font-bold text-xl tracking-wider text-white">Hustle-Arena</span>
                 </div>
               </div>
             </div>
@@ -592,7 +595,7 @@ function DashboardView({ stats }: { stats: UserStats | null }) {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold">Competitive Match - Mirage</div>
-                    <div className="text-xs text-esport-text-muted">Victory ג€¢ 16 - 12 ג€¢ 24 kills</div>
+                    <div className="text-xs text-esport-text-muted">Victory • 16 - 12 • 24 kills</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-esport-success">+24 ELO</div>
@@ -834,7 +837,7 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
                           {i % 2 === 0 ? 'DEFEAT' : 'VICTORY'}
                         </div>
                         <div>
-                          <div className="font-bold">Ranked 5v5 ג€¢ Cyberia</div>
+                          <div className="font-bold">Ranked 5v5 • Cyberia</div>
                           <div className="text-xs text-esport-text-muted">{i} days ago</div>
                         </div>
                       </div>
@@ -1158,6 +1161,76 @@ function SquadHubView({ addToast, user }: any) {
     [friendsList, selectedFriendId]
   );
 
+  type PartyMember = { id: string; username: string; ready: boolean };
+  const [partyMembers, setPartyMembers] = useState<PartyMember[]>([]);
+
+  const isPartyLeader = partyMembers[0]?.id === user?.id;
+  const availablePartyFriends = useMemo(
+    () => friendsList.filter((friend) => !partyMembers.some((member) => member.id === friend.id)),
+    [friendsList, partyMembers]
+  );
+
+  const addFriendToParty = (friend: { id: string; username: string }) => {
+    if (!isPartyLeader) {
+      addToast('Only the party leader can add teammates.', 'error');
+      return;
+    }
+
+    setPartyMembers((prev) => {
+      if (prev.some((member) => member.id === friend.id)) {
+        return prev;
+      }
+      if (prev.length >= 5) {
+        addToast('Party is full (max 5 players).', 'error');
+        return prev;
+      }
+      return [...prev, { id: friend.id, username: friend.username, ready: false }];
+    });
+  };
+
+  const removePartyMember = (memberId: string) => {
+    if (!isPartyLeader) {
+      addToast('Only the party leader can remove teammates.', 'error');
+      return;
+    }
+    if (memberId === user?.id) {
+      addToast('Party leader cannot remove themselves. Use Disband Party.', 'info');
+      return;
+    }
+
+    setPartyMembers((prev) => prev.filter((member) => member.id !== memberId));
+  };
+
+  const togglePartyReady = (memberId: string) => {
+    if (memberId !== user?.id) {
+      addToast('Each player must set ready on their own account.', 'info');
+      return;
+    }
+
+    setPartyMembers((prev) =>
+      prev.map((member) =>
+        member.id === memberId ? { ...member, ready: !member.ready } : member
+      )
+    );
+  };
+
+  const disbandParty = () => {
+    if (!user?.id) return;
+    if (!isPartyLeader) {
+      addToast('Only the party leader can disband the party.', 'error');
+      return;
+    }
+
+    setPartyMembers([
+      {
+        id: user.id,
+        username: user.username ?? 'Player',
+        ready: false
+      }
+    ]);
+    addToast('Party disbanded.', 'info');
+  };
+
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -1428,7 +1501,58 @@ function SquadHubView({ addToast, user }: any) {
       supabase.removeChannel(channel);
       supabase.removeChannel(requestsChannel);
     };
-  }, [user?.id, selectedFriendId]);
+    }, [user?.id, selectedFriendId]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPartyMembers([]);
+      return;
+    }
+
+    setPartyMembers((prev) => {
+      const seen = new Set<string>();
+      const normalized: PartyMember[] = [];
+
+      normalized.push({
+        id: user.id,
+        username: user.username ?? 'Player',
+        ready: prev.find((m) => m.id === user.id)?.ready ?? false
+      });
+      seen.add(user.id);
+
+      for (const member of prev) {
+        if (seen.has(member.id)) continue;
+        if (normalized.length >= 5) break;
+        normalized.push(member);
+        seen.add(member.id);
+      }
+
+      return normalized;
+    });
+  }, [user?.id, user?.username]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const friendLookup = new Map(friendsList.map((friend) => [friend.id, friend.username]));
+    setPartyMembers((prev) => {
+      const next = prev
+        .filter((member) => member.id === user.id || friendLookup.has(member.id))
+        .map((member) => ({
+          ...member,
+          username: member.id === user.id ? (user.username ?? member.username) : (friendLookup.get(member.id) ?? member.username)
+        }));
+
+      if (!next.some((member) => member.id === user.id)) {
+        next.unshift({ id: user.id, username: user.username ?? 'Player', ready: false });
+      }
+
+      return next.slice(0, 5);
+    });
+  }, [friendsList, user?.id, user?.username]);
+
+  const readyCount = partyMembers.filter((member) => member.ready).length;
+  const canQueueAsParty = partyMembers.length > 1 && partyMembers.length <= 5 && readyCount === partyMembers.length;
 
   return (
     <div className="space-y-6">
@@ -1439,7 +1563,67 @@ function SquadHubView({ addToast, user }: any) {
         </div>
       </div>
 
-      <div className="esport-card p-4">
+            <div className="esport-card p-4 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">Squad Party (5 Max)</div>
+            <div className="text-sm text-white">{partyMembers.length}/5 players | {readyCount}/{partyMembers.length || 1} ready</div>
+          </div>
+          <div className="flex gap-2">
+            {isPartyLeader ? (
+              <button className="esport-btn-secondary" onClick={disbandParty}>Disband Party</button>
+            ) : null}
+            <button
+              className="esport-btn-primary disabled:opacity-40"
+              disabled={!canQueueAsParty}
+              onClick={() => addToast('Party queue matchmaking flow is the next step we will connect.', 'info')}
+            >
+              Find Match As Party
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          <div className="space-y-2">
+            {partyMembers.map((member, index) => (
+              <div key={member.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-bold text-sm truncate">{member.username}</span>
+                  {index === 0 ? <span className="badge badge-accent">Leader</span> : null}
+                  {member.ready ? <span className="badge bg-esport-success/20 text-esport-success border border-esport-success/40">Ready</span> : <span className="badge bg-white/10 text-esport-text-muted border border-esport-border">Not Ready</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="esport-btn-secondary" onClick={() => togglePartyReady(member.id)}>
+                    {member.id === user?.id ? (member.ready ? 'Unready' : 'Ready') : 'Ready'}
+                  </button>
+                  {isPartyLeader && member.id !== user?.id ? (
+                    <button className="esport-btn-secondary" onClick={() => removePartyMember(member.id)}>Remove</button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-lg border border-esport-border bg-black/20 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-2">Invite Teammates</div>
+            {!availablePartyFriends.length ? (
+              <div className="text-sm text-esport-text-muted">No available friends to add.</div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                {availablePartyFriends.map((friend) => (
+                  <div key={friend.id} className="flex items-center justify-between gap-2 p-2 rounded border border-esport-border bg-white/5">
+                    <span className="text-sm truncate">{friend.username}</span>
+                    <button className="esport-btn-primary disabled:opacity-40" disabled={!isPartyLeader || partyMembers.length >= 5} onClick={() => addFriendToParty(friend)}>
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+<div className="esport-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
         <div className="flex gap-2">
           <input
@@ -1994,7 +2178,7 @@ function HustlePrimeView() {
           </h1>
           
           <div className="text-2xl font-bold mb-2">$7.99/month</div>
-          <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes ג€¢ Cancel anytime</div>
+          <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes • Cancel anytime</div>
           
           <button className="esport-btn-primary py-3 px-8 text-lg mb-4">
             UPGRADE TO PRIME
@@ -2138,7 +2322,7 @@ function HustlePrimeView() {
                 <PlayCircle className="w-6 h-6 text-white" />
               </div>
               <h4 className="font-bold mb-2">Match Highlights</h4>
-              <p className="text-xs text-esport-text-muted">Relive your epic in-game actionsג€”no client needed!</p>
+              <p className="text-xs text-esport-text-muted">Relive your epic in-game actions—no client needed!</p>
             </div>
           </div>
         </div>
@@ -2206,7 +2390,7 @@ function HustlePrimeView() {
                   { name: 'Map selection', desc: 'Select 5 maps you prefer to play on.', free: false, plus: true, prime: true },
                   { name: 'Prime Bounties', desc: 'Complete missions and earn rare Skins and Points.', free: false, plus: false, prime: true },
                   { name: 'Elite Leaderboards', desc: 'Climb the new Prime ladders available each week and win your share of Points and skins.', free: false, plus: false, prime: true },
-                  { name: 'Match highlights', desc: 'Relive your epic in-game actionsג€”no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
+                  { name: 'Match highlights', desc: 'Relive your epic in-game actions—no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
                 ].map((feature, i) => (
                   <tr key={i} className="border-b border-esport-border/50 hover:bg-white/5 transition-colors">
                     <td className="p-4">
@@ -2535,7 +2719,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
             </div>
           </div>
           <div className="text-esport-text-muted text-sm">
-            ֲ© 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
+            © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-esport-text-muted hover:text-white transition-colors">Twitter</a>
@@ -2668,7 +2852,7 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
             type="password" 
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢" 
+            placeholder="••••••••" 
             className="w-full bg-white/5 border border-esport-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 transition-all" 
           />
         </div>
@@ -3533,6 +3717,12 @@ function AdminPanel({ addToast }: { addToast: any }) {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
