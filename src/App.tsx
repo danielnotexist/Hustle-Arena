@@ -82,7 +82,11 @@ import {
   updateDoc,
   getDocs,
   collection,
-  query
+  query,
+  storage,
+  ref,
+  uploadString,
+  getDownloadURL
 } from "./firebase";
 
 // --- Types ---
@@ -109,13 +113,18 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
+const ADMIN_EMAIL = "danielnotexist@gmail.com";
+
 // --- Main App Component ---
 export default function App() {
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = typeof window !== "undefined" ? window.localStorage.getItem("activeTab") : null;
+    return savedTab || "Dashboard";
+  });
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [profileData, setProfileData] = useState({ bio: "Ready to dominate the arena. Tactical shooter veteran.", country: "Israel", twitter: "", twitch: "" });
@@ -139,8 +148,8 @@ export default function App() {
             const initialProfile = {
               username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "Player",
               email: firebaseUser.email,
-              role: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "admin" : "user",
-              kycStatus: firebaseUser.email?.toLowerCase() === "danielnotexist@gmail.com" ? "verified" : "none",
+              role: firebaseUser.email?.toLowerCase() === ADMIN_EMAIL ? "admin" : "user",
+              kycStatus: firebaseUser.email?.toLowerCase() === ADMIN_EMAIL ? "verified" : "none",
               bio: "Ready to dominate the arena. Tactical shooter veteran.",
               country: "Israel",
               twitter: "",
@@ -156,6 +165,11 @@ export default function App() {
               }
             };
             await setDoc(userDocRef, initialProfile);
+          } else if (firebaseUser.email?.toLowerCase() === ADMIN_EMAIL) {
+            const profile = userDoc.data();
+            if (profile.role !== "admin" || profile.kycStatus !== "verified") {
+              await setDoc(userDocRef, { role: "admin", kycStatus: "verified" }, { merge: true });
+            }
           }
 
           // Real-time profile listener
@@ -169,6 +183,14 @@ export default function App() {
                 twitter: profile.twitter || "",
                 twitch: profile.twitch || ""
               });
+              setStats({
+                credits: profile.stats?.credits ?? 0,
+                level: profile.stats?.level ?? 1,
+                rank: profile.stats?.rank ?? "Bronze I",
+                winRate: profile.stats?.winRate ?? "0%",
+                kdRatio: profile.stats?.kdRatio ?? 0,
+                headshotPct: profile.stats?.headshotPct ?? "0%"
+              });
             }
           }, (err) => {
             console.error("Profile snapshot error:", err);
@@ -180,6 +202,7 @@ export default function App() {
         setIsLoggedIn(false);
         setUser(null);
         setIsAdmin(false);
+        setStats(null);
         if (profileUnsubscribe) profileUnsubscribe();
       }
     });
@@ -191,18 +214,15 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      // For now, keep mock stats or fetch from Supabase if table exists
-      // fetch("/api/user/stats")
-      setStats({
-        credits: 2450,
-        level: 42,
-        rank: "Diamond III",
-        winRate: "64.5%",
-        kdRatio: 1.42,
-        headshotPct: "52.1%"
-      });
+      window.localStorage.setItem("activeTab", activeTab);
     }
-  }, [isLoggedIn]);
+  }, [activeTab, isLoggedIn]);
+
+  useEffect(() => {
+    if (isLoggedIn && !isAdmin && activeTab === "Admin") {
+      setActiveTab("Dashboard");
+    }
+  }, [isLoggedIn, isAdmin, activeTab]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -245,7 +265,7 @@ export default function App() {
       role: userData.role || "user",
       kycStatus: userData.kycStatus || "none"
     };
-    setIsAdmin(userProfile.role === "admin" || userProfile.email?.toLowerCase() === "danielnotexist@gmail.com");
+    setIsAdmin(userProfile.role === "admin" || userProfile.email?.toLowerCase() === ADMIN_EMAIL);
     setUser(userProfile);
     setView("dashboard");
     addToast(`Welcome back, ${userProfile.username}!`, "success");
@@ -257,6 +277,7 @@ export default function App() {
     setIsLoggedIn(false);
     setIsAdmin(false);
     setUser(null);
+    window.localStorage.removeItem("activeTab");
     setView("landing");
     addToast("Logged out successfully", "info");
   };
@@ -377,7 +398,7 @@ export default function App() {
                   <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
                     <Star size={12} className="text-white fill-white" />
                   </div>
-                  <span className="text-xs font-bold">{stats?.credits.toLocaleString() || 0} CR</span>
+                  <span className="text-xs font-bold">${(stats?.credits ?? 0).toLocaleString()} USDT</span>
                   <Plus size={14} className="text-esport-text-muted" />
                 </div>
                 
@@ -393,7 +414,7 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
+              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== ADMIN_EMAIL && user?.kycStatus !== 'verified' && (
                 <div className="sticky top-0 z-[30] bg-esport-accent/10 border-b border-esport-accent/30 backdrop-blur-md p-3 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-esport-accent/20 rounded-full flex items-center justify-center">
@@ -429,7 +450,7 @@ export default function App() {
                     transition={{ duration: 0.2 }}
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
-                    {activeTab === "Deposit" && <DepositPage addToast={addToast} />}
+                    {activeTab === "Deposit" && <DepositPage addToast={addToast} user={user} />}
                     {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} openModal={openModal} />}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
@@ -896,7 +917,10 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
 }
 
 function BattlefieldView({ addToast, openModal, user }: any) {
-  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
+  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const kycStatus = user?.kycStatus || "none";
+  const isKycPending = kycStatus === "pending";
+  const isKycRejected = kycStatus === "rejected";
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -969,15 +993,25 @@ function BattlefieldView({ addToast, openModal, user }: any) {
         <div className="space-y-2">
           <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield Locked</h2>
           <p className="text-esport-text-muted max-w-md mx-auto">
-            You must complete your KYC verification before you can enter the battlefield and compete for prizes.
+            {isKycPending
+              ? "Your KYC is currently under review. You'll unlock Battlefield as soon as verification is approved."
+              : isKycRejected
+              ? "Your KYC was rejected. Please update your information and submit again to unlock Battlefield."
+              : "You must complete your KYC verification before you can enter the battlefield and compete for prizes."}
           </p>
         </div>
-        <button 
-          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
-          className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
-        >
-          Verify Identity Now
-        </button>
+        {isKycPending ? (
+          <div className="px-8 py-4 uppercase tracking-widest text-sm font-bold rounded-lg border border-esport-accent/40 bg-esport-accent/10 text-esport-accent">
+            Under Review
+          </div>
+        ) : (
+          <button 
+            onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
+            className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
+          >
+            {isKycRejected ? "Update KYC Info" : "Verify Identity Now"}
+          </button>
+        )}
       </div>
     );
   }
@@ -1378,7 +1412,7 @@ function MissionsView({ addToast }: any) {
                 <span className="flex items-center gap-1"><Clock size={10} /> {mission.time}</span>
               </div>
               <div className="flex items-center justify-between pt-6 border-t border-esport-border">
-                <div className="text-esport-secondary font-display font-bold text-xl">{mission.reward} CR</div>
+                <div className="text-esport-secondary font-display font-bold text-xl">${mission.reward} USDT</div>
                 <button 
                   onClick={() => acceptMission(mission.id)}
                   className="esport-btn-primary py-2 px-4 text-[10px]"
@@ -2339,6 +2373,12 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     }
   };
 
+  const uploadKycDocument = async (type: 'idFront' | 'addressProof' | 'selfie', dataUrl: string) => {
+    const docRef = ref(storage, `kyc/${user.id}/${type}-${Date.now()}.jpg`);
+    await uploadString(docRef, dataUrl, "data_url");
+    return getDownloadURL(docRef);
+  };
+
   const submitKYC = async () => {
     if (!user?.id) return;
     if (!documents.idFront || !documents.addressProof || !documents.selfie) {
@@ -2351,17 +2391,50 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
     }
     setLoading(true);
     try {
-      await updateDoc(doc(db, "users", user.id), {
+      const uploadResults = await Promise.allSettled([
+        uploadKycDocument("idFront", documents.idFront!),
+        uploadKycDocument("addressProof", documents.addressProof!),
+        uploadKycDocument("selfie", documents.selfie!),
+      ]);
+
+      const uploadedDocs: { idFront?: string; addressProof?: string; selfie?: string } = {};
+      const docKeys: Array<"idFront" | "addressProof" | "selfie"> = ["idFront", "addressProof", "selfie"];
+      uploadResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          uploadedDocs[docKeys[index]] = result.value;
+        }
+      });
+
+      await setDoc(doc(db, "users", user.id), {
         kycStatus: "pending",
         kycUpdatedAt: serverTimestamp(),
         kycMessage: null,
-        kycDocuments: documents,
+        kycDocuments: uploadedDocs,
+        kycUploadsComplete: Object.keys(uploadedDocs).length === 3,
         kycDetails: personalInfo
-      });
-      addToast("KYC Documents submitted for review!", "success");
+      }, { merge: true });
+
+      if (Object.keys(uploadedDocs).length === 3) {
+        addToast("KYC Documents submitted for review!", "success");
+      } else {
+        addToast("KYC sent for review, but some images failed to upload. Admin can still review your details.", "info");
+      }
     } catch (error) {
       console.error("KYC submission error:", error);
-      addToast("Failed to submit KYC", "error");
+      try {
+        await setDoc(doc(db, "users", user.id), {
+          kycStatus: "pending",
+          kycUpdatedAt: serverTimestamp(),
+          kycMessage: "Uploads failed - review requested without full documents",
+          kycDocuments: {},
+          kycUploadsComplete: false,
+          kycDetails: personalInfo
+        }, { merge: true });
+        addToast("KYC sent for review without files (upload failed). Please retry documents later.", "info");
+      } catch (fallbackError) {
+        console.error("KYC fallback submission error:", fallbackError);
+        addToast("Failed to submit KYC. Please check Firebase Storage/Firestore permissions.", "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -2532,12 +2605,33 @@ function KYCForm({ addToast, user }: { addToast: any, user: any }) {
   );
 }
 
-function DepositPage({ addToast }: { addToast: any }) {
+function DepositPage({ addToast, user }: { addToast: any, user: any }) {
   const btcAddress = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"; // Placeholder BTC Address
+  const [depositAmount, setDepositAmount] = useState(100);
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(btcAddress);
     addToast("Address copied to clipboard!", "success");
+  };
+
+  const confirmDeposit = async () => {
+    if (!user?.id) {
+      addToast("Please sign in first", "error");
+      return;
+    }
+
+    const userRef = doc(db, "users", user.id);
+    const snap = await getDoc(userRef);
+    const currentCredits = snap.data()?.stats?.credits || 0;
+
+    await setDoc(userRef, {
+      stats: {
+        ...(snap.data()?.stats || {}),
+        credits: currentCredits + depositAmount
+      }
+    }, { merge: true });
+
+    addToast(`Deposit confirmed: +$${depositAmount} USDT`, "success");
   };
 
   return (
@@ -2581,6 +2675,20 @@ function DepositPage({ addToast }: { addToast: any }) {
             </div>
           </div>
 
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Deposit Amount (USDT)</label>
+            <input
+              type="number"
+              min={1}
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(Math.max(1, Number(e.target.value) || 1))}
+              className="w-full bg-black/40 border border-esport-border rounded-xl px-4 py-3 text-white focus:outline-none focus:border-esport-accent/50"
+            />
+            <button onClick={confirmDeposit} className="esport-btn-primary w-full">
+              Confirm Deposit
+            </button>
+          </div>
+
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 bg-white/5 border border-esport-border rounded-xl">
               <div className="w-10 h-10 rounded-full bg-esport-secondary/10 flex items-center justify-center text-esport-secondary">
@@ -2622,6 +2730,8 @@ function AdminPanel({ addToast }: { addToast: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [previewDocument, setPreviewDocument] = useState<{ url: string, label: string } | null>(null);
+  const kycFilterOptions = ["all", "none", "pending", "verified", "rejected"] as const;
 
   useEffect(() => {
     const q = query(collection(db, "users"));
@@ -2670,12 +2780,35 @@ function AdminPanel({ addToast }: { addToast: any }) {
     }
   };
 
+  const handleEditingUserKycStatusChange = async (nextStatus: string) => {
+    if (!editingUser?.id) return;
+    if (nextStatus === "rejected") {
+      setRejectReason(editingUser.kycMessage || "");
+      setRejectingUser(editingUser);
+      return;
+    }
+
+    await updateUserField(editingUser.id, "kycStatus", nextStatus);
+    if (nextStatus === "verified") {
+      await updateUserField(editingUser.id, "kycMessage", null);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          user.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === "all" || user.kycStatus === filterStatus;
+    const userKycStatus = user.kycStatus || "none";
+    const matchesFilter = filterStatus === "all" || userKycStatus === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const kycCounts = {
+    all: users.length,
+    none: users.filter(u => (u.kycStatus || "none") === "none").length,
+    pending: users.filter(u => u.kycStatus === "pending").length,
+    verified: users.filter(u => u.kycStatus === "verified").length,
+    rejected: users.filter(u => u.kycStatus === "rejected").length,
+  };
 
   const stats = {
     total: users.length,
@@ -2728,7 +2861,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
               <Star className="text-esport-success" size={20} />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-esport-text-muted uppercase">Credits Circ.</div>
+              <div className="text-[10px] font-bold text-esport-text-muted uppercase">USDT Circ.</div>
               <div className="text-xl font-display font-bold">{stats.totalCredits.toLocaleString()}</div>
             </div>
           </div>
@@ -2815,8 +2948,10 @@ function AdminPanel({ addToast }: { addToast: any }) {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-            {['all', 'pending', 'verified', 'rejected', 'none'].map(status => (
+          <div className="w-full md:w-auto">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-2">Filter by KYC Status</div>
+            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            {kycFilterOptions.map(status => (
               <button 
                 key={status}
                 onClick={() => setFilterStatus(status)}
@@ -2827,9 +2962,10 @@ function AdminPanel({ addToast }: { addToast: any }) {
                     : "bg-white/5 text-esport-text-muted border-esport-border hover:border-white/30"
                 )}
               >
-                {status}
+                {status} ({kycCounts[status]})
               </button>
             ))}
+            </div>
           </div>
         </div>
 
@@ -2875,7 +3011,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                     <td className="p-6">
                       <div className="flex items-center gap-2 font-mono font-bold text-esport-accent">
                         <Star size={14} />
-                        {user.stats?.credits?.toLocaleString() || 0}
+                        ${user.stats?.credits?.toLocaleString() || 0} USDT
                       </div>
                     </td>
                     <td className="p-6">
@@ -2889,7 +3025,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                         )}>
                           {user.kycStatus || 'none'}
                         </span>
-                        {user.kycDocuments && (
+                        {user.kycDocuments && Object.keys(user.kycDocuments).length > 0 && (
                           <div className="text-esport-accent" title="Documents Uploaded">
                             <FileText size={14} />
                           </div>
@@ -3001,7 +3137,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                 <select 
                   className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-esport-accent/50"
                   value={editingUser.kycStatus}
-                  onChange={(e) => updateUserField(editingUser.id, "kycStatus", e.target.value)}
+                  onChange={(e) => handleEditingUserKycStatusChange(e.target.value)}
                 >
                   <option value="none">None</option>
                   <option value="pending">Pending</option>
@@ -3033,14 +3169,14 @@ function AdminPanel({ addToast }: { addToast: any }) {
 
             <div className="space-y-4">
               <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">KYC Documents</label>
-              {editingUser.kycDocuments ? (
+              {editingUser.kycDocuments && Object.keys(editingUser.kycDocuments).length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {Object.entries(editingUser.kycDocuments).map(([key, url]: [string, any]) => (
                     <div key={key} className="space-y-1">
                       <div className="text-[8px] uppercase font-bold text-esport-text-muted">{key}</div>
                       <div 
                         className="aspect-square bg-black/40 rounded-lg border border-esport-border overflow-hidden cursor-pointer hover:border-esport-accent transition-all"
-                        onClick={() => window.open(url, '_blank')}
+                        onClick={() => setPreviewDocument({ url, label: key })}
                       >
                         <img src={url} className="w-full h-full object-cover" />
                       </div>
@@ -3071,7 +3207,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
               <div className="grid grid-cols-2 gap-4">
                 <button 
                   onClick={() => {
-                    const amount = prompt("Enter credits to add:");
+                    const amount = prompt("Enter USDT amount to add:");
                     if (amount) {
                       const newCredits = (editingUser.stats?.credits || 0) + parseInt(amount);
                       updateUserField(editingUser.id, "stats", { ...editingUser.stats, credits: newCredits });
@@ -3103,6 +3239,21 @@ function AdminPanel({ addToast }: { addToast: any }) {
 
             <button onClick={() => setEditingUser(null)} className="esport-btn-primary w-full">Done</button>
           </motion.div>
+        </div>
+      )}
+
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black/90 z-[120] flex items-center justify-center p-4" onClick={() => setPreviewDocument(null)}>
+          <div className="max-w-5xl w-full max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewDocument(null)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <div className="text-xs uppercase tracking-widest text-esport-text-muted mb-3">{previewDocument.label}</div>
+            <img src={previewDocument.url} className="w-full max-h-[85vh] object-contain rounded-xl border border-esport-border bg-black/50" />
+          </div>
         </div>
       )}
     </div>
