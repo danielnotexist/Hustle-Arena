@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -65,6 +65,7 @@ import {
   FileText
 } from "lucide-react";
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { supabase } from "./lib/supabase";
 import { 
   auth, 
   db, 
@@ -441,7 +442,7 @@ export default function App() {
                     {activeTab === "Deposit" && <DepositPage addToast={addToast} />}
                     {activeTab === "Profile" && <UserProfileView user={user} stats={stats} profileData={profileData} setProfileData={setProfileData} addToast={addToast} openModal={openModal} />}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} />}
-                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} />}
+                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
@@ -591,7 +592,7 @@ function DashboardView({ stats }: { stats: UserStats | null }) {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold">Competitive Match - Mirage</div>
-                    <div className="text-xs text-esport-text-muted">Victory • 16 - 12 • 24 kills</div>
+                    <div className="text-xs text-esport-text-muted">Victory ג€¢ 16 - 12 ג€¢ 24 kills</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-esport-success">+24 ELO</div>
@@ -833,7 +834,7 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
                           {i % 2 === 0 ? 'DEFEAT' : 'VICTORY'}
                         </div>
                         <div>
-                          <div className="font-bold">Ranked 5v5 • Cyberia</div>
+                          <div className="font-bold">Ranked 5v5 ג€¢ Cyberia</div>
                           <div className="text-xs text-esport-text-muted">{i} days ago</div>
                         </div>
                       </div>
@@ -1142,74 +1143,431 @@ function BattlefieldView({ addToast, openModal, user }: any) {
   );
 }
 
-function SquadHubView({ addToast }: any) {
-  const [squads, setSquads] = useState<any[]>([]);
+function SquadHubView({ addToast, user }: any) {
   const [loading, setLoading] = useState(true);
+  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string }>>([]);
+  const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Array<{ id: number; sender_id: string; receiver_id: string; message: string; message_type: string; metadata: any; created_at: string }>>([]);
+  const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
+  const [messageDraft, setMessageDraft] = useState('');
+  const [addFriendUsername, setAddFriendUsername] = useState('');
+
+  const selectedFriend = useMemo(
+    () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
+    [friendsList, selectedFriendId]
+  );
+
+  const loadFriends = async () => {
+    if (!user?.id) return;
+
+    const [asOwnerRes, asPeerRes] = await Promise.all([
+      supabase.from('friends').select('friend_id').eq('user_id', user.id),
+      supabase.from('friends').select('user_id').eq('friend_id', user.id)
+    ]);
+
+    const ids = new Set<string>();
+    (asOwnerRes.data ?? []).forEach((r: any) => ids.add(r.friend_id));
+    (asPeerRes.data ?? []).forEach((r: any) => ids.add(r.user_id));
+
+    if (!ids.size) {
+      setFriendsList([]);
+      setSelectedFriendId(null);
+      return;
+    }
+
+    const idList = Array.from(ids);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id,username')
+      .in('id', idList)
+      .order('username', { ascending: true });
+
+    const mapped = (profilesData ?? []).map((p: any) => ({ id: p.id as string, username: p.username as string }));
+    setFriendsList(mapped);
+
+    if (!selectedFriendId || !mapped.some((f) => f.id === selectedFriendId)) {
+      setSelectedFriendId(mapped[0]?.id ?? null);
+    }
+  };
+
+  const loadPendingRequests = async () => {
+    if (!user?.id) return;
+
+    const { data } = await supabase
+      .from('friend_requests')
+      .select('id,requester_id,status')
+      .eq('target_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    const rows = data ?? [];
+    if (!rows.length) {
+      setPendingRequests([]);
+      return;
+    }
+
+    const requesterIds = rows.map((r: any) => r.requester_id);
+    const { data: requesterProfiles } = await supabase
+      .from('profiles')
+      .select('id,username')
+      .in('id', requesterIds);
+
+    const lookup: Record<string, string> = {};
+    (requesterProfiles ?? []).forEach((p: any) => {
+      lookup[p.id] = p.username;
+    });
+
+    setPendingRequests(
+      rows.map((r: any) => ({
+        id: r.id,
+        requester_id: r.requester_id,
+        username: lookup[r.requester_id] ?? 'Unknown'
+      }))
+    );
+  };
+
+  const handleFriendRequest = async (request: { id: number; requester_id: string }, action: 'accept' | 'ignore' | 'block') => {
+    if (!user?.id) return;
+
+    if (action === 'accept') {
+      await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', request.id).eq('target_id', user.id);
+      await supabase.from('friends').upsert([
+        { user_id: user.id, friend_id: request.requester_id },
+        { user_id: request.requester_id, friend_id: user.id }
+      ]);
+      addToast('Friend request accepted', 'success');
+    }
+
+    if (action === 'ignore') {
+      await supabase.from('friend_requests').update({ status: 'ignored' }).eq('id', request.id).eq('target_id', user.id);
+      addToast('Friend request ignored', 'info');
+    }
+
+    if (action === 'block') {
+      await supabase.from('friend_requests').update({ status: 'blocked' }).eq('id', request.id).eq('target_id', user.id);
+      await supabase.from('blocked_users').upsert({ user_id: user.id, blocked_user_id: request.requester_id });
+      addToast('User blocked', 'info');
+    }
+
+    await Promise.all([loadPendingRequests(), loadFriends()]);
+  };
+
+  const sendFriendRequest = async () => {
+    const username = addFriendUsername.trim();
+    if (!username || !user?.id) return;
+
+    const { data: target } = await supabase
+      .from('profiles')
+      .select('id,username')
+      .eq('username', username)
+      .neq('id', user.id)
+      .maybeSingle();
+
+    if (!target?.id) {
+      addToast('User not found', 'error');
+      return;
+    }
+
+    const { error } = await supabase.from('friend_requests').upsert({
+      requester_id: user.id,
+      target_id: target.id,
+      status: 'pending'
+    }, { onConflict: 'requester_id,target_id' });
+
+    if (error) {
+      addToast('Unable to send friend request', 'error');
+      return;
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: target.id,
+      type: 'friend_request',
+      message: user.username + ' sent you a friend request',
+      notice_type: 'friend_request',
+      title: 'Friend Request',
+      body: user.username + ' sent you a friend request',
+      link_target: '/squad-hub',
+      is_read: false,
+      metadata: {}
+    });
+
+    setAddFriendUsername('');
+    addToast('Friend request sent', 'success');
+  };
+
+  const loadUnreadCounts = async () => {
+    if (!user?.id) return;
+
+    const { data } = await supabase
+      .from('direct_messages')
+      .select('sender_id')
+      .eq('receiver_id', user.id)
+      .eq('is_read', false);
+
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((row: any) => {
+      const sender = row.sender_id as string;
+      counts[sender] = (counts[sender] ?? 0) + 1;
+    });
+
+    setUnreadByFriend(counts);
+  };
+
+  const loadThread = async (friendId: string | null) => {
+    if (!user?.id || !friendId) {
+      setThreadMessages([]);
+      return;
+    }
+
+    const condition =
+      'and(sender_id.eq.' + user.id + ',receiver_id.eq.' + friendId + '),and(sender_id.eq.' + friendId + ',receiver_id.eq.' + user.id + ')';
+
+    const { data } = await supabase
+      .from('direct_messages')
+      .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
+      .or(condition)
+      .order('created_at', { ascending: true })
+      .limit(200);
+
+    setThreadMessages((data ?? []) as any);
+
+    await supabase
+      .from('direct_messages')
+      .update({ is_read: true })
+      .eq('receiver_id', user.id)
+      .eq('sender_id', friendId)
+      .eq('is_read', false);
+
+    await loadUnreadCounts();
+  };
+
+  const sendMessage = async () => {
+    const text = messageDraft.trim();
+    if (!text || !selectedFriendId || !user?.id) return;
+
+    const { error } = await supabase.from('direct_messages').insert({
+      sender_id: user.id,
+      receiver_id: selectedFriendId,
+      message: text,
+      message_type: 'text',
+      metadata: {}
+    });
+
+    if (error) {
+      addToast('Failed to send message', 'error');
+      return;
+    }
+
+    setMessageDraft('');
+  };
 
   useEffect(() => {
-    // In a real app, fetch from Firestore
-    // For now, we'll show an empty state if no squads are found
-    setLoading(false);
-  }, []);
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    const boot = async () => {
+      setLoading(true);
+      await Promise.all([loadFriends(), loadPendingRequests(), loadUnreadCounts()]);
+      setLoading(false);
+    };
+
+    boot().catch((err) => {
+      console.error(err);
+      setLoading(false);
+    });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedFriendId && friendsList.length) {
+      setSelectedFriendId(friendsList[0].id);
+    }
+  }, [friendsList, selectedFriendId]);
+
+  useEffect(() => {
+    loadThread(selectedFriendId).catch((err) => console.error(err));
+  }, [selectedFriendId, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('dm:' + user.id)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_messages' },
+        (payload: any) => {
+          const row = payload.new ?? payload.old;
+          if (!row) return;
+          const involvesUser = row.sender_id === user.id || row.receiver_id === user.id;
+          if (!involvesUser) return;
+
+          loadUnreadCounts().catch((err) => console.error(err));
+
+          if (selectedFriendId && (row.sender_id === selectedFriendId || row.receiver_id === selectedFriendId)) {
+            loadThread(selectedFriendId).catch((err) => console.error(err));
+          }
+        }
+      )
+      .subscribe();
+
+    const requestsChannel = supabase
+      .channel('friend-requests:' + user.id)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friend_requests', filter: 'target_id=eq.' + user.id },
+        () => {
+          loadPendingRequests().catch((err) => console.error(err));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(requestsChannel);
+    };
+  }, [user?.id, selectedFriendId]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Active Squads</h3>
-          <p className="text-sm text-esport-text-muted">Find a team and dominate together.</p>
-        </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <button className="esport-btn-secondary flex-1 md:flex-none"><Filter size={16} /> Filters</button>
-          <button onClick={() => addToast("Squad creation opened", "info")} className="esport-btn-primary flex-1 md:flex-none"><Plus size={16} /> Create Squad</button>
+          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
+          <p className="text-sm text-esport-text-muted">Direct messages + friend requests are fully dynamic now.</p>
         </div>
       </div>
 
-      {loading ? (
-        <div className="esport-card p-12 text-center animate-shimmer">Loading Squads...</div>
-      ) : squads.length === 0 ? (
-        <div className="esport-card p-12 text-center text-esport-text-muted">No squads active. Be the first to create one!</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {squads.map(squad => (
-            <div key={squad.id} className="esport-card p-6 esport-card-hover group">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex -space-x-3">
-                  {Array.from({ length: squad.members }).map((_, i) => (
-                    <img key={i} src={`https://ui-avatars.com/api/?name=Player+${i}&background=random`} className="w-10 h-10 rounded-full border-2 border-esport-card shadow-lg" />
-                  ))}
-                  {squad.members < squad.max && (
-                    <div className="w-10 h-10 rounded-full border-2 border-dashed border-esport-border flex items-center justify-center bg-black/20 text-esport-text-muted text-xs font-bold">
-                      +{squad.max - squad.members}
-                    </div>
-                  )}
+      <div className="esport-card p-4">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
+        <div className="flex gap-2">
+          <input
+            value={addFriendUsername}
+            onChange={(e) => setAddFriendUsername(e.target.value)}
+            placeholder="Enter exact username"
+            className="flex-1 bg-white/5 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/50"
+          />
+          <button onClick={() => sendFriendRequest().catch((err) => console.error(err))} className="esport-btn-primary">Send Request</button>
+        </div>
+      </div>
+
+      {pendingRequests.length ? (
+        <div className="esport-card p-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Friend Requests</div>
+          <div className="space-y-2">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
+                <div className="text-sm"><span className="font-bold">{req.username}</span> sent you a friend request</div>
+                <div className="flex gap-2">
+                  <button className="esport-btn-primary" onClick={() => handleFriendRequest(req, 'accept').catch((err) => console.error(err))}>Accept</button>
+                  <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'ignore').catch((err) => console.error(err))}>Ignore</button>
+                  <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'block').catch((err) => console.error(err))}>Block</button>
                 </div>
-                <div className="badge badge-accent">LVL {squad.level}</div>
               </div>
-              <h4 className="text-lg font-display font-bold uppercase mb-1 group-hover:text-esport-accent transition-colors">{squad.name}</h4>
-              <div className="text-xs text-esport-text-muted mb-6 flex items-center gap-2">
-                <User size={12} />
-                Leader: <span className="text-white font-bold">{squad.leader}</span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="esport-card p-12 text-center animate-shimmer">Loading chats...</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+          <div className="esport-card p-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Your Friends</div>
+            {!friendsList.length ? (
+              <div className="text-sm text-esport-text-muted">No friends yet. Add friends to start direct messaging.</div>
+            ) : (
+              <div className="space-y-2">
+                {friendsList.map((friend) => {
+                  const unread = unreadByFriend[friend.id] ?? 0;
+                  const active = selectedFriendId === friend.id;
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => setSelectedFriendId(friend.id)}
+                      className={'w-full text-left p-3 rounded-lg border transition-all ' + (active ? 'border-esport-accent bg-esport-accent/10' : 'border-esport-border hover:border-white/30 hover:bg-white/5')}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="font-bold text-sm truncate">{friend.username}</div>
+                        {unread > 0 ? (
+                          <span className="min-w-[20px] h-5 px-1 bg-esport-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex flex-wrap gap-2 mb-8">
-                {squad.tags.map((tag: string) => (
-                  <span key={tag} className="px-2 py-1 bg-white/5 border border-esport-border rounded text-[9px] font-bold uppercase text-esport-text-muted">{tag}</span>
-                ))}
+            )}
+          </div>
+
+          <div className="esport-card p-0 overflow-hidden flex flex-col min-h-[520px]">
+            <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>
+                <div className="text-sm font-bold text-white">{selectedFriend?.username ?? 'Select a friend'}</div>
               </div>
-              <button 
-                onClick={() => addToast(`Join request sent to ${squad.name}`, "success")}
-                className="w-full py-3 bg-esport-accent/10 border border-esport-accent/30 hover:bg-esport-accent hover:text-white text-esport-accent font-bold text-xs uppercase tracking-widest rounded-lg transition-all"
+            </div>
+
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3 bg-black/10">
+              {!selectedFriend ? (
+                <div className="text-sm text-esport-text-muted">Choose a friend from the left to open your chat.</div>
+              ) : threadMessages.length === 0 ? (
+                <div className="text-sm text-esport-text-muted">No messages yet. Say hi.</div>
+              ) : (
+                threadMessages.map((msg) => {
+                  const mine = msg.sender_id === user?.id;
+                  const isInvite = msg.message_type === 'game_invite';
+                  return (
+                    <div key={msg.id} className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
+                      <div className={'max-w-[75%] px-3 py-2 rounded-xl text-sm ' + (mine ? 'bg-esport-accent text-white' : 'bg-white/10 text-white border border-esport-border')}>
+                        <div>{msg.message}</div>
+                        {isInvite ? (
+                          <div className="mt-2">
+                            <button className="esport-btn-primary" onClick={() => addToast('Lobby invite flow will open here', 'info')}>Join</button>
+                          </div>
+                        ) : null}
+                        <div className={'text-[10px] mt-1 ' + (mine ? 'text-white/70' : 'text-esport-text-muted')}>
+                          {new Date(msg.created_at).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-3 border-t border-esport-border flex items-center gap-2">
+              <input
+                value={messageDraft}
+                onChange={(e) => setMessageDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage().catch((err) => console.error(err));
+                  }
+                }}
+                placeholder={selectedFriend ? ('Message ' + selectedFriend.username + '...') : 'Select a friend first'}
+                disabled={!selectedFriend}
+                className="flex-1 bg-white/5 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/50 disabled:opacity-50"
+              />
+              <button
+                onClick={() => sendMessage().catch((err) => console.error(err))}
+                disabled={!selectedFriend || !messageDraft.trim()}
+                className="esport-btn-primary disabled:opacity-40"
               >
-                Request to Join
+                Send
               </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 function ApexListView() {
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1636,7 +1994,7 @@ function HustlePrimeView() {
           </h1>
           
           <div className="text-2xl font-bold mb-2">$7.99/month</div>
-          <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes • Cancel anytime</div>
+          <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes ג€¢ Cancel anytime</div>
           
           <button className="esport-btn-primary py-3 px-8 text-lg mb-4">
             UPGRADE TO PRIME
@@ -1780,7 +2138,7 @@ function HustlePrimeView() {
                 <PlayCircle className="w-6 h-6 text-white" />
               </div>
               <h4 className="font-bold mb-2">Match Highlights</h4>
-              <p className="text-xs text-esport-text-muted">Relive your epic in-game actions—no client needed!</p>
+              <p className="text-xs text-esport-text-muted">Relive your epic in-game actionsג€”no client needed!</p>
             </div>
           </div>
         </div>
@@ -1848,7 +2206,7 @@ function HustlePrimeView() {
                   { name: 'Map selection', desc: 'Select 5 maps you prefer to play on.', free: false, plus: true, prime: true },
                   { name: 'Prime Bounties', desc: 'Complete missions and earn rare Skins and Points.', free: false, plus: false, prime: true },
                   { name: 'Elite Leaderboards', desc: 'Climb the new Prime ladders available each week and win your share of Points and skins.', free: false, plus: false, prime: true },
-                  { name: 'Match highlights', desc: 'Relive your epic in-game actions—no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
+                  { name: 'Match highlights', desc: 'Relive your epic in-game actionsג€”no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
                 ].map((feature, i) => (
                   <tr key={i} className="border-b border-esport-border/50 hover:bg-white/5 transition-colors">
                     <td className="p-4">
@@ -2177,7 +2535,7 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
             </div>
           </div>
           <div className="text-esport-text-muted text-sm">
-            © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
+            ֲ© 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
           </div>
           <div className="flex gap-6">
             <a href="#" className="text-esport-text-muted hover:text-white transition-colors">Twitter</a>
@@ -2310,7 +2668,7 @@ function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
             type="password" 
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••" 
+            placeholder="ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢ג€¢" 
             className="w-full bg-white/5 border border-esport-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 transition-all" 
           />
         </div>
@@ -3175,3 +3533,6 @@ function AdminPanel({ addToast }: { addToast: any }) {
     </div>
   );
 }
+
+
+
