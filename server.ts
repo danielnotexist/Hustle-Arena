@@ -68,12 +68,12 @@ async function startServer() {
   // --- User Stats ---
   app.get("/api/user/stats", (req, res) => {
     res.json({
-      credits: 2450,
-      level: 42,
-      rank: "Diamond III",
-      winRate: "64.5%",
-      kdRatio: 1.42,
-      headshotPct: "52.1%"
+      credits: 0,
+      level: 1,
+      rank: "Bronze I",
+      winRate: "0%",
+      kdRatio: 0,
+      headshotPct: "0%"
     });
   });
 
