@@ -82,7 +82,9 @@ import {
   updateDoc,
   getDocs,
   collection,
-  query
+  query,
+  orderBy,
+  limit
 } from "./firebase";
 
 // --- Types ---
@@ -152,7 +154,8 @@ export default function App() {
                 rank: "Bronze I",
                 winRate: "0%",
                 kdRatio: 0,
-                headshotPct: "0%"
+                headshotPct: "0%",
+                performance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
               }
             };
             await setDoc(userDocRef, initialProfile);
@@ -203,7 +206,8 @@ export default function App() {
           rank: "Bronze I",
           winRate: "0%",
           kdRatio: 0,
-          headshotPct: "0%"
+          headshotPct: "0%",
+          performance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         });
       }
     }
@@ -796,8 +800,8 @@ function UserProfileView({ user, stats, profileData, setProfileData, addToast, o
                 <div>
                   <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Recent Performance</h3>
                   <div className="h-32 flex items-end gap-2">
-                    {[40, 70, 45, 90, 65, 85, 100, 50, 75, 60].map((h, i) => (
-                      <div key={i} className="flex-1 bg-esport-accent/20 rounded-t-sm hover:bg-esport-accent transition-colors relative group" style={{ height: `${h}%` }}>
+                    {(stats?.performance || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).map((h: number, i: number) => (
+                      <div key={i} className="flex-1 bg-esport-accent/20 rounded-t-sm hover:bg-esport-accent transition-colors relative group" style={{ height: `${h || 2}%` }}>
                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           {h}pts
                         </div>
@@ -1139,11 +1143,14 @@ function BattlefieldView({ addToast, openModal, user }: any) {
 }
 
 function SquadHubView({ addToast }: any) {
-  const squads = [
-    { id: 1, name: "Shadow Realm", leader: "imjozeph-", level: 9, members: 4, max: 5, tags: ["Competitive", "Mic Required"] },
-    { id: 2, name: "Hustle Knights", leader: "K1R0_16", level: 5, members: 2, max: 5, tags: ["Casual", "No Toxicity"] },
-    { id: 3, name: "Cyber Strike", leader: "-Gutzz", level: 3, members: 3, max: 5, tags: ["Discord", "EU"] },
-  ];
+  const [squads, setSquads] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // In a real app, fetch from Firestore
+    // For now, we'll show an empty state if no squads are found
+    setLoading(false);
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -1158,60 +1165,91 @@ function SquadHubView({ addToast }: any) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {squads.map(squad => (
-          <div key={squad.id} className="esport-card p-6 esport-card-hover group">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4].map(i => (
-                  <img key={i} src={`https://ui-avatars.com/api/?name=Player+${i}&background=random`} className="w-10 h-10 rounded-full border-2 border-esport-card shadow-lg" />
-                ))}
-                {squad.members < squad.max && (
-                  <div className="w-10 h-10 rounded-full border-2 border-dashed border-esport-border flex items-center justify-center bg-black/20 text-esport-text-muted text-xs font-bold">
-                    +{squad.max - squad.members}
-                  </div>
-                )}
+      {loading ? (
+        <div className="esport-card p-12 text-center animate-shimmer">Loading Squads...</div>
+      ) : squads.length === 0 ? (
+        <div className="esport-card p-12 text-center text-esport-text-muted">No squads active. Be the first to create one!</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {squads.map(squad => (
+            <div key={squad.id} className="esport-card p-6 esport-card-hover group">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex -space-x-3">
+                  {Array.from({ length: squad.members }).map((_, i) => (
+                    <img key={i} src={`https://ui-avatars.com/api/?name=Player+${i}&background=random`} className="w-10 h-10 rounded-full border-2 border-esport-card shadow-lg" />
+                  ))}
+                  {squad.members < squad.max && (
+                    <div className="w-10 h-10 rounded-full border-2 border-dashed border-esport-border flex items-center justify-center bg-black/20 text-esport-text-muted text-xs font-bold">
+                      +{squad.max - squad.members}
+                    </div>
+                  )}
+                </div>
+                <div className="badge badge-accent">LVL {squad.level}</div>
               </div>
-              <div className="badge badge-accent">LVL {squad.level}</div>
+              <h4 className="text-lg font-display font-bold uppercase mb-1 group-hover:text-esport-accent transition-colors">{squad.name}</h4>
+              <div className="text-xs text-esport-text-muted mb-6 flex items-center gap-2">
+                <User size={12} />
+                Leader: <span className="text-white font-bold">{squad.leader}</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-8">
+                {squad.tags.map((tag: string) => (
+                  <span key={tag} className="px-2 py-1 bg-white/5 border border-esport-border rounded text-[9px] font-bold uppercase text-esport-text-muted">{tag}</span>
+                ))}
+              </div>
+              <button 
+                onClick={() => addToast(`Join request sent to ${squad.name}`, "success")}
+                className="w-full py-3 bg-esport-accent/10 border border-esport-accent/30 hover:bg-esport-accent hover:text-white text-esport-accent font-bold text-xs uppercase tracking-widest rounded-lg transition-all"
+              >
+                Request to Join
+              </button>
             </div>
-            <h4 className="text-lg font-display font-bold uppercase mb-1 group-hover:text-esport-accent transition-colors">{squad.name}</h4>
-            <div className="text-xs text-esport-text-muted mb-6 flex items-center gap-2">
-              <User size={12} />
-              Leader: <span className="text-white font-bold">{squad.leader}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-8">
-              {squad.tags.map(tag => (
-                <span key={tag} className="px-2 py-1 bg-white/5 border border-esport-border rounded text-[9px] font-bold uppercase text-esport-text-muted">{tag}</span>
-              ))}
-            </div>
-            <button 
-              onClick={() => addToast(`Join request sent to ${squad.name}`, "success")}
-              className="w-full py-3 bg-esport-accent/10 border border-esport-accent/30 hover:bg-esport-accent hover:text-white text-esport-accent font-bold text-xs uppercase tracking-widest rounded-lg transition-all"
-            >
-              Request to Join
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function ApexListView() {
-  const players = [
-    { rank: 1, name: "qw1nk1", elo: "5,189", level: 10, winRate: "72%", avatar: "https://ui-avatars.com/api/?name=qw1nk1&background=random" },
-    { rank: 2, name: "fame--", elo: "5,153", level: 10, winRate: "68%", avatar: "https://ui-avatars.com/api/?name=fame--&background=random" },
-    { rank: 3, name: "donk666", elo: "5,061", level: 10, winRate: "70%", avatar: "https://ui-avatars.com/api/?name=donk666&background=random" },
-    { rank: 4, name: "b1st-", elo: "5,060", level: 10, winRate: "65%", avatar: "https://ui-avatars.com/api/?name=b1st-&background=random" },
-    { rank: 5, name: "executor", elo: "5,058", level: 10, winRate: "64%", avatar: "https://ui-avatars.com/api/?name=executor&background=random" },
-  ];
+  const [players, setPlayers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const q = query(
+          collection(db, "users"),
+          orderBy("stats.credits", "desc"),
+          limit(10)
+        );
+        const snapshot = await getDocs(q);
+        const leaderboardData = snapshot.docs.map((doc, index) => {
+          const data = doc.data();
+          return {
+            rank: index + 1,
+            name: data.username || "Unknown",
+            elo: (data.stats?.credits || 0).toLocaleString(),
+            level: data.stats?.level || 1,
+            winRate: data.stats?.winRate || "0%",
+            avatar: `https://ui-avatars.com/api/?name=${data.username || 'Player'}&background=random`
+          };
+        });
+        setPlayers(leaderboardData);
+      } catch (error) {
+        console.error("Leaderboard fetch failed:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLeaderboard();
+  }, []);
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-end">
         <div>
           <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Apex List</h3>
-          <p className="text-sm text-esport-text-muted">The top 1% of Nexus Arena combatants.</p>
+          <p className="text-sm text-esport-text-muted">The top 10 Nexus Arena combatants.</p>
         </div>
         <div className="flex gap-2">
           <button className="badge badge-accent">Season 4</button>
@@ -1219,33 +1257,39 @@ function ApexListView() {
         </div>
       </div>
 
-      <div className="esport-card overflow-hidden">
-        <div className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
-          <div className="px-4">Rank</div>
-          <div>Player</div>
-          <div className="text-center">Win Rate</div>
-          <div className="text-center">Level</div>
-          <div className="text-right px-4">Combat Rating</div>
+      {loading ? (
+        <div className="esport-card p-12 text-center animate-shimmer">Loading Leaderboard...</div>
+      ) : players.length === 0 ? (
+        <div className="esport-card p-12 text-center text-esport-text-muted">No data available yet.</div>
+      ) : (
+        <div className="esport-card overflow-hidden">
+          <div className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
+            <div className="px-4">Rank</div>
+            <div>Player</div>
+            <div className="text-center">Win Rate</div>
+            <div className="text-center">Level</div>
+            <div className="text-right px-4">Combat Rating</div>
+          </div>
+          <div className="divide-y divide-esport-border">
+            {players.map(player => (
+              <div key={player.rank} className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 items-center hover:bg-white/5 transition-colors group cursor-pointer">
+                <div className="px-4 font-display font-bold text-2xl italic text-esport-text-muted group-hover:text-esport-accent transition-colors">
+                  {player.rank === 1 ? <Crown className="text-esport-secondary" size={24} /> : `#${player.rank}`}
+                </div>
+                <div className="flex items-center gap-4">
+                  <img src={player.avatar} className="w-10 h-10 rounded-full border-2 border-esport-border group-hover:border-esport-accent transition-colors" />
+                  <span className="font-bold text-sm group-hover:text-esport-accent transition-colors">{player.name}</span>
+                </div>
+                <div className="text-center text-xs font-bold text-esport-success">{player.winRate}</div>
+                <div className="text-center">
+                  <span className="badge badge-accent">LVL {player.level}</span>
+                </div>
+                <div className="text-right px-4 font-mono font-bold text-esport-accent text-lg">{player.elo}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="divide-y divide-esport-border">
-          {players.map(player => (
-            <div key={player.rank} className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 items-center hover:bg-white/5 transition-colors group cursor-pointer">
-              <div className="px-4 font-display font-bold text-2xl italic text-esport-text-muted group-hover:text-esport-accent transition-colors">
-                {player.rank === 1 ? <Crown className="text-esport-secondary" size={24} /> : `#${player.rank}`}
-              </div>
-              <div className="flex items-center gap-4">
-                <img src={player.avatar} className="w-10 h-10 rounded-full border-2 border-esport-border group-hover:border-esport-accent transition-colors" />
-                <span className="font-bold text-sm group-hover:text-esport-accent transition-colors">{player.name}</span>
-              </div>
-              <div className="text-center text-xs font-bold text-esport-success">{player.winRate}</div>
-              <div className="text-center">
-                <span className="badge badge-accent">LVL {player.level}</span>
-              </div>
-              <div className="text-right px-4 font-mono font-bold text-esport-accent text-lg">{player.elo}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1338,12 +1382,17 @@ function MissionsView({ addToast }: any) {
   useEffect(() => {
     const fetchMissions = async () => {
       try {
-        // For now, use mock data. In a real app, we'd fetch from Firestore.
-        setMissions([
-          { id: 1, title: 'Data Heist', reward: 500, difficulty: 'Hard', time: '2h left' },
-          { id: 2, title: 'Nexus Defense', reward: 200, difficulty: 'Easy', time: '5h left' },
-          { id: 3, title: 'Silent Assassin', reward: 1200, difficulty: 'Extreme', time: '12h left' }
-        ]);
+        const response = await fetch("/api/missions");
+        if (response.ok) {
+          const data = await response.json();
+          setMissions(data.map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            reward: m.reward,
+            difficulty: m.difficulty,
+            time: m.time_left
+          })));
+        }
       } catch (err) {
         console.error("Missions fetch failed:", err);
       } finally {
@@ -1353,8 +1402,21 @@ function MissionsView({ addToast }: any) {
     fetchMissions();
   }, []);
 
-  const acceptMission = (id: number) => {
-    addToast(`Mission ${id} accepted!`, "success");
+  const acceptMission = async (id: number) => {
+    try {
+      const response = await fetch("/api/missions/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ missionId: id })
+      });
+      const data = await response.json();
+      if (data.success) {
+        addToast(data.message, "success");
+      }
+    } catch (error) {
+      console.error("Accept mission error:", error);
+      addToast("Failed to accept mission", "error");
+    }
   };
 
   return (
