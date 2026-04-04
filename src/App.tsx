@@ -162,7 +162,8 @@ export default function App() {
                 winRate: "0%",
                 kdRatio: 0,
                 headshotPct: "0%"
-              }
+              },
+              walletUsdt: 0
             };
             await setDoc(userDocRef, initialProfile);
           } else if (firebaseUser.email?.toLowerCase() === ADMIN_EMAIL) {
@@ -184,7 +185,7 @@ export default function App() {
                 twitch: profile.twitch || ""
               });
               setStats({
-                credits: profile.stats?.credits ?? 0,
+                credits: profile.walletUsdt ?? 0,
                 level: profile.stats?.level ?? 1,
                 rank: profile.stats?.rank ?? "Bronze I",
                 winRate: profile.stats?.winRate ?? "0%",
@@ -2622,13 +2623,10 @@ function DepositPage({ addToast, user }: { addToast: any, user: any }) {
 
     const userRef = doc(db, "users", user.id);
     const snap = await getDoc(userRef);
-    const currentCredits = snap.data()?.stats?.credits || 0;
+    const currentUsdt = snap.data()?.walletUsdt || 0;
 
     await setDoc(userRef, {
-      stats: {
-        ...(snap.data()?.stats || {}),
-        credits: currentCredits + depositAmount
-      }
+      walletUsdt: currentUsdt + depositAmount
     }, { merge: true });
 
     addToast(`Deposit confirmed: +$${depositAmount} USDT`, "success");
@@ -2814,7 +2812,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
     total: users.length,
     verified: users.filter(u => u.kycStatus === 'verified').length,
     pending: users.filter(u => u.kycStatus === 'pending').length,
-    totalCredits: users.reduce((acc, u) => acc + (u.stats?.credits || 0), 0),
+    totalCredits: users.reduce((acc, u) => acc + (u.walletUsdt || 0), 0),
     admins: users.filter(u => u.role === 'admin').length
   };
 
@@ -3011,7 +3009,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                     <td className="p-6">
                       <div className="flex items-center gap-2 font-mono font-bold text-esport-accent">
                         <Star size={14} />
-                        ${user.stats?.credits?.toLocaleString() || 0} USDT
+                        ${(user.walletUsdt || 0).toLocaleString()} USDT
                       </div>
                     </td>
                     <td className="p-6">
@@ -3209,8 +3207,8 @@ function AdminPanel({ addToast }: { addToast: any }) {
                   onClick={() => {
                     const amount = prompt("Enter USDT amount to add:");
                     if (amount) {
-                      const newCredits = (editingUser.stats?.credits || 0) + parseInt(amount);
-                      updateUserField(editingUser.id, "stats", { ...editingUser.stats, credits: newCredits });
+                      const newBalance = (editingUser.walletUsdt || 0) + parseInt(amount);
+                      updateUserField(editingUser.id, "walletUsdt", newBalance);
                     }
                   }}
                   className="flex items-center justify-center gap-2 p-4 bg-esport-accent/10 border border-esport-accent/20 rounded-xl text-esport-accent font-bold text-xs hover:bg-esport-accent hover:text-esport-bg transition-all"
@@ -3228,6 +3226,7 @@ function AdminPanel({ addToast }: { addToast: any }) {
                         kdRatio: 0,
                         headshotPct: "0%"
                       });
+                      updateUserField(editingUser.id, "walletUsdt", 0);
                     }
                   }}
                   className="flex items-center justify-center gap-2 p-4 bg-esport-danger/10 border border-esport-danger/20 rounded-xl text-esport-danger font-bold text-xs hover:bg-esport-danger hover:text-white transition-all"
