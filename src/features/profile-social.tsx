@@ -36,6 +36,18 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
+import {
+  completeDemoMatchForTesting,
+  createMatchmakingLobby,
+  fetchMyActiveLobby,
+  fetchMyActiveMatch,
+  fetchOpenMatchmakingLobbies,
+  leaveMatchmakingLobby,
+  setLobbyMemberReady,
+  startLobbyMatch,
+  type ActiveMatch,
+  type MatchmakingLobby,
+} from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
 import { auth, collection, createUserWithEmailAndPassword, db, doc, getDoc, getDocs, googleProvider, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, signInWithEmailAndPassword, signInWithPopup, updateDoc } from "../firebase";
@@ -190,6 +202,11 @@ export function UserProfileView({
                 {user?.kycStatus === 'rejected' ? 'Re-verify Identity' : 'Verify Identity'}
               </button>
             )}
+            {accountMode === "demo" && user?.kycStatus !== "verified" && (
+              <p className="text-xs text-esport-text-muted mt-3">
+                Demo mode stays playable without KYC. Verification is only required before switching into live-stakes play.
+              </p>
+            )}
           </div>
 
           <div className={`esport-card p-6 border-2 ${accountMode === "demo" ? "border-esport-secondary/30" : "border-esport-success/20"}`}>
@@ -278,7 +295,19 @@ export function UserProfileView({
 
           {/* Quick Stats */}
           <div className="esport-card p-6">
-            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Combat Record</h3>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h3 className="font-display font-bold uppercase tracking-wider text-esport-text-muted text-sm">
+                {accountMode === "demo" ? "Demo Combat Record" : "Live Combat Record"}
+              </h3>
+              <span className={cn("badge text-[10px] font-bold uppercase tracking-widest", accountMode === "demo" ? "badge-secondary" : "badge-success")}>
+                {accountMode}
+              </span>
+            </div>
+            <p className="text-xs text-esport-text-muted mb-4">
+              {accountMode === "demo"
+                ? "Demo progression and performance are displayed separately from your live account."
+                : "These stats represent your live account progression and stake-enabled competitive record."}
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/5 rounded-lg p-3 text-center">
                 <div className="text-2xl font-bold text-esport-accent">{stats?.winRate || "0%"}</div>
@@ -424,6 +453,7 @@ export function UserProfileView({
 
 export function BattlefieldView({ addToast, openModal, user, accountMode }: { addToast: any; openModal: any; user: any; accountMode: AccountMode }) {
   const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
+  const requiresKyc = accountMode === "live";
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -468,7 +498,7 @@ export function BattlefieldView({ addToast, openModal, user, accountMode }: { ad
   };
 
   const startSearch = () => {
-    if (!isKycVerified) {
+    if (requiresKyc && !isKycVerified) {
       addToast("KYC Verification required to play", "error");
       return;
     }
@@ -491,7 +521,7 @@ export function BattlefieldView({ addToast, openModal, user, accountMode }: { ad
     setSearchTime(0);
   };
 
-  if (!isKycVerified) {
+  if (requiresKyc && !isKycVerified) {
     return (
       <div className="max-w-5xl mx-auto h-[60vh] flex flex-col items-center justify-center text-center space-y-6">
         <div className="w-24 h-24 bg-esport-danger/10 rounded-full flex items-center justify-center">

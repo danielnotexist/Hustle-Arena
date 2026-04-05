@@ -32,6 +32,8 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
+import { isSupabaseConfigured } from "./lib/env";
+import { fetchMyReconnectableMatch, launchMatchServer, type ReconnectableMatch } from "./lib/supabase/matchmaking";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
@@ -61,6 +63,7 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
+  const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
   const {
     isLoggedIn,
     isAdmin,
@@ -73,6 +76,7 @@ export default function App() {
     setProfileData,
     switchAccountMode,
     topUpDemoBalance,
+    refreshSession,
   } = usePlatformSession();
   const previousUserIdRef = useRef<string | null>(null);
 
@@ -122,6 +126,36 @@ export default function App() {
     previousUserIdRef.current = null;
     setView("landing");
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured()) {
+      setReconnectMatch(null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadReconnectableMatch = async () => {
+      try {
+        const match = await fetchMyReconnectableMatch();
+        if (!isCancelled) {
+          setReconnectMatch(match);
+        }
+      } catch (error) {
+        console.error("Failed to load reconnectable match:", error);
+      }
+    };
+
+    void loadReconnectableMatch();
+    const interval = window.setInterval(() => {
+      void loadReconnectableMatch();
+    }, 5000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -245,6 +279,22 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-4">
+                {reconnectMatch && (
+                  <button
+                    onClick={() => {
+                      setActiveTab("Battlefield");
+                      try {
+                        launchMatchServer(reconnectMatch.dedicated_server_endpoint);
+                      } catch (error: any) {
+                        addToast(error?.message || "Reconnect endpoint is not available yet.", "error");
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-esport-accent/10 border border-esport-accent/30 rounded-full text-xs font-bold uppercase tracking-wider text-esport-accent hover:bg-esport-accent/20 transition-colors"
+                  >
+                    <PlayCircle size={14} />
+                    Reconnect To Match
+                  </button>
+                )}
                 <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-esport-border rounded-full hover:bg-white/10 transition-colors cursor-pointer">
                   <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
                     <Star size={12} className="text-white fill-white" />
@@ -267,7 +317,7 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-              {isLoggedIn && !isAdmin && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
+              {isLoggedIn && !isAdmin && accountMode === "live" && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
                 <div className="sticky top-0 z-[30] bg-esport-accent/10 border-b border-esport-accent/30 backdrop-blur-md p-3 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-esport-accent/20 rounded-full flex items-center justify-center">
@@ -275,7 +325,7 @@ export default function App() {
                     </div>
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wider text-white">KYC Verification Required</div>
-                      <p className="text-[10px] text-esport-text-muted">Verify your identity to unlock Battlefield and other premium features.</p>
+                      <p className="text-[10px] text-esport-text-muted">Verify your identity to unlock live-stakes matchmaking and other premium features. Demo mode stays available without KYC.</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -318,7 +368,7 @@ export default function App() {
                         openModal={openModal}
                       />
                     )}
-                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} />}
+                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}

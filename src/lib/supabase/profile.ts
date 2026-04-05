@@ -15,7 +15,7 @@ export async function fetchMyProfile() {
 export async function fetchExtendedProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, email, role, account_mode, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance")
+    .select("id, username, email, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance")
     .eq("id", userId)
     .single();
 
@@ -61,7 +61,24 @@ export function mapSupabaseProfileToProfileData(profile: Partial<SupabaseProfile
   };
 }
 
-export function mapSupabaseProfileToStats(profile: Partial<SupabaseProfileRecord>, wallet?: Partial<SupabaseWalletRecord>): UserStats {
+export function mapSupabaseProfileToStats(
+  profile: Partial<SupabaseProfileRecord>,
+  wallet?: Partial<SupabaseWalletRecord>,
+  mode: AccountMode = "live",
+): UserStats {
+  const demoStats = profile.demo_stats || {};
+  if (mode === "demo") {
+    return {
+      credits: wallet?.demo_balance ?? 0,
+      level: demoStats.level ?? 1,
+      rank: demoStats.rank || "Demo Cadet",
+      winRate: demoStats.winRate || "0%",
+      kdRatio: demoStats.kdRatio ?? 0,
+      headshotPct: demoStats.headshotPct || "0%",
+      performance: demoStats.performance || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+  }
+
   return {
     credits: wallet?.available_balance ?? 0,
     level: profile.level ?? 1,
@@ -110,18 +127,15 @@ export async function updateAccountMode(userId: string, accountMode: AccountMode
   }
 }
 
-export async function setDemoBalance(userId: string, amount: number) {
+export async function setDemoBalance(_userId: string, amount: number) {
   const safeAmount = Number(amount);
   if (!Number.isFinite(safeAmount) || safeAmount < 0) {
     throw new Error("Demo balance must be a non-negative amount.");
   }
 
-  const { error } = await supabase
-    .from("wallets")
-    .update({
-      demo_balance: safeAmount,
-    })
-    .eq("user_id", userId);
+  const { error } = await supabase.rpc("set_my_demo_balance", {
+    p_amount: safeAmount,
+  });
 
   if (error) {
     throw error;

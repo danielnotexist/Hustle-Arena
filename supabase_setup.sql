@@ -202,6 +202,7 @@ create table if not exists public.lobbies (
   max_players integer not null generated always as (team_size * 2) stored,
   game_mode text,
   password_hash text,
+  password_required boolean not null default false,
   selected_map text,
   map_voting_active boolean not null default false,
   join_server_deadline timestamptz,
@@ -253,6 +254,8 @@ create table if not exists public.map_vote_sessions (
   turn_seconds integer not null default 15,
   remaining_maps text[] not null default array['dust2','inferno','mirage','vertigo','nuke','overpass','anubis','ancient'],
   status text not null default 'active',
+  round_number integer not null default 1,
+  last_vetoed_map text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -736,9 +739,17 @@ for select using (from_user_id = auth.uid() or to_user_id = auth.uid());
 create policy lobby_invites_insert_sender on public.lobby_invites
 for insert with check (from_user_id = auth.uid());
 
- drop policy if exists lobby_invites_update_participant on public.lobby_invites;
+drop policy if exists lobby_invites_update_participant on public.lobby_invites;
 create policy lobby_invites_update_participant on public.lobby_invites
 for update using (from_user_id = auth.uid() or to_user_id = auth.uid());
+
+drop policy if exists map_vote_sessions_select_all on public.map_vote_sessions;
+create policy map_vote_sessions_select_all on public.map_vote_sessions
+for select using (true);
+
+drop policy if exists map_votes_select_all on public.map_votes;
+create policy map_votes_select_all on public.map_votes
+for select using (true);
 
 -- Match views/events
  drop policy if exists matches_select_all on public.matches;
@@ -1546,6 +1557,761 @@ begin
 end;
 $$;
 
+create or replace function public.set_my_demo_balance(
+  p_amount numeric(14,2)
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if p_amount < 0 then
+    raise exception 'Demo balance must be non-negative';
+  end if;
+
+  update public.wallets
+  set demo_balance = p_amount,
+      updated_at = now()
+  where user_id = v_user_id;
+
+  if not found then
+    raise exception 'Wallet not found for the current user';
+  end if;
+
+  perform public.create_treasury_audit_log(
+    'demo_balance_set_by_user',
+    v_user_id,
+    'wallet',
+    v_user_id::text,
+    jsonb_build_object('demo_balance', p_amount)
+  );
+end;
+$$;
+
+alter table public.profiles
+  add column if not exists demo_stats jsonb not null default '{
+    "level": 1,
+    "rank": "Demo Cadet",
+    "winRate": "0%",
+    "kdRatio": 0,
+    "headshotPct": "0%",
+    "performance": [0,0,0,0,0,0,0,0,0,0]
+  }'::jsonb;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'lobbies_demo_stake_zero_check'
+  ) then
+    alter table public.lobbies
+      add constraint lobbies_demo_stake_zero_check
+      check (mode = 'live' or stake_amount = 0);
+  end if;
+end $$;
+
+create or replace function public.assert_user_can_access_mode(
+  p_user_id uuid,
+  p_mode public.ha_mode
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles%rowtype;
+begin
+  select *
+  into v_profile
+  from public.profiles
+  where id = p_user_id;
+
+  if not found then
+    raise exception 'Profile not found for the active user';
+  end if;
+
+  if coalesce(v_profile.account_mode, 'live') <> p_mode::text then
+    raise exception 'Switch your account mode to % before using this queue', p_mode;
+  end if;
+
+  if p_mode = 'live' and v_profile.kyc_status <> 'verified' then
+    raise exception 'KYC verification is required for live-stakes matchmaking';
+  end if;
+end;
+$$;
+
+create or replace function public.create_matchmaking_lobby(
+  p_mode public.ha_mode,
+  p_kind public.ha_lobby_kind,
+  p_name text,
+  p_team_size integer default 5,
+  p_game_mode text default 'standard',
+  p_stake_amount numeric default 0,
+  p_selected_map text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby_id uuid;
+  v_safe_stake numeric(14,2) := greatest(coalesce(p_stake_amount, 0), 0);
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, p_mode);
+
+  if p_mode = 'demo' then
+    v_safe_stake := 0;
+  end if;
+
+  insert into public.lobbies (
+    mode,
+    kind,
+    name,
+    leader_id,
+    status,
+    stake_amount,
+    team_size,
+    game_mode,
+    selected_map
+  ) values (
+    p_mode,
+    p_kind,
+    coalesce(nullif(trim(p_name), ''), case when p_mode = 'demo' then 'Demo Queue' else 'Live Queue' end),
+    v_user_id,
+    'open',
+    v_safe_stake,
+    p_team_size,
+    p_game_mode,
+    p_selected_map
+  )
+  returning id into v_lobby_id;
+
+  insert into public.lobby_members (lobby_id, user_id, team_side, is_ready)
+  values (v_lobby_id, v_user_id, 'UNASSIGNED', false);
+
+  return v_lobby_id;
+end;
+$$;
+
+create or replace function public.join_matchmaking_lobby(
+  p_lobby_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby public.lobbies%rowtype;
+  v_active_members integer;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if v_lobby.status <> 'open' then
+    raise exception 'Only open lobbies can be joined';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, v_lobby.mode);
+
+  select count(*)
+  into v_active_members
+  from public.lobby_members
+  where lobby_id = p_lobby_id
+    and kicked_at is null
+    and left_at is null;
+
+  if v_active_members >= v_lobby.max_players then
+    raise exception 'Lobby is already full';
+  end if;
+
+  insert into public.lobby_members (lobby_id, user_id, team_side, is_ready)
+  values (p_lobby_id, v_user_id, 'UNASSIGNED', false)
+  on conflict (lobby_id, user_id) do update
+  set left_at = null,
+      kicked_at = null,
+      joined_at = now();
+end;
+$$;
+
+create or replace function public.start_lobby_match(
+  p_lobby_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_actor_role public.ha_role;
+  v_lobby public.lobbies%rowtype;
+  v_match_id uuid;
+begin
+  select role into v_actor_role from public.profiles where id = v_actor_id;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if v_lobby.leader_id <> v_actor_id and v_actor_role is distinct from 'admin' then
+    raise exception 'Only the lobby leader or an admin can start the match';
+  end if;
+
+  if v_lobby.status <> 'open' then
+    raise exception 'This lobby has already been started or closed';
+  end if;
+
+  insert into public.matches (lobby_id, mode, status, started_at)
+  values (v_lobby.id, v_lobby.mode, 'live', now())
+  returning id into v_match_id;
+
+  insert into public.match_players (
+    match_id,
+    user_id,
+    team_side,
+    joined_server,
+    joined_server_at
+  )
+  select
+    v_match_id,
+    lm.user_id,
+    case when lm.rn <= v_lobby.team_size then 'T'::public.ha_team_side else 'CT'::public.ha_team_side end,
+    false,
+    null
+  from (
+    select
+      lm.user_id,
+      row_number() over (order by lm.joined_at asc, lm.user_id asc) as rn
+    from public.lobby_members lm
+    where lm.lobby_id = p_lobby_id
+      and lm.kicked_at is null
+      and lm.left_at is null
+  ) lm;
+
+  update public.lobby_members
+  set team_side = case
+    when numbered.rn <= v_lobby.team_size then 'T'::public.ha_team_side
+    else 'CT'::public.ha_team_side
+  end
+  from (
+    select
+      lm.user_id,
+      row_number() over (order by lm.joined_at asc, lm.user_id asc) as rn
+    from public.lobby_members lm
+    where lm.lobby_id = p_lobby_id
+      and lm.kicked_at is null
+      and lm.left_at is null
+  ) numbered
+  where public.lobby_members.lobby_id = p_lobby_id
+    and public.lobby_members.user_id = numbered.user_id;
+
+  update public.lobbies
+  set status = 'in_progress',
+      updated_at = now()
+  where id = p_lobby_id;
+
+  return v_match_id;
+end;
+$$;
+
+create or replace function public.append_recent_performance_score(
+  p_existing jsonb,
+  p_score integer
+)
+returns jsonb
+language plpgsql
+immutable
+as $$
+declare
+  v_scores integer[];
+begin
+  v_scores := array_append(
+    coalesce((
+      select array_agg(value::integer)
+      from jsonb_array_elements_text(coalesce(p_existing, '[0,0,0,0,0,0,0,0,0,0]'::jsonb))
+    ), array[]::integer[]),
+    greatest(coalesce(p_score, 0), 0)
+  );
+
+  if array_length(v_scores, 1) > 10 then
+    v_scores := v_scores[array_length(v_scores, 1) - 9:array_length(v_scores, 1)];
+  end if;
+
+  return to_jsonb(v_scores);
+end;
+$$;
+
+create or replace function public.admin_record_match_player_stats(
+  p_match_id uuid,
+  p_user_id uuid,
+  p_team_side public.ha_team_side,
+  p_kills integer,
+  p_deaths integer,
+  p_assists integer,
+  p_round_score integer,
+  p_is_winner boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_admin_id uuid := auth.uid();
+  v_admin_role public.ha_role;
+  v_match public.matches%rowtype;
+  v_existing public.match_players%rowtype;
+  v_demo_stats jsonb;
+  v_new_level integer;
+  v_new_win_rate text;
+  v_new_kd_ratio numeric(10,2);
+  v_new_headshot_pct text;
+  v_new_performance jsonb;
+begin
+  select role into v_admin_role from public.profiles where id = v_admin_id;
+  if v_admin_role is distinct from 'admin' then
+    raise exception 'Only admins can record match player stats';
+  end if;
+
+  select *
+  into v_match
+  from public.matches
+  where id = p_match_id;
+
+  if not found then
+    raise exception 'Match not found';
+  end if;
+
+  select *
+  into v_existing
+  from public.match_players
+  where match_id = p_match_id
+    and user_id = p_user_id
+  for update;
+
+  if not found then
+    raise exception 'Match player row not found';
+  end if;
+
+  update public.match_players
+  set team_side = p_team_side,
+      kills = greatest(coalesce(p_kills, 0), 0),
+      deaths = greatest(coalesce(p_deaths, 0), 0),
+      assists = greatest(coalesce(p_assists, 0), 0),
+      round_score = coalesce(p_round_score, 0),
+      is_winner = p_is_winner
+  where match_id = p_match_id
+    and user_id = p_user_id;
+
+  if v_match.mode = 'demo' then
+    select coalesce(demo_stats, '{}'::jsonb)
+    into v_demo_stats
+    from public.profiles
+    where id = p_user_id
+    for update;
+
+    v_new_level := greatest(coalesce((v_demo_stats ->> 'level')::integer, 1), 1) + case when p_is_winner then 1 else 0 end;
+    v_new_win_rate := case when p_is_winner then '100%' else coalesce(v_demo_stats ->> 'winRate', '0%') end;
+    v_new_kd_ratio := round((greatest(coalesce(p_kills, 0), 0)::numeric / greatest(coalesce(p_deaths, 0), 1)::numeric), 2);
+    v_new_headshot_pct := case when coalesce(p_kills, 0) > 0 then '35%' else '0%' end;
+    v_new_performance := public.append_recent_performance_score(
+      coalesce(v_demo_stats -> 'performance', '[0,0,0,0,0,0,0,0,0,0]'::jsonb),
+      greatest(coalesce(p_round_score, 0), 0)
+    );
+
+    update public.profiles
+    set demo_stats = jsonb_build_object(
+      'level', v_new_level,
+      'rank', case when p_is_winner then 'Demo Vanguard' else coalesce(v_demo_stats ->> 'rank', 'Demo Cadet') end,
+      'winRate', v_new_win_rate,
+      'kdRatio', v_new_kd_ratio,
+      'headshotPct', v_new_headshot_pct,
+      'performance', v_new_performance
+    ),
+        updated_at = now()
+    where id = p_user_id;
+  else
+    update public.profiles
+    set level = greatest(level, 1) + case when p_is_winner then 1 else 0 end,
+        rank = case when p_is_winner then 'Silver I' else rank end,
+        win_rate = case when p_is_winner then '100%' else win_rate end,
+        kd_ratio = round((greatest(coalesce(p_kills, 0), 0)::numeric / greatest(coalesce(p_deaths, 0), 1)::numeric), 2),
+        headshot_pct = case when coalesce(p_kills, 0) > 0 then '35%' else headshot_pct end,
+        performance = public.append_recent_performance_score(
+          coalesce(performance, '[0,0,0,0,0,0,0,0,0,0]'::jsonb),
+          greatest(coalesce(p_round_score, 0), 0)
+        ),
+        updated_at = now()
+    where id = p_user_id;
+  end if;
+end;
+$$;
+
+create or replace function public.set_lobby_member_ready(
+  p_lobby_id uuid,
+  p_is_ready boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby public.lobbies%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, v_lobby.mode);
+
+  update public.lobby_members
+  set is_ready = p_is_ready
+  where lobby_id = p_lobby_id
+    and user_id = v_user_id
+    and kicked_at is null
+    and left_at is null;
+
+  if not found then
+    raise exception 'You are not an active member of this lobby';
+  end if;
+end;
+$$;
+
+create or replace function public.leave_matchmaking_lobby(
+  p_lobby_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  update public.lobby_members
+  set left_at = now(),
+      is_ready = false
+  where lobby_id = p_lobby_id
+    and user_id = v_user_id
+    and kicked_at is null
+    and left_at is null;
+
+  if not found then
+    raise exception 'You are not an active member of this lobby';
+  end if;
+end;
+$$;
+
+create or replace function public.complete_demo_match_for_testing(
+  p_match_id uuid,
+  p_winning_side public.ha_team_side default 'T'
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_actor_role public.ha_role;
+  v_match public.matches%rowtype;
+  v_lobby public.lobbies%rowtype;
+  v_player record;
+  v_index integer := 0;
+  v_demo_stats jsonb;
+  v_new_level integer;
+  v_new_win_rate text;
+  v_new_kd_ratio numeric(10,2);
+  v_new_headshot_pct text;
+  v_new_performance jsonb;
+  v_is_winner boolean;
+  v_kills integer;
+  v_deaths integer;
+  v_assists integer;
+  v_round_score integer;
+begin
+  select role into v_actor_role from public.profiles where id = v_actor_id;
+
+  select *
+  into v_match
+  from public.matches
+  where id = p_match_id
+  for update;
+
+  if not found then
+    raise exception 'Match not found';
+  end if;
+
+  if v_match.mode <> 'demo' then
+    raise exception 'This helper only supports demo matches';
+  end if;
+
+  if v_match.status <> 'live' then
+    raise exception 'Only live demo matches can be completed through testing';
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = v_match.lobby_id;
+
+  if not found then
+    raise exception 'Lobby not found for the match';
+  end if;
+
+  if v_lobby.leader_id <> v_actor_id and v_actor_role is distinct from 'admin' then
+    raise exception 'Only the lobby leader or an admin can complete a demo test match';
+  end if;
+
+  for v_player in
+    select mp.user_id, mp.team_side
+    from public.match_players mp
+    where mp.match_id = p_match_id
+    order by mp.user_id
+  loop
+    v_index := v_index + 1;
+    v_is_winner := v_player.team_side = p_winning_side;
+    v_kills := case when v_is_winner then 18 + (v_index % 7) else 8 + (v_index % 5) end;
+    v_deaths := case when v_is_winner then 10 + (v_index % 4) else 15 + (v_index % 6) end;
+    v_assists := 4 + (v_index % 6);
+    v_round_score := case when v_is_winner then 95 + (v_index * 4) else 55 + (v_index * 3) end;
+
+    update public.match_players
+    set kills = v_kills,
+        deaths = v_deaths,
+        assists = v_assists,
+        round_score = v_round_score,
+        is_winner = v_is_winner,
+        joined_server = true,
+        joined_server_at = coalesce(joined_server_at, now())
+    where match_id = p_match_id
+      and user_id = v_player.user_id;
+
+    select coalesce(demo_stats, '{}'::jsonb)
+    into v_demo_stats
+    from public.profiles
+    where id = v_player.user_id
+    for update;
+
+    v_new_level := greatest(coalesce((v_demo_stats ->> 'level')::integer, 1), 1) + case when v_is_winner then 1 else 0 end;
+    v_new_win_rate := case when v_is_winner then '100%' else coalesce(v_demo_stats ->> 'winRate', '0%') end;
+    v_new_kd_ratio := round((greatest(v_kills, 0)::numeric / greatest(v_deaths, 1)::numeric), 2);
+    v_new_headshot_pct := case when v_kills > 0 then '35%' else '0%' end;
+    v_new_performance := public.append_recent_performance_score(
+      coalesce(v_demo_stats -> 'performance', '[0,0,0,0,0,0,0,0,0,0]'::jsonb),
+      v_round_score
+    );
+
+    update public.profiles
+    set demo_stats = jsonb_build_object(
+      'level', v_new_level,
+      'rank', case when v_is_winner then 'Demo Vanguard' else coalesce(v_demo_stats ->> 'rank', 'Demo Cadet') end,
+      'winRate', v_new_win_rate,
+      'kdRatio', v_new_kd_ratio,
+      'headshotPct', v_new_headshot_pct,
+      'performance', v_new_performance
+    ),
+        updated_at = now()
+    where id = v_player.user_id;
+
+    perform public.create_notification(
+      v_player.user_id,
+      'demo_match_completed',
+      'Demo match completed',
+      'Your demo match finished and your demo combat record was updated.',
+      '/battlefield',
+      jsonb_build_object('match_id', p_match_id, 'winner', v_is_winner)
+    );
+  end loop;
+
+  update public.matches
+  set status = 'finished',
+      ended_at = now()
+  where id = p_match_id;
+
+  update public.lobbies
+  set status = 'closed',
+      close_reason = 'Demo test match completed',
+      updated_at = now()
+  where id = v_match.lobby_id;
+end;
+$$;
+
+create or replace function public.player_join_match_server(
+  p_match_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_match public.matches%rowtype;
+  v_lobby public.lobbies%rowtype;
+  v_joined_count integer;
+  v_total_players integer;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select *
+  into v_match
+  from public.matches
+  where id = p_match_id
+  for update;
+
+  if not found then
+    raise exception 'Match not found';
+  end if;
+
+  if v_match.status not in ('pending', 'live') then
+    raise exception 'This match is no longer joinable';
+  end if;
+
+  if not exists (
+    select 1
+    from public.match_players
+    where match_id = p_match_id
+      and user_id = v_user_id
+  ) then
+    raise exception 'You are not assigned to this match';
+  end if;
+
+  update public.match_players
+  set joined_server = true,
+      joined_server_at = coalesce(joined_server_at, now())
+  where match_id = p_match_id
+    and user_id = v_user_id;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = v_match.lobby_id
+  for update;
+
+  select
+    count(*) filter (where joined_server),
+    count(*)
+  into v_joined_count, v_total_players
+  from public.match_players
+  where match_id = p_match_id;
+
+  if v_joined_count = v_total_players and v_total_players > 0 then
+    update public.matches
+    set status = 'live',
+        started_at = coalesce(started_at, now())
+    where id = p_match_id;
+
+    update public.lobbies
+    set status = 'in_progress',
+        join_server_deadline = null,
+        updated_at = now()
+    where id = v_match.lobby_id;
+  else
+    update public.lobbies
+    set join_server_deadline = coalesce(join_server_deadline, now() + interval '3 minutes'),
+        updated_at = now()
+    where id = v_match.lobby_id;
+  end if;
+
+  return coalesce(
+    v_match.dedicated_server_endpoint,
+    public.build_match_server_endpoint(
+      v_match.id,
+      v_lobby.name,
+      v_lobby.game_mode,
+      v_lobby.selected_map,
+      v_lobby.mode
+    )
+  );
+end;
+$$;
+
+create or replace function public.get_my_reconnectable_match()
+returns table (
+  match_id uuid,
+  lobby_id uuid,
+  mode public.ha_mode,
+  lobby_name text,
+  game_mode text,
+  selected_map text,
+  status public.ha_match_status,
+  dedicated_server_endpoint text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    m.id,
+    m.lobby_id,
+    m.mode,
+    l.name,
+    l.game_mode,
+    l.selected_map,
+    m.status,
+    m.dedicated_server_endpoint
+  from public.matches m
+  join public.match_players mp on mp.match_id = m.id
+  join public.lobbies l on l.id = m.lobby_id
+  where mp.user_id = auth.uid()
+    and mp.joined_server = true
+    and m.status = 'live'
+  order by coalesce(m.started_at, m.created_at) desc
+  limit 1;
+$$;
+
  drop policy if exists admin_writes_lobbies on public.lobbies;
 create policy admin_writes_lobbies on public.lobbies
 for all
@@ -1666,4 +2432,723 @@ create trigger trg_notify_direct_message
 after insert on public.direct_messages
 for each row
 execute function public.notify_direct_message();
+
+create or replace function public.advance_map_vote_round(
+  p_session_id uuid,
+  p_veto_map text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_session public.map_vote_sessions%rowtype;
+  v_lobby public.lobbies%rowtype;
+  v_veto_map text;
+  v_remaining_maps text[];
+begin
+  select *
+  into v_session
+  from public.map_vote_sessions
+  where id = p_session_id
+  for update;
+
+  if not found then
+    raise exception 'Map vote session not found';
+  end if;
+
+  if v_session.status <> 'active' then
+    return;
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = v_session.lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if p_veto_map is not null and not (p_veto_map = any(v_session.remaining_maps)) then
+    raise exception 'Selected map is not available for veto';
+  end if;
+
+  if p_veto_map is null then
+    select mv.map_code
+    into v_veto_map
+    from public.map_votes mv
+    join public.lobby_members lm
+      on lm.lobby_id = v_session.lobby_id
+     and lm.user_id = mv.user_id
+     and lm.kicked_at is null
+     and lm.left_at is null
+     and lm.team_side = v_session.active_team
+    where mv.session_id = v_session.id
+      and mv.map_code = any(v_session.remaining_maps)
+    group by mv.map_code
+    order by count(*) desc, mv.updated_at asc, mv.map_code asc
+    limit 1;
+  else
+    v_veto_map := p_veto_map;
+  end if;
+
+  if v_veto_map is null then
+    v_veto_map := v_session.remaining_maps[1];
+  end if;
+
+  v_remaining_maps := array_remove(v_session.remaining_maps, v_veto_map);
+
+  delete from public.map_votes
+  where session_id = v_session.id;
+
+  if coalesce(array_length(v_remaining_maps, 1), 0) <= 1 then
+    update public.map_vote_sessions
+    set remaining_maps = v_remaining_maps,
+        status = 'completed',
+        last_vetoed_map = v_veto_map,
+        turn_ends_at = null,
+        updated_at = now()
+    where id = v_session.id;
+
+    update public.lobbies
+    set selected_map = coalesce(v_remaining_maps[1], v_veto_map),
+        map_voting_active = false,
+        updated_at = now()
+    where id = v_session.lobby_id;
+
+    perform public.ensure_pending_lobby_match(v_session.lobby_id);
+  else
+    update public.map_vote_sessions
+    set remaining_maps = v_remaining_maps,
+        active_team = case when v_session.active_team = 'T' then 'CT'::public.ha_team_side else 'T'::public.ha_team_side end,
+        round_number = coalesce(v_session.round_number, 1) + 1,
+        last_vetoed_map = v_veto_map,
+        turn_ends_at = now() + make_interval(secs => coalesce(v_session.turn_seconds, 15)),
+        updated_at = now()
+    where id = v_session.id;
+  end if;
+end;
+$$;
+
+create or replace function public.ensure_lobby_map_vote_session(
+  p_lobby_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_actor_role public.ha_role;
+  v_lobby public.lobbies%rowtype;
+  v_session_id uuid;
+  v_t_count integer;
+  v_ct_count integer;
+begin
+  if v_actor_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select role into v_actor_role from public.profiles where id = v_actor_id;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if v_lobby.leader_id <> v_actor_id and v_actor_role is distinct from 'admin' then
+    raise exception 'Only the lobby leader or an admin can start map veto';
+  end if;
+
+  if v_lobby.status <> 'open' then
+    raise exception 'Map veto can only run while the lobby is open';
+  end if;
+
+  select
+    count(*) filter (where team_side = 'T' and kicked_at is null and left_at is null),
+    count(*) filter (where team_side = 'CT' and kicked_at is null and left_at is null)
+  into v_t_count, v_ct_count
+  from public.lobby_members
+  where lobby_id = p_lobby_id;
+
+  if v_t_count <> v_lobby.team_size or v_ct_count <> v_lobby.team_size then
+    raise exception 'Fill both teams before starting map veto';
+  end if;
+
+  select id
+  into v_session_id
+  from public.map_vote_sessions
+  where lobby_id = p_lobby_id;
+
+  if v_session_id is null then
+    insert into public.map_vote_sessions (
+      lobby_id,
+      active_team,
+      turn_ends_at,
+      turn_seconds,
+      remaining_maps,
+      status,
+      round_number
+    ) values (
+      p_lobby_id,
+      'T',
+      now() + interval '15 seconds',
+      15,
+      array['dust2','inferno','mirage','nuke','anubis','ancient','overpass'],
+      'active',
+      1
+    )
+    returning id into v_session_id;
+  else
+    update public.map_vote_sessions
+    set active_team = 'T',
+        turn_ends_at = now() + make_interval(secs => coalesce(turn_seconds, 15)),
+        remaining_maps = array['dust2','inferno','mirage','nuke','anubis','ancient','overpass'],
+        status = 'active',
+        round_number = 1,
+        last_vetoed_map = null,
+        updated_at = now()
+    where id = v_session_id;
+
+    delete from public.map_votes where session_id = v_session_id;
+  end if;
+
+  update public.lobbies
+  set selected_map = null,
+      map_voting_active = true,
+      updated_at = now()
+  where id = p_lobby_id;
+
+  return v_session_id;
+end;
+$$;
+
+create or replace function public.sync_map_vote_session(
+  p_session_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_session public.map_vote_sessions%rowtype;
+begin
+  select *
+  into v_session
+  from public.map_vote_sessions
+  where id = p_session_id;
+
+  if not found then
+    raise exception 'Map vote session not found';
+  end if;
+
+  if v_session.status = 'active' and v_session.turn_ends_at is not null and v_session.turn_ends_at <= now() then
+    perform public.advance_map_vote_round(v_session.id, null);
+  end if;
+end;
+$$;
+
+create or replace function public.cast_lobby_map_vote(
+  p_session_id uuid,
+  p_map_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_session public.map_vote_sessions%rowtype;
+  v_team_side public.ha_team_side;
+  v_votes_for_map integer;
+  v_active_team_size integer;
+  v_threshold integer;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  perform public.sync_map_vote_session(p_session_id);
+
+  select *
+  into v_session
+  from public.map_vote_sessions
+  where id = p_session_id
+  for update;
+
+  if not found then
+    raise exception 'Map vote session not found';
+  end if;
+
+  if v_session.status <> 'active' then
+    raise exception 'This map vote session is not active';
+  end if;
+
+  if not (p_map_code = any(v_session.remaining_maps)) then
+    raise exception 'This map is no longer available';
+  end if;
+
+  select lm.team_side
+  into v_team_side
+  from public.lobby_members lm
+  where lm.lobby_id = v_session.lobby_id
+    and lm.user_id = v_user_id
+    and lm.kicked_at is null
+    and lm.left_at is null;
+
+  if not found then
+    raise exception 'You are not an active member of this lobby';
+  end if;
+
+  if v_team_side <> v_session.active_team then
+    raise exception 'It is not your team''s turn to veto';
+  end if;
+
+  insert into public.map_votes (session_id, user_id, map_code, updated_at)
+  values (p_session_id, v_user_id, p_map_code, now())
+  on conflict (session_id, user_id) do update
+  set map_code = excluded.map_code,
+      updated_at = now();
+
+  select count(*)
+  into v_votes_for_map
+  from public.map_votes mv
+  join public.lobby_members lm
+    on lm.lobby_id = v_session.lobby_id
+   and lm.user_id = mv.user_id
+   and lm.kicked_at is null
+   and lm.left_at is null
+   and lm.team_side = v_session.active_team
+  where mv.session_id = p_session_id
+    and mv.map_code = p_map_code;
+
+  select count(*)
+  into v_active_team_size
+  from public.lobby_members
+  where lobby_id = v_session.lobby_id
+    and team_side = v_session.active_team
+    and kicked_at is null
+    and left_at is null;
+
+  v_threshold := greatest(1, least(2, v_active_team_size));
+
+  if v_votes_for_map >= v_threshold then
+    perform public.advance_map_vote_round(p_session_id, p_map_code);
+  end if;
+end;
+$$;
+
+create or replace function public.set_lobby_member_team_side(
+  p_lobby_id uuid,
+  p_team_side public.ha_team_side
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby public.lobbies%rowtype;
+  v_side_count integer;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if v_lobby.status <> 'open' then
+    raise exception 'Teams can only be adjusted while the lobby is open';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, v_lobby.mode);
+
+  if not exists (
+    select 1
+    from public.lobby_members
+    where lobby_id = p_lobby_id
+      and user_id = v_user_id
+      and kicked_at is null
+      and left_at is null
+  ) then
+    raise exception 'You are not an active member of this lobby';
+  end if;
+
+  if p_team_side <> 'UNASSIGNED' then
+    select count(*)
+    into v_side_count
+    from public.lobby_members
+    where lobby_id = p_lobby_id
+      and team_side = p_team_side
+      and kicked_at is null
+      and left_at is null
+      and user_id <> v_user_id;
+
+    if v_side_count >= v_lobby.team_size then
+      raise exception 'That team is already full';
+    end if;
+  end if;
+
+  update public.lobby_members
+  set team_side = p_team_side,
+      is_ready = false
+  where lobby_id = p_lobby_id
+    and user_id = v_user_id;
+end;
+$$;
+
+create or replace function public.send_lobby_message(
+  p_lobby_id uuid,
+  p_message text
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_message_id bigint;
+  v_clean_message text := nullif(trim(coalesce(p_message, '')), '');
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if v_clean_message is null then
+    raise exception 'Message cannot be empty';
+  end if;
+
+  if not exists (
+    select 1
+    from public.lobby_members
+    where lobby_id = p_lobby_id
+      and user_id = v_user_id
+      and kicked_at is null
+      and left_at is null
+  ) then
+    raise exception 'You are not an active member of this lobby';
+  end if;
+
+  insert into public.lobby_messages (lobby_id, user_id, message)
+  values (p_lobby_id, v_user_id, v_clean_message)
+  returning id into v_message_id;
+
+  return v_message_id;
+end;
+$$;
+
+create or replace function public.create_matchmaking_lobby(
+  p_mode public.ha_mode,
+  p_kind public.ha_lobby_kind,
+  p_name text,
+  p_team_size integer default 5,
+  p_game_mode text default 'competitive',
+  p_stake_amount numeric default 0,
+  p_selected_map text default null,
+  p_password text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby_id uuid;
+  v_safe_stake numeric(14,2) := greatest(coalesce(p_stake_amount, 0), 0);
+  v_password_hash text;
+  v_game_mode text := lower(coalesce(nullif(trim(p_game_mode), ''), 'competitive'));
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if p_team_size not in (2, 5) then
+    raise exception 'Only 2v2 and 5v5 custom lobbies are supported';
+  end if;
+
+  if p_team_size = 2 and v_game_mode <> 'wingman' then
+    raise exception '2v2 lobbies only support Wingman mode';
+  end if;
+
+  if p_team_size = 5 and v_game_mode not in ('competitive', 'team_ffa', 'ffa') then
+    raise exception '5v5 lobbies support Competitive, Team FFA, or FFA';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, p_mode);
+
+  if exists (
+    select 1
+    from public.lobby_members lm
+    join public.lobbies l on l.id = lm.lobby_id
+    where lm.user_id = v_user_id
+      and lm.kicked_at is null
+      and lm.left_at is null
+      and l.status in ('open', 'in_progress')
+  ) then
+    raise exception 'Leave your current lobby before creating a new one';
+  end if;
+
+  if p_mode = 'demo' then
+    v_safe_stake := 0;
+  end if;
+
+  if nullif(trim(coalesce(p_password, '')), '') is not null then
+    v_password_hash := crypt(trim(p_password), gen_salt('bf'));
+  else
+    v_password_hash := null;
+  end if;
+
+  insert into public.lobbies (
+    mode,
+    kind,
+    name,
+    leader_id,
+    status,
+    stake_amount,
+    team_size,
+    game_mode,
+    selected_map,
+    password_hash,
+    password_required,
+    map_voting_active
+  ) values (
+    p_mode,
+    p_kind,
+    coalesce(nullif(trim(p_name), ''), case when p_mode = 'demo' then 'Demo Custom Lobby' else 'Live Custom Lobby' end),
+    v_user_id,
+    'open',
+    v_safe_stake,
+    p_team_size,
+    v_game_mode,
+    p_selected_map,
+    v_password_hash,
+    v_password_hash is not null,
+    false
+  )
+  returning id into v_lobby_id;
+
+  insert into public.lobby_members (lobby_id, user_id, team_side, is_ready)
+  values (v_lobby_id, v_user_id, 'UNASSIGNED', false);
+
+  return v_lobby_id;
+end;
+$$;
+
+create or replace function public.join_matchmaking_lobby(
+  p_lobby_id uuid,
+  p_password text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_lobby public.lobbies%rowtype;
+  v_active_members integer;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if exists (
+    select 1
+    from public.lobby_members lm
+    join public.lobbies l on l.id = lm.lobby_id
+    where lm.user_id = v_user_id
+      and lm.kicked_at is null
+      and lm.left_at is null
+      and l.status in ('open', 'in_progress')
+      and l.id <> p_lobby_id
+  ) then
+    raise exception 'Leave your current lobby before joining another one';
+  end if;
+
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if v_lobby.status <> 'open' then
+    raise exception 'Only open lobbies can be joined';
+  end if;
+
+  perform public.assert_user_can_access_mode(v_user_id, v_lobby.mode);
+
+  if v_lobby.password_required then
+    if nullif(trim(coalesce(p_password, '')), '') is null or v_lobby.password_hash is null or crypt(trim(p_password), v_lobby.password_hash) <> v_lobby.password_hash then
+      raise exception 'Incorrect lobby password';
+    end if;
+  end if;
+
+  select count(*)
+  into v_active_members
+  from public.lobby_members
+  where lobby_id = p_lobby_id
+    and kicked_at is null
+    and left_at is null;
+
+  if v_active_members >= v_lobby.max_players then
+    raise exception 'Lobby is already full';
+  end if;
+
+  insert into public.lobby_members (lobby_id, user_id, team_side, is_ready)
+  values (p_lobby_id, v_user_id, 'UNASSIGNED', false)
+  on conflict (lobby_id, user_id) do update
+  set left_at = null,
+      kicked_at = null,
+      joined_at = now(),
+      team_side = 'UNASSIGNED',
+      is_ready = false;
+end;
+$$;
+
+create or replace function public.start_lobby_match(
+  p_lobby_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return public.ensure_pending_lobby_match(p_lobby_id);
+end;
+$$;
+
+create or replace function public.build_match_server_endpoint(
+  p_match_id uuid,
+  p_lobby_name text,
+  p_game_mode text,
+  p_selected_map text,
+  p_mode public.ha_mode
+)
+returns text
+language plpgsql
+immutable
+as $$
+begin
+  return 'steam://connect/hustle-arena.local/' || p_match_id::text
+    || '?mode=' || coalesce(p_game_mode, 'competitive')
+    || '&map=' || coalesce(p_selected_map, 'tbd')
+    || '&env=' || p_mode::text
+    || '&lobby=' || replace(lower(coalesce(p_lobby_name, 'arena')), ' ', '-');
+end;
+$$;
+
+create or replace function public.ensure_pending_lobby_match(
+  p_lobby_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_lobby public.lobbies%rowtype;
+  v_match_id uuid;
+begin
+  select *
+  into v_lobby
+  from public.lobbies
+  where id = p_lobby_id
+  for update;
+
+  if not found then
+    raise exception 'Lobby not found';
+  end if;
+
+  if coalesce(v_lobby.selected_map, '') = '' then
+    raise exception 'A final map must be selected before preparing the server';
+  end if;
+
+  select id
+  into v_match_id
+  from public.matches
+  where lobby_id = p_lobby_id
+    and status in ('pending', 'live')
+  limit 1;
+
+  if v_match_id is null then
+    insert into public.matches (
+      lobby_id,
+      mode,
+      status,
+      dedicated_server_id,
+      dedicated_server_endpoint
+    ) values (
+      v_lobby.id,
+      v_lobby.mode,
+      'pending',
+      'pending-allocation',
+      public.build_match_server_endpoint(
+        gen_random_uuid(),
+        v_lobby.name,
+        v_lobby.game_mode,
+        v_lobby.selected_map,
+        v_lobby.mode
+      )
+    )
+    returning id into v_match_id;
+
+    update public.matches
+    set dedicated_server_endpoint = public.build_match_server_endpoint(
+      v_match_id,
+      v_lobby.name,
+      v_lobby.game_mode,
+      v_lobby.selected_map,
+      v_lobby.mode
+    )
+    where id = v_match_id;
+
+    insert into public.match_players (
+      match_id,
+      user_id,
+      team_side,
+      joined_server,
+      joined_server_at
+    )
+    select
+      v_match_id,
+      lm.user_id,
+      lm.team_side,
+      false,
+      null
+    from public.lobby_members lm
+    where lm.lobby_id = p_lobby_id
+      and lm.kicked_at is null
+      and lm.left_at is null;
+  end if;
+
+  return v_match_id;
+end;
+$$;
 

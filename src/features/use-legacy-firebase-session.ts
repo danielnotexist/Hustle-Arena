@@ -49,10 +49,56 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<ArenaUser | null>(null);
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [liveStats, setLiveStats] = useState<UserStats>(DEFAULT_STATS);
+  const [demoStats, setDemoStats] = useState<UserStats>({ ...DEFAULT_STATS, rank: "Demo Cadet" });
   const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
   const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [accountMode, setAccountMode] = useState<AccountMode>("live");
+
+  const refreshSession = async () => {
+    if (!enabled) {
+      return;
+    }
+
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) {
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setUser(null);
+      setLiveStats(DEFAULT_STATS);
+      setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
+      setWallet(DEFAULT_WALLET);
+      setProfileData(DEFAULT_PROFILE_DATA);
+      setAccountMode("live");
+      return;
+    }
+
+    const userDocRef = doc(db, "users", firebaseUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+      return;
+    }
+
+    const profile = userDoc.data();
+    const nextUser = toArenaUser({ ...firebaseUser, ...profile });
+    setIsLoggedIn(true);
+    setIsAdmin(nextUser.role === "admin" || nextUser.email?.toLowerCase() === "danielnotexist@gmail.com");
+    setUser(nextUser);
+    setLiveStats(profile.stats || DEFAULT_STATS);
+    setDemoStats(profile.demoStats || { ...DEFAULT_STATS, rank: "Demo Cadet" });
+    setWallet({
+      availableBalance: profile.stats?.credits || 0,
+      lockedBalance: profile.lockedBalance || 0,
+      demoBalance: profile.demoBalance || 0,
+    });
+    setAccountMode(profile.accountMode || "live");
+    setProfileData({
+      bio: profile.bio || DEFAULT_PROFILE_DATA.bio,
+      country: profile.country || DEFAULT_PROFILE_DATA.country,
+      twitter: profile.twitter || DEFAULT_PROFILE_DATA.twitter,
+      twitch: profile.twitch || DEFAULT_PROFILE_DATA.twitch,
+    });
+  };
 
   useEffect(() => {
     if (!enabled) {
@@ -66,7 +112,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
         setIsLoggedIn(false);
         setIsAdmin(false);
         setUser(null);
-        setStats(null);
+        setLiveStats(DEFAULT_STATS);
+        setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
         setWallet(DEFAULT_WALLET);
         setProfileData(DEFAULT_PROFILE_DATA);
         setAccountMode("live");
@@ -89,6 +136,7 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
             ...DEFAULT_PROFILE_DATA,
             createdAt: serverTimestamp(),
             stats: DEFAULT_STATS,
+            demoStats: { ...DEFAULT_STATS, rank: "Demo Cadet" },
           });
         }
 
@@ -104,7 +152,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
             setIsLoggedIn(true);
             setIsAdmin(nextUser.role === "admin" || nextUser.email?.toLowerCase() === "danielnotexist@gmail.com");
             setUser(nextUser);
-            setStats(profile.stats || DEFAULT_STATS);
+            setLiveStats(profile.stats || DEFAULT_STATS);
+            setDemoStats(profile.demoStats || { ...DEFAULT_STATS, rank: "Demo Cadet" });
             setWallet({
               availableBalance: profile.stats?.credits || 0,
               lockedBalance: profile.lockedBalance || 0,
@@ -172,6 +221,10 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
       ...currentWallet,
       demoBalance: safeAmount,
     }));
+    setDemoStats((currentStats) => ({
+      ...currentStats,
+      credits: safeAmount,
+    }));
   };
 
   return {
@@ -179,7 +232,7 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     isLoggedIn,
     isAdmin,
     user,
-    stats: stats || DEFAULT_STATS,
+    stats: accountMode === "demo" ? demoStats : liveStats,
     wallet,
     accountMode,
     visibleBalance: accountMode === "demo" ? wallet.demoBalance : wallet.availableBalance,
@@ -187,5 +240,6 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     setProfileData,
     switchAccountMode,
     topUpDemoBalance,
+    refreshSession,
   };
 }

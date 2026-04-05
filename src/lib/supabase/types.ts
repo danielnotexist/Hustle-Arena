@@ -7,6 +7,14 @@ export interface SupabaseProfileRecord {
   email: string;
   role: HaRole;
   account_mode?: "live" | "demo";
+  demo_stats?: {
+    level?: number;
+    rank?: string;
+    winRate?: string;
+    kdRatio?: number;
+    headshotPct?: string;
+    performance?: number[];
+  } | null;
   level: number;
   kyc_status: HaKycStatus;
   kyc_message?: string | null;

@@ -18,10 +18,62 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<PlatformSessionState["user"]>(null);
-  const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [liveStats, setLiveStats] = useState<UserStats>(DEFAULT_STATS);
+  const [demoStats, setDemoStats] = useState<UserStats>({ ...DEFAULT_STATS, rank: "Demo Cadet" });
   const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
   const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [accountMode, setAccountMode] = useState<AccountMode>("live");
+
+  const hydrateSession = async (isCancelled = false) => {
+    if (!enabled) {
+      return;
+    }
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData.session;
+
+    if (!session?.user) {
+      if (!isCancelled) {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        setUser(null);
+        setLiveStats(DEFAULT_STATS);
+        setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
+        setWallet(DEFAULT_WALLET);
+        setProfileData(DEFAULT_PROFILE_DATA);
+        setAccountMode("live");
+      }
+      return;
+    }
+
+    try {
+      const userId = session.user.id;
+      const myProfile = await fetchMyProfile();
+      const fullProfile = myProfile ? await fetchExtendedProfile(userId) : await fetchExtendedProfile(userId);
+      const walletRow = await fetchWallet(userId);
+
+      if (isCancelled) {
+        return;
+      }
+
+      const nextUser = mapSupabaseProfileToArenaUser(fullProfile);
+      setIsLoggedIn(true);
+      setIsAdmin(nextUser.role === "admin");
+      setUser(nextUser);
+      setLiveStats(mapSupabaseProfileToStats(fullProfile, walletRow, "live"));
+      setDemoStats(mapSupabaseProfileToStats(fullProfile, walletRow, "demo"));
+      setWallet(mapWalletSnapshot(walletRow));
+      setProfileData(mapSupabaseProfileToProfileData(fullProfile));
+      setAccountMode(nextUser.accountMode || "live");
+    } catch (error) {
+      console.error("Supabase session hydrate error:", error);
+      if (!isCancelled) {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        setUser(null);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!enabled) {
@@ -30,52 +82,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
     let isCancelled = false;
 
-    const hydrateSession = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData.session;
-
-      if (!session?.user) {
-        if (!isCancelled) {
-          setIsLoggedIn(false);
-          setIsAdmin(false);
-          setUser(null);
-          setStats(DEFAULT_STATS);
-          setWallet(DEFAULT_WALLET);
-          setProfileData(DEFAULT_PROFILE_DATA);
-          setAccountMode("live");
-        }
-        return;
-      }
-
-      try {
-        const userId = session.user.id;
-        const myProfile = await fetchMyProfile();
-        const fullProfile = myProfile ? await fetchExtendedProfile(userId) : await fetchExtendedProfile(userId);
-        const walletRow = await fetchWallet(userId);
-
-        if (isCancelled) {
-          return;
-        }
-
-        const nextUser = mapSupabaseProfileToArenaUser(fullProfile);
-        setIsLoggedIn(true);
-        setIsAdmin(nextUser.role === "admin");
-        setUser(nextUser);
-        setStats(mapSupabaseProfileToStats(fullProfile, walletRow));
-        setWallet(mapWalletSnapshot(walletRow));
-        setProfileData(mapSupabaseProfileToProfileData(fullProfile));
-        setAccountMode(nextUser.accountMode || "live");
-      } catch (error) {
-        console.error("Supabase session hydrate error:", error);
-        if (!isCancelled) {
-          setIsLoggedIn(false);
-          setIsAdmin(false);
-          setUser(null);
-        }
-      }
-    };
-
-    hydrateSession();
+    void hydrateSession(isCancelled);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
       void hydrateSession();
@@ -103,10 +110,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     }
 
     await setDemoBalance(user.id, amount);
-    setWallet((currentWallet) => ({
-      ...currentWallet,
-      demoBalance: amount,
-    }));
+    await hydrateSession();
   };
 
   return {
@@ -114,7 +118,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     isLoggedIn,
     isAdmin,
     user,
-    stats,
+    stats: accountMode === "demo" ? demoStats : liveStats,
     wallet,
     accountMode,
     visibleBalance: accountMode === "demo" ? wallet.demoBalance : wallet.availableBalance,
@@ -122,5 +126,8 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     setProfileData,
     switchAccountMode,
     topUpDemoBalance,
+    refreshSession: async () => {
+      await hydrateSession();
+    },
   };
 }

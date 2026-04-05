@@ -97,6 +97,7 @@ export interface PlatformSessionState {
   setProfileData: Dispatch<SetStateAction<ProfileData>>;
   switchAccountMode: (mode: AccountMode) => Promise<void>;
   topUpDemoBalance: (amount: number) => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 export interface Mission {
