@@ -357,8 +357,8 @@ export function BattlefieldView({
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col lg:flex-row justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">{accountMode === "demo" ? "Demo" : "Live"} Custom Matchmaking</h2>
-          <p className="text-sm text-esport-text-muted max-w-3xl">Backend-powered custom lobbies now support stake selection, 2v2 or 5v5 presets, team-side selection, password joins, live lobby chat, and 15-second rotating map veto.</p>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Counter-Strike 2 {accountMode === "demo" ? "Demo" : "Live"} Custom Matchmaking</h2>
+          <p className="text-sm text-esport-text-muted max-w-3xl">Backend-powered CS2 custom lobbies now support organiser-controlled stake selection, 2v2 Wingman or 5v5 server presets, team-side selection, password joins, live lobby chat, and 15-second rotating map veto.</p>
         </div>
         <div className="rounded-xl border border-esport-border bg-esport-card px-4 py-3 flex items-center gap-3">
           <Radio className="w-4 h-4 text-esport-accent" />
@@ -370,7 +370,7 @@ export function BattlefieldView({
         <div className="space-y-6">
           {!activeLobby && (
             <div className="esport-card p-5 space-y-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create CS2 {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
               <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
               <input value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} disabled={accountMode === "demo"} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60 disabled:opacity-50" placeholder="Stake amount" />
               <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
@@ -414,7 +414,7 @@ export function BattlefieldView({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Bench / Unassigned</div>
-                    <div className="text-xs text-esport-text-muted mt-1">Pick a side before readying up.</div>
+                    <div className="text-xs text-esport-text-muted mt-1">Pick a Counter-Strike side before readying up.</div>
                   </div>
                   <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{benchMembers.length} players</div>
                 </div>
@@ -454,7 +454,7 @@ export function BattlefieldView({
 
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Map veto</div><div className="text-xs text-esport-text-muted mt-1">Two matching clicks from the active team veto the map and rotate the turn.</div></div>
+                    <div><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div><div className="text-xs text-esport-text-muted mt-1">Two matching clicks from the active team veto the map and rotate the turn.</div></div>
                     {activeVoteSession && <div className="text-right"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Turn</div><div className="text-sm font-bold text-white">{activeVoteSession.active_team}</div></div>}
                   </div>
                   {!activeVoteSession ? <div className="rounded-lg border border-dashed border-white/15 p-4 text-sm text-esport-text-muted">Fill both teams, then let the lobby leader start the veto flow.</div> : (
@@ -480,8 +480,8 @@ export function BattlefieldView({
               {activeMatch && (
                 <div className="rounded-xl border border-esport-secondary/30 bg-esport-secondary/10 p-4 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
                   <div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Dedicated server state</div>
-                    <div className="mt-2 text-lg font-bold text-white">{activeMatch.status === "pending" ? "Server staged · waiting for player joins" : "Match live · Lobby removed from browser"}</div>
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 dedicated server state</div>
+                    <div className="mt-2 text-lg font-bold text-white">{activeMatch.status === "pending" ? "CS2 server staged · waiting for player joins" : "CS2 match live · Lobby removed from browser"}</div>
                     <div className="text-xs text-esport-text-muted mt-1">
                       {activeMatch.status === "pending"
                         ? `${joinedServerCount}/${totalServerPlayers} players joined the server. Once everyone joins, the server session becomes live.`
@@ -513,7 +513,7 @@ export function BattlefieldView({
 
         <div className="space-y-6">
           <div className="esport-card p-5">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">{accountMode === "demo" ? "Demo" : "Live"} Server Browser</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">CS2 {accountMode === "demo" ? "Demo" : "Live"} Server Browser</div>
             <div className="space-y-3">
               {openLobbies.length === 0 && <div className="rounded-lg border border-dashed border-white/15 p-4 text-sm text-esport-text-muted">No open custom lobbies yet.</div>}
               {openLobbies.map((lobby) => {
@@ -534,7 +534,7 @@ export function BattlefieldView({
           </div>
 
           <div className="esport-card p-5"><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">Lobby invites</div><div className="text-sm text-esport-text-muted">Pending direct lobby invites will appear here in the next Squad Hub slice.</div></div>
-          <div className="esport-card p-5"><div className="flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ruleset</div></div><div className="space-y-3 text-sm text-esport-text-muted"><p>2v2 lobbies only allow Wingman. 5v5 lobbies support Competitive, Team FFA, and FFA.</p><p>Map veto rotates every 15 seconds between T and CT until one map remains.</p><p>Started matches disappear from the open browser automatically because in-progress lobbies are locked.</p></div></div>
+          <div className="esport-card p-5"><div className="flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 Ruleset</div></div><div className="space-y-3 text-sm text-esport-text-muted"><p>2v2 CS2 lobbies only allow Wingman. 5v5 CS2 lobbies support Competitive, Team FFA, and FFA custom-server presets.</p><p>The lobby organiser controls stake, player population, and the optional server password before players join.</p><p>Map veto rotates every 15 seconds between T and CT until one CS2 map remains, then the server join phase opens.</p></div></div>
         </div>
       </div>
     </div>

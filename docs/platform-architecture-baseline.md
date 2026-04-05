@@ -3,6 +3,7 @@
 This document defines the architecture baseline we should preserve before implementing new product logic.
 
 ## Product pillars
+- Active game target: Counter-Strike 2 is the current live game domain, so server orchestration, map pools, reconnect flow, and telemetry contracts should be designed around CS2 first.
 - Identity: players authenticate, connect Steam, manage profile, social graph, trust state, and KYC state.
 - Wallets: players deposit USDT, funds are tracked in a ledger, balances are locked for matches, and payouts are settled per player.
 - Matchmaking: players create or join public/custom lobbies, invite friends, ready up, and progress into live matches.
@@ -32,6 +33,7 @@ This document defines the architecture baseline we should preserve before implem
 - Match records should own the linkage to server instance id, endpoint, and lifecycle status.
 - A server control worker should be responsible for allocate, warm, start, monitor, and teardown flows.
 - Telemetry ingestion should be designed as a separate pipeline from the user-facing app so stats sync remains reliable under load.
+- The first orchestration contract should be a CS2-specific bootstrap payload that includes playlist, map, team size, player count, stake amount, optional server password, and reconnect policy.
 
 ### Match results and settlement
 - The source of truth for winners, losers, and interrupted states should be server telemetry plus platform moderation overrides.

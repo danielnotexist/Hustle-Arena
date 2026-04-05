@@ -119,6 +119,32 @@ export interface ReconnectableMatch {
   dedicated_server_endpoint: string | null;
 }
 
+export interface MatchServerBootstrap {
+  game: "counter-strike-2";
+  gameKey: "cs2";
+  matchId: string;
+  lobbyId: string;
+  lobbyName: string;
+  environment: LobbyMode;
+  playlist: SupportedGameMode | string;
+  selectedMap: string | null;
+  teamSize: number;
+  maxPlayers: number;
+  stakeAmountUsdt: number;
+  passwordRequired: boolean;
+  serverPassword: string | null;
+  launchPolicy: {
+    waitForAllPlayers: boolean;
+    autoCloseOnMatchEnd: boolean;
+    allowReconnect: boolean;
+  };
+  telemetry: {
+    ingestRoundStats: boolean;
+    ingestPlayerStats: boolean;
+    ingestMatchOutcome: boolean;
+  };
+}
+
 const OPEN_LOBBY_SELECT = `
   id,
   mode,
@@ -413,6 +439,30 @@ export async function fetchMyReconnectableMatch() {
 
   const row = Array.isArray(data) ? data[0] : data;
   return (row || null) as ReconnectableMatch | null;
+}
+
+export async function fetchMatchServerBootstrap(matchId: string) {
+  const { data, error } = await supabase.rpc("get_match_server_bootstrap", {
+    p_match_id: matchId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as MatchServerBootstrap;
+}
+
+export async function markMatchServerAllocated(matchId: string, serverId: string, endpoint: string) {
+  const { error } = await supabase.rpc("mark_match_server_allocated", {
+    p_match_id: matchId,
+    p_server_id: serverId,
+    p_server_endpoint: endpoint,
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export function launchMatchServer(endpoint: string | null | undefined) {
