@@ -57,6 +57,20 @@ const getCountdown = (turnEndsAt: string | null | undefined) => {
   return `00:${seconds.toString().padStart(2, "0")}`;
 };
 
+const getMemberDisplayName = (member: MatchmakingLobbyMember) => {
+  const username = member.profiles?.username?.trim();
+  if (username) {
+    return username;
+  }
+
+  const emailName = member.profiles?.email?.split("@")[0]?.trim();
+  if (emailName) {
+    return emailName;
+  }
+
+  return `Player ${member.user_id.slice(0, 8)}`;
+};
+
 function TeamBoard({
   title,
   accentClass,
@@ -95,7 +109,7 @@ function TeamBoard({
         {members.map((member) => (
           <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-bold text-white">{member.profiles?.username || member.user_id}</div>
+              <div className="text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
             </div>
             {member.user_id === currentUserId && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
@@ -433,7 +447,7 @@ export function CustomLobbyView({
                   {benchMembers.map((member) => (
                     <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-bold text-white">{member.profiles?.username || member.user_id}</div>
+                        <div className="text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
                         <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
                       </div>
                       {member.user_id === user?.id && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
