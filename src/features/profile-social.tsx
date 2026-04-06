@@ -42,6 +42,7 @@ import {
   fetchMyActiveLobby,
   fetchMyActiveMatch,
   fetchOpenMatchmakingLobbies,
+  joinMatchmakingLobby,
   leaveMatchmakingLobby,
   setLobbyMemberReady,
   startLobbyMatch,
@@ -714,19 +715,26 @@ export function BattlefieldView({ addToast, openModal, user, accountMode }: { ad
   );
 }
 
-export function SquadHubView({ addToast, user }: any) {
+export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattlefield }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
+  const [pendingLobbyInvites, setPendingLobbyInvites] = useState<Array<{ id: number; lobby_id: string; lobby_name: string; from_user_id: string; from_username: string; password_required: boolean }>>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [threadMessages, setThreadMessages] = useState<Array<{ id: number; sender_id: string; receiver_id: string; message: string; message_type: string; metadata: any; created_at: string }>>([]);
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [addFriendUsername, setAddFriendUsername] = useState('');
+  const [queuedMode, setQueuedMode] = useState<'solo' | 'squad' | null>(null);
+  const [selectedSquadIds, setSelectedSquadIds] = useState<string[]>([]);
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
     [friendsList, selectedFriendId]
+  );
+  const selectedSquadFriends = useMemo(
+    () => friendsList.filter((friend) => selectedSquadIds.includes(friend.id)),
+    [friendsList, selectedSquadIds]
   );
   const loadFriends = async () => {
     if (!user?.id) return;
@@ -797,6 +805,52 @@ export function SquadHubView({ addToast, user }: any) {
     );
   };
 
+  const loadPendingLobbyInvites = async () => {
+    if (!user?.id) return;
+
+    const { data, error } = await supabase
+      .from('lobby_invites')
+      .select('id,lobby_id,from_user_id,status,lobbies!inner(name,password_required,status)')
+      .eq('to_user_id', user.id)
+      .eq('status', 'pending');
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = (data ?? []).filter((invite: any) => invite.lobbies?.status === 'open');
+    if (!rows.length) {
+      setPendingLobbyInvites([]);
+      return;
+    }
+
+    const inviterIds = rows.map((invite: any) => invite.from_user_id);
+    const { data: inviterProfiles, error: inviterError } = await supabase
+      .from('profiles')
+      .select('id,username')
+      .in('id', inviterIds);
+
+    if (inviterError) {
+      throw inviterError;
+    }
+
+    const inviterLookup: Record<string, string> = {};
+    (inviterProfiles ?? []).forEach((profile: any) => {
+      inviterLookup[profile.id] = profile.username;
+    });
+
+    setPendingLobbyInvites(
+      rows.map((invite: any) => ({
+        id: invite.id,
+        lobby_id: invite.lobby_id,
+        lobby_name: invite.lobbies?.name ?? 'Squad Lobby',
+        from_user_id: invite.from_user_id,
+        from_username: inviterLookup[invite.from_user_id] ?? 'Unknown',
+        password_required: !!invite.lobbies?.password_required,
+      }))
+    );
+  };
+
   const handleFriendRequest = async (request: { id: number; requester_id: string }, action: 'accept' | 'ignore' | 'block') => {
     if (!user?.id) return;
 
@@ -852,8 +906,6 @@ export function SquadHubView({ addToast, user }: any) {
 
     await supabase.from('notifications').insert({
       user_id: target.id,
-      type: 'friend_request',
-      message: user.username + ' sent you a friend request',
       notice_type: 'friend_request',
       title: 'Friend Request',
       body: user.username + ' sent you a friend request',
@@ -865,6 +917,168 @@ export function SquadHubView({ addToast, user }: any) {
     setAddFriendUsername('');
     addToast('Friend request sent', 'success');
   };
+
+  const handleLobbyInvite = async (
+    invite: { id: number; lobby_id: string; password_required: boolean; lobby_name: string },
+    action: 'accept' | 'ignore'
+  ) => {
+    if (!user?.id) return;
+
+    try {
+      if (action === 'accept') {
+        const password = invite.password_required ? window.prompt(`Enter the password for ${invite.lobby_name}`) || '' : null;
+        await joinMatchmakingLobby(invite.lobby_id, password);
+        await supabase
+          .from('lobby_invites')
+          .update({ status: 'accepted', responded_at: new Date().toISOString() })
+          .eq('id', invite.id)
+          .eq('to_user_id', user.id);
+        addToast('Joined squad lobby.', 'success');
+        onOpenBattlefield?.();
+      } else {
+        await supabase
+          .from('lobby_invites')
+          .update({ status: 'ignored', responded_at: new Date().toISOString() })
+          .eq('id', invite.id)
+          .eq('to_user_id', user.id);
+        addToast('Lobby invite ignored.', 'info');
+      }
+
+      await loadPendingLobbyInvites();
+    } catch (error: any) {
+      console.error('Failed to respond to lobby invite:', error);
+      addToast(error?.message || 'Failed to respond to the squad invite.', 'error');
+    }
+  };
+
+  const toggleSquadMember = (friendId: string) => {
+    setSelectedSquadIds((current) => {
+      if (current.includes(friendId)) {
+        return current.filter((id) => id !== friendId);
+      }
+
+      if (current.length >= 4) {
+        addToast('You can only stage up to 4 friends for a 5-player squad.', 'info');
+        return current;
+      }
+
+      return [...current, friendId];
+    });
+  };
+
+  const startQueue = async (mode: 'solo' | 'squad') => {
+    if (!user?.id) return;
+    if (mode === 'squad' && selectedSquadIds.length === 0) {
+      addToast('Select at least one friend before searching as a squad.', 'error');
+      return;
+    }
+
+    try {
+      setQueuedMode(mode);
+
+      if (mode === 'solo') {
+        const openQueues = await fetchOpenMatchmakingLobbies(accountMode);
+        const joinableQueue = openQueues.find((lobby) => {
+          const memberCount = (lobby.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at).length;
+          return lobby.kind === 'public' && memberCount < lobby.max_players;
+        });
+
+        if (joinableQueue) {
+          await joinMatchmakingLobby(joinableQueue.id);
+          addToast('Joined an open public matchmaking queue.', 'success');
+        } else {
+          await createMatchmakingLobby({
+            mode: accountMode,
+            kind: 'public',
+            name: `CS2 ${accountMode === 'demo' ? 'Demo' : 'Live'} Solo Queue`,
+            teamSize: 5,
+            gameMode: 'competitive',
+            stakeAmount: 0,
+          });
+          addToast('Created a new public solo queue.', 'success');
+        }
+      } else {
+        const lobbyId = await createMatchmakingLobby({
+          mode: accountMode,
+          kind: 'public',
+          name: `${user.username || 'Squad'} CS2 Queue`,
+          teamSize: 5,
+          gameMode: 'competitive',
+          stakeAmount: 0,
+        });
+
+        if (selectedSquadIds.length) {
+          await supabase.from('lobby_invites').insert(
+            selectedSquadIds.map((friendId) => ({
+              lobby_id: lobbyId,
+              from_user_id: user.id,
+              to_user_id: friendId,
+              status: 'pending'
+            }))
+          );
+
+          await supabase.from('notifications').insert(
+            selectedSquadIds.map((friendId) => ({
+              user_id: friendId,
+              notice_type: 'lobby_invite',
+              title: 'Squad Match Invite',
+              body: `${user.username} invited you to join a CS2 squad queue.`,
+              link_target: '/squad-hub',
+              metadata: { lobby_id: lobbyId, inviter_id: user.id }
+            }))
+          );
+        }
+
+        addToast(`Created a squad queue and sent ${selectedSquadIds.length} invite${selectedSquadIds.length === 1 ? '' : 's'}.`, 'success');
+      }
+
+      onOpenBattlefield?.();
+    } catch (error: any) {
+      console.error('Failed to start queue:', error);
+      setQueuedMode(null);
+      addToast(error?.message || 'Failed to start matchmaking queue.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const bootstrapSquadHub = async () => {
+      if (!user?.id) {
+        setFriendsList([]);
+        setPendingRequests([]);
+        setSelectedFriendId(null);
+        setThreadMessages([]);
+        setUnreadByFriend({});
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await Promise.all([loadFriends(), loadPendingRequests(), loadPendingLobbyInvites(), loadUnreadCounts()]);
+      } catch (error) {
+        console.error('Failed to bootstrap Squad Hub:', error);
+        if (!isCancelled) {
+          addToast('Failed to load Squad Hub data.', 'error');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void bootstrapSquadHub();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    void loadThread(selectedFriendId);
+  }, [selectedFriendId, user?.id]);
 
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
@@ -937,9 +1151,81 @@ export function SquadHubView({ addToast, user }: any) {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
-          <p className="text-sm text-esport-text-muted">Direct messages + friend requests are fully dynamic now.</p>
+          <p className="text-sm text-esport-text-muted">Build your squad, stage solo or party matchmaking, and manage DMs and friend requests.</p>
         </div>
-      </div>      <div className="esport-card p-4">
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="esport-card p-5 space-y-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-accent">Solo Queue</div>
+          <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+            <div className="text-sm font-bold text-white">Search alone</div>
+            <div className="text-xs text-esport-text-muted mt-1">Jump into matchmaking with only your own profile staged.</div>
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Players ready</div>
+              <div className="text-sm font-bold text-white">1 / 1</div>
+            </div>
+          </div>
+          <button onClick={() => startQueue('solo').catch((err) => console.error(err))} className="esport-btn-primary w-full">
+            {queuedMode === 'solo' ? 'Solo Queue Staged' : 'Search Solo Match'}
+          </button>
+        </div>
+
+        <div className="esport-card p-5 space-y-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-accent">Squad Queue</div>
+          <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-white">Invite your friends</div>
+                <div className="text-xs text-esport-text-muted mt-1">Stage up to 4 friends and enter matchmaking as a squad.</div>
+              </div>
+              <div className="text-sm font-bold text-white">{selectedSquadIds.length + 1} / 5</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {friendsList.length === 0 ? (
+                <div className="text-xs text-esport-text-muted col-span-full">No friends available yet. Add friends below to build your squad.</div>
+              ) : (
+                friendsList.map((friend) => {
+                  const selected = selectedSquadIds.includes(friend.id);
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => toggleSquadMember(friend.id)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-left transition-all",
+                        selected
+                          ? "border-esport-accent bg-esport-accent/10"
+                          : "border-esport-border bg-black/20 hover:border-white/30"
+                      )}
+                    >
+                      <div className="font-bold text-sm text-white">{friend.username}</div>
+                      <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">
+                        {selected ? 'Selected' : 'Available'}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {selectedSquadFriends.length > 0 && (
+              <div className="rounded-lg border border-esport-border bg-black/20 px-3 py-3">
+                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">Current squad</div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-1 rounded bg-esport-accent/20 text-white text-xs font-bold">{user?.username || 'You'} (Leader)</span>
+                  {selectedSquadFriends.map((friend) => (
+                    <span key={friend.id} className="px-2 py-1 rounded bg-white/10 text-white text-xs font-bold">{friend.username}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <button onClick={() => startQueue('squad').catch((err) => console.error(err))} className="esport-btn-primary w-full">
+            {queuedMode === 'squad' ? 'Squad Queue Staged' : 'Search Squad Match'}
+          </button>
+        </div>
+      </div>
+
+      <div className="esport-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
         <div className="flex gap-2">
           <input
@@ -963,6 +1249,25 @@ export function SquadHubView({ addToast, user }: any) {
                   <button className="esport-btn-primary" onClick={() => handleFriendRequest(req, 'accept').catch((err) => console.error(err))}>Accept</button>
                   <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'ignore').catch((err) => console.error(err))}>Ignore</button>
                   <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'block').catch((err) => console.error(err))}>Block</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {pendingLobbyInvites.length ? (
+        <div className="esport-card p-4">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Squad Invites</div>
+          <div className="space-y-2">
+            {pendingLobbyInvites.map((invite) => (
+              <div key={invite.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
+                <div className="text-sm">
+                  <span className="font-bold">{invite.from_username}</span> invited you to join <span className="font-bold">{invite.lobby_name}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button className="esport-btn-primary" onClick={() => handleLobbyInvite(invite, 'accept').catch((err) => console.error(err))}>Join</button>
+                  <button className="esport-btn-secondary" onClick={() => handleLobbyInvite(invite, 'ignore').catch((err) => console.error(err))}>Ignore</button>
                 </div>
               </div>
             ))}
