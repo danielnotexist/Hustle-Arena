@@ -102,7 +102,7 @@ function TeamBoard({
   );
 }
 
-export function BattlefieldView({
+export function CustomLobbyView({
   addToast,
   openModal,
   user,
@@ -357,8 +357,8 @@ export function BattlefieldView({
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col lg:flex-row justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Counter-Strike 2 {accountMode === "demo" ? "Demo" : "Live"} Custom Matchmaking</h2>
-          <p className="text-sm text-esport-text-muted max-w-3xl">Backend-powered CS2 custom lobbies now support organiser-controlled stake selection, 2v2 Wingman or 5v5 server presets, team-side selection, password joins, live lobby chat, and 15-second rotating map veto.</p>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub Custom Lobbies</h2>
+          <p className="text-sm text-esport-text-muted max-w-3xl">Create and manage private CS2 custom lobbies with stake selection, passwords, side assignment, lobby chat, map veto, and dedicated-server staging. Quick matchmaking belongs in Battlefield.</p>
         </div>
         <div className="rounded-xl border border-esport-border bg-esport-card px-4 py-3 flex items-center gap-3">
           <Radio className="w-4 h-4 text-esport-accent" />
@@ -370,7 +370,7 @@ export function BattlefieldView({
         <div className="space-y-6">
           {!activeLobby && (
             <div className="esport-card p-5 space-y-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create CS2 {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
               <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
               <input value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} disabled={accountMode === "demo"} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60 disabled:opacity-50" placeholder="Stake amount" />
               <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
@@ -533,8 +533,8 @@ export function BattlefieldView({
             </div>
           </div>
 
-          <div className="esport-card p-5"><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">Lobby invites</div><div className="text-sm text-esport-text-muted">Pending direct lobby invites will appear here in the next Squad Hub slice.</div></div>
-          <div className="esport-card p-5"><div className="flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 Ruleset</div></div><div className="space-y-3 text-sm text-esport-text-muted"><p>2v2 CS2 lobbies only allow Wingman. 5v5 CS2 lobbies support Competitive, Team FFA, and FFA custom-server presets.</p><p>The lobby organiser controls stake, player population, and the optional server password before players join.</p><p>Map veto rotates every 15 seconds between T and CT until one CS2 map remains, then the server join phase opens.</p></div></div>
+          <div className="esport-card p-5"><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">Custom Lobby Notes</div><div className="text-sm text-esport-text-muted">Use Squad Hub for private lobby creation and management. Battlefield is reserved for quick-match queueing.</div></div>
+          <div className="esport-card p-5"><div className="flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Custom Lobby Ruleset</div></div><div className="space-y-3 text-sm text-esport-text-muted"><p>2v2 custom lobbies only allow Wingman. 5v5 custom lobbies support Competitive, Team FFA, and FFA presets.</p><p>The lobby organiser controls stake, player population, password protection, and final map flow before server launch.</p><p>Map veto rotates every 15 seconds between T and CT until one CS2 map remains, then the server join phase opens.</p></div></div>
         </div>
       </div>
     </div>

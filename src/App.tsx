@@ -369,7 +369,7 @@ export default function App() {
                       />
                     )}
                     {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
-                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} onOpenBattlefield={() => setActiveTab("Battlefield")} />}
+                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}

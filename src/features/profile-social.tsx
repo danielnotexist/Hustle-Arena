@@ -36,25 +36,14 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
-import {
-  completeDemoMatchForTesting,
-  createMatchmakingLobby,
-  fetchMyActiveLobby,
-  fetchMyActiveMatch,
-  fetchOpenMatchmakingLobbies,
-  joinMatchmakingLobby,
-  leaveMatchmakingLobby,
-  setLobbyMemberReady,
-  startLobbyMatch,
-  type ActiveMatch,
-  type MatchmakingLobby,
-} from "../lib/supabase/matchmaking";
+import { joinMatchmakingLobby } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
-import { auth, collection, createUserWithEmailAndPassword, db, doc, getDoc, getDocs, googleProvider, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, signInWithEmailAndPassword, signInWithPopup, updateDoc } from "../firebase";
+import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
 import type { AccountMode, Mission, UserStats, WalletSnapshot } from "./types";
 import { DynamicImage, KYCForm } from "./landing-auth";
+import { CustomLobbyView } from "./battlefield-view";
 
 export function UserProfileView({
   user,
@@ -452,270 +441,7 @@ export function UserProfileView({
   );
 }
 
-export function BattlefieldView({ addToast, openModal, user, accountMode }: { addToast: any; openModal: any; user: any; accountMode: AccountMode }) {
-  const isKycVerified = user?.kycStatus === 'verified' || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
-  const requiresKyc = accountMode === "live";
-  const [matchState, setMatchState] = useState<'idle' | 'searching' | 'found' | 'accepted' | 'connecting'>('idle');
-  const [searchTime, setSearchTime] = useState(0);
-  const [acceptedCount, setAcceptedCount] = useState(0);
-  const [matchType, setMatchType] = useState('standard');
-
-  useEffect(() => {
-    let interval: any;
-    if (matchState === 'searching') {
-      interval = setInterval(() => {
-        setSearchTime(prev => {
-          if (prev >= 5) { // Found match after 5 seconds
-            setMatchState('found');
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [matchState]);
-
-  useEffect(() => {
-    let interval: any;
-    if (matchState === 'accepted') {
-      interval = setInterval(() => {
-        setAcceptedCount(prev => {
-          if (prev >= 10) {
-            setTimeout(() => setMatchState('connecting'), 1000);
-            return 10;
-          }
-          return prev + 1;
-        });
-      }, 400); // Simulate other players accepting
-    }
-    return () => clearInterval(interval);
-  }, [matchState]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
-  const startSearch = () => {
-    if (requiresKyc && !isKycVerified) {
-      addToast("KYC Verification required to play", "error");
-      return;
-    }
-    if (accountMode !== "demo") {
-      addToast("Switch to Demo Account from Profile before entering matchmaking.", "error");
-      return;
-    }
-    setSearchTime(0);
-    setMatchState('searching');
-    addToast("Searching for match...", "info");
-  };
-
-  const acceptMatch = () => {
-    setMatchState('accepted');
-    setAcceptedCount(1); // You accepted
-  };
-
-  const cancelSearch = () => {
-    setMatchState('idle');
-    setSearchTime(0);
-  };
-
-  if (requiresKyc && !isKycVerified) {
-    return (
-      <div className="max-w-5xl mx-auto h-[60vh] flex flex-col items-center justify-center text-center space-y-6">
-        <div className="w-24 h-24 bg-esport-danger/10 rounded-full flex items-center justify-center">
-          <Lock size={48} className="text-esport-danger" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield Locked</h2>
-          <p className="text-esport-text-muted max-w-md mx-auto">
-            You must complete your KYC verification before you can enter the battlefield and compete for prizes.
-          </p>
-        </div>
-        <button 
-          onClick={() => openModal("KYC Verification", <KYCForm addToast={addToast} user={user} />)}
-          className="esport-btn-primary px-8 py-4 uppercase tracking-widest text-sm"
-        >
-          Verify Identity Now
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield</h2>
-          <p className="text-esport-text-muted">
-            {accountMode === "demo"
-              ? "Demo matchmaking is active. You are inside the isolated testing environment."
-              : "Matchmaking is currently restricted to Demo Accounts so payout and server flows can be tested safely."}
-          </p>
-        </div>
-        <div className="flex items-center gap-4 bg-esport-card border border-esport-border px-4 py-2 rounded-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" />
-            <span className="text-sm font-bold">{accountMode === "demo" ? "Demo Queue Online" : "Live Queue Locked"}</span>
-          </div>
-        </div>
-      </div>
-
-      {accountMode !== "demo" && (
-        <div className="esport-card p-6 border border-esport-secondary/30 bg-esport-secondary/5">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-esport-secondary/10 flex items-center justify-center text-esport-secondary shrink-0">
-              <ShieldAlert size={18} />
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-bold uppercase tracking-widest text-white">Demo Account Required</div>
-              <p className="text-sm text-esport-text-muted">
-                Server allocation, matchmaking, and post-match settlement testing are isolated to demo-mode users only. Switch from the Profile section to enter the demo environment.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {matchState === 'idle' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Game Modes */}
-          <div className="md:col-span-2 space-y-4">
-            <div 
-              onClick={() => setMatchType('standard')}
-              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === 'standard' ? 'border-esport-accent' : 'border-esport-border hover:border-white/20'}`}
-            >
-              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === 'standard' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
-              <div className="flex items-center justify-between relative z-10">
-                <div>
-                  <h3 className="text-2xl font-bold font-display uppercase mb-1">Ranked 5v5</h3>
-                  <p className="text-sm text-esport-text-muted">Competitive matchmaking. Affects your ELO.</p>
-                </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === 'standard' ? 'bg-esport-accent/20 border-esport-accent' : 'bg-black/50 border-esport-border'}`}>
-                  <Sword className={matchType === 'standard' ? 'text-esport-accent' : 'text-esport-text-muted'} />
-                </div>
-              </div>
-            </div>
-            
-            <div 
-              onClick={() => setMatchType('unranked')}
-              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === 'unranked' ? 'border-esport-accent' : 'border-esport-border hover:border-white/20'}`}
-            >
-              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === 'unranked' ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
-              <div className="flex items-center justify-between relative z-10">
-                <div>
-                  <h3 className="text-xl font-bold font-display uppercase mb-1">Unranked</h3>
-                  <p className="text-sm text-esport-text-muted">Casual play. Try new strategies.</p>
-                </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === 'unranked' ? 'bg-esport-accent/20 border-esport-accent' : 'bg-black/50 border-esport-border'}`}>
-                  <Users className={matchType === 'unranked' ? 'text-esport-accent' : 'text-esport-text-muted'} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Panel */}
-          <div className="esport-card p-6 flex flex-col justify-center items-center text-center space-y-6">
-            <div className="w-24 h-24 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
-              <Target className="w-10 h-10 text-esport-text-muted" />
-            </div>
-            <div>
-              <div className="text-sm text-esport-text-muted mb-1">Estimated Wait</div>
-              <div className="text-2xl font-bold font-mono">01:15</div>
-            </div>
-            <button onClick={startSearch} className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)]">
-              FIND MATCH
-            </button>
-          </div>
-        </div>
-      )}
-
-      {matchState === 'searching' && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden">
-          {/* Radar Animation */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
-            <div className="w-96 h-96 border border-esport-accent rounded-full animate-[ping_3s_linear_infinite]" />
-            <div className="w-64 h-64 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_1s]" />
-            <div className="w-32 h-32 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_2s]" />
-          </div>
-          
-          <div className="relative z-10 text-center space-y-6">
-            <div className="w-20 h-20 mx-auto bg-esport-accent/20 rounded-full flex items-center justify-center border border-esport-accent animate-spin-slow">
-              <Search className="w-8 h-8 text-esport-accent" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-esport-accent mb-2">Searching for Players</h3>
-              <div className="text-4xl font-mono font-bold text-white">{formatTime(searchTime)}</div>
-            </div>
-            <button onClick={cancelSearch} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
-              Cancel Search
-            </button>
-          </div>
-        </div>
-      )}
-
-      {matchState === 'found' && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-success shadow-[0_0_50px_rgba(16,185,129,0.2)]">
-          <div className="w-24 h-24 mx-auto bg-esport-success/20 rounded-full flex items-center justify-center border-2 border-esport-success mb-6 animate-bounce">
-            <CheckCircle2 className="w-12 h-12 text-esport-success" />
-          </div>
-          <h3 className="text-4xl font-bold font-display uppercase tracking-widest text-white mb-2">Match Found!</h3>
-          <p className="text-esport-text-muted mb-8">Please accept to join the lobby.</p>
-          
-          <div className="flex gap-4">
-            <button onClick={acceptMatch} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-              ACCEPT
-            </button>
-            <button onClick={cancelSearch} className="esport-btn-secondary py-4 px-8">
-              DECLINE
-            </button>
-          </div>
-        </div>
-      )}
-
-      {matchState === 'accepted' && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px]">
-          <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-white mb-8">Waiting for players...</h3>
-          
-          <div className="flex gap-2 mb-8">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className={`w-12 h-16 rounded border-2 flex items-center justify-center transition-all duration-300 ${i < acceptedCount ? 'bg-esport-success/20 border-esport-success text-esport-success shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 border-esport-border text-esport-border'}`}>
-                {i < acceptedCount ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-              </div>
-            ))}
-          </div>
-          
-          <div className="text-xl font-mono font-bold text-esport-accent">
-            {acceptedCount} / 10 Accepted
-          </div>
-        </div>
-      )}
-
-      {matchState === 'connecting' && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-accent">
-          <div className="w-20 h-20 mx-auto mb-6 relative">
-            <div className="absolute inset-0 border-4 border-esport-border rounded-full" />
-            <div className="absolute inset-0 border-4 border-esport-accent rounded-full border-t-transparent animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Server className="w-8 h-8 text-esport-accent" />
-            </div>
-          </div>
-          <h3 className="text-3xl font-bold font-display uppercase tracking-widest text-white mb-2">Connecting to Server</h3>
-          <p className="text-esport-text-muted font-mono bg-black/50 px-4 py-2 rounded border border-esport-border">
-            IP: 192.168.1.{Math.floor(Math.random() * 255)}:27015
-          </p>
-          <button onClick={cancelSearch} className="mt-8 esport-btn-secondary text-sm">
-            Disconnect
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattlefield }: any) {
+export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
@@ -725,16 +451,10 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattl
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [addFriendUsername, setAddFriendUsername] = useState('');
-  const [queuedMode, setQueuedMode] = useState<'solo' | 'squad' | null>(null);
-  const [selectedSquadIds, setSelectedSquadIds] = useState<string[]>([]);
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
     [friendsList, selectedFriendId]
-  );
-  const selectedSquadFriends = useMemo(
-    () => friendsList.filter((friend) => selectedSquadIds.includes(friend.id)),
-    [friendsList, selectedSquadIds]
   );
   const loadFriends = async () => {
     if (!user?.id) return;
@@ -934,7 +654,6 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattl
           .eq('id', invite.id)
           .eq('to_user_id', user.id);
         addToast('Joined squad lobby.', 'success');
-        onOpenBattlefield?.();
       } else {
         await supabase
           .from('lobby_invites')
@@ -948,95 +667,6 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattl
     } catch (error: any) {
       console.error('Failed to respond to lobby invite:', error);
       addToast(error?.message || 'Failed to respond to the squad invite.', 'error');
-    }
-  };
-
-  const toggleSquadMember = (friendId: string) => {
-    setSelectedSquadIds((current) => {
-      if (current.includes(friendId)) {
-        return current.filter((id) => id !== friendId);
-      }
-
-      if (current.length >= 4) {
-        addToast('You can only stage up to 4 friends for a 5-player squad.', 'info');
-        return current;
-      }
-
-      return [...current, friendId];
-    });
-  };
-
-  const startQueue = async (mode: 'solo' | 'squad') => {
-    if (!user?.id) return;
-    if (mode === 'squad' && selectedSquadIds.length === 0) {
-      addToast('Select at least one friend before searching as a squad.', 'error');
-      return;
-    }
-
-    try {
-      setQueuedMode(mode);
-
-      if (mode === 'solo') {
-        const openQueues = await fetchOpenMatchmakingLobbies(accountMode);
-        const joinableQueue = openQueues.find((lobby) => {
-          const memberCount = (lobby.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at).length;
-          return lobby.kind === 'public' && memberCount < lobby.max_players;
-        });
-
-        if (joinableQueue) {
-          await joinMatchmakingLobby(joinableQueue.id);
-          addToast('Joined an open public matchmaking queue.', 'success');
-        } else {
-          await createMatchmakingLobby({
-            mode: accountMode,
-            kind: 'public',
-            name: `CS2 ${accountMode === 'demo' ? 'Demo' : 'Live'} Solo Queue`,
-            teamSize: 5,
-            gameMode: 'competitive',
-            stakeAmount: 0,
-          });
-          addToast('Created a new public solo queue.', 'success');
-        }
-      } else {
-        const lobbyId = await createMatchmakingLobby({
-          mode: accountMode,
-          kind: 'public',
-          name: `${user.username || 'Squad'} CS2 Queue`,
-          teamSize: 5,
-          gameMode: 'competitive',
-          stakeAmount: 0,
-        });
-
-        if (selectedSquadIds.length) {
-          await supabase.from('lobby_invites').insert(
-            selectedSquadIds.map((friendId) => ({
-              lobby_id: lobbyId,
-              from_user_id: user.id,
-              to_user_id: friendId,
-              status: 'pending'
-            }))
-          );
-
-          await supabase.from('notifications').insert(
-            selectedSquadIds.map((friendId) => ({
-              user_id: friendId,
-              notice_type: 'lobby_invite',
-              title: 'Squad Match Invite',
-              body: `${user.username} invited you to join a CS2 squad queue.`,
-              link_target: '/squad-hub',
-              metadata: { lobby_id: lobbyId, inviter_id: user.id }
-            }))
-          );
-        }
-
-        addToast(`Created a squad queue and sent ${selectedSquadIds.length} invite${selectedSquadIds.length === 1 ? '' : 's'}.`, 'success');
-      }
-
-      onOpenBattlefield?.();
-    } catch (error: any) {
-      console.error('Failed to start queue:', error);
-      setQueuedMode(null);
-      addToast(error?.message || 'Failed to start matchmaking queue.', 'error');
     }
   };
 
@@ -1151,79 +781,17 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', onOpenBattl
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
-          <p className="text-sm text-esport-text-muted">Build your squad, stage solo or party matchmaking, and manage DMs and friend requests.</p>
+          <p className="text-sm text-esport-text-muted">Create and manage private custom lobbies, then handle squad invites, DMs, and friend requests.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="esport-card p-5 space-y-4">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-accent">Solo Queue</div>
-          <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-            <div className="text-sm font-bold text-white">Search alone</div>
-            <div className="text-xs text-esport-text-muted mt-1">Jump into matchmaking with only your own profile staged.</div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Players ready</div>
-              <div className="text-sm font-bold text-white">1 / 1</div>
-            </div>
-          </div>
-          <button onClick={() => startQueue('solo').catch((err) => console.error(err))} className="esport-btn-primary w-full">
-            {queuedMode === 'solo' ? 'Solo Queue Staged' : 'Search Solo Match'}
-          </button>
-        </div>
-
-        <div className="esport-card p-5 space-y-4">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-accent">Squad Queue</div>
-          <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-white">Invite your friends</div>
-                <div className="text-xs text-esport-text-muted mt-1">Stage up to 4 friends and enter matchmaking as a squad.</div>
-              </div>
-              <div className="text-sm font-bold text-white">{selectedSquadIds.length + 1} / 5</div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {friendsList.length === 0 ? (
-                <div className="text-xs text-esport-text-muted col-span-full">No friends available yet. Add friends below to build your squad.</div>
-              ) : (
-                friendsList.map((friend) => {
-                  const selected = selectedSquadIds.includes(friend.id);
-                  return (
-                    <button
-                      key={friend.id}
-                      onClick={() => toggleSquadMember(friend.id)}
-                      className={cn(
-                        "rounded-lg border px-3 py-2 text-left transition-all",
-                        selected
-                          ? "border-esport-accent bg-esport-accent/10"
-                          : "border-esport-border bg-black/20 hover:border-white/30"
-                      )}
-                    >
-                      <div className="font-bold text-sm text-white">{friend.username}</div>
-                      <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">
-                        {selected ? 'Selected' : 'Available'}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            {selectedSquadFriends.length > 0 && (
-              <div className="rounded-lg border border-esport-border bg-black/20 px-3 py-3">
-                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">Current squad</div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-2 py-1 rounded bg-esport-accent/20 text-white text-xs font-bold">{user?.username || 'You'} (Leader)</span>
-                  {selectedSquadFriends.map((friend) => (
-                    <span key={friend.id} className="px-2 py-1 rounded bg-white/10 text-white text-xs font-bold">{friend.username}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <button onClick={() => startQueue('squad').catch((err) => console.error(err))} className="esport-btn-primary w-full">
-            {queuedMode === 'squad' ? 'Squad Queue Staged' : 'Search Squad Match'}
-          </button>
-        </div>
-      </div>
+      <CustomLobbyView
+        addToast={addToast}
+        openModal={openModal}
+        user={user}
+        accountMode={accountMode}
+        refreshSession={refreshSession || (async () => undefined)}
+      />
 
       <div className="esport-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
