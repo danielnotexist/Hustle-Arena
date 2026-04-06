@@ -1,0 +1,28 @@
+<svg width="640" height="800" viewBox="0 0 640 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="800" fill="#15110A"/>
+  <rect width="640" height="800" fill="url(#paint0_linear)"/>
+  <rect x="40" y="52" width="560" height="696" rx="28" fill="url(#paint1_linear)" fill-opacity="0.44" stroke="rgba(255,255,255,0.22)"/>
+  <rect x="80" y="138" width="198" height="338" rx="18" fill="#E4C594" fill-opacity="0.54"/>
+  <rect x="308" y="110" width="250" height="278" rx="18" fill="#C59A61" fill-opacity="0.48"/>
+  <path d="M0 566C172 498 280 450 418 366C514 308 578 252 640 172V800H0V566Z" fill="url(#paint2_linear)" fill-opacity="0.86"/>
+  <circle cx="388" cy="520" r="78" fill="#7C2D12" fill-opacity="0.16"/>
+  <path d="M346 518H430" stroke="#DC2626" stroke-width="12" stroke-linecap="round"/>
+  <path d="M388 476V560" stroke="#DC2626" stroke-width="12" stroke-linecap="round"/>
+  <text x="72" y="664" fill="#FFF4DE" font-family="Outfit, Arial, sans-serif" font-size="74" font-weight="700" letter-spacing="4">DUST II</text>
+  <text x="76" y="713" fill="#FDBA74" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="6">DESERT STRONGHOLD</text>
+  <defs>
+    <linearGradient id="paint0_linear" x1="320" y1="0" x2="320" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5D8A2"/>
+      <stop offset="0.46" stop-color="#B98A52"/>
+      <stop offset="1" stop-color="#120B06"/>
+    </linearGradient>
+    <linearGradient id="paint1_linear" x1="82" y1="78" x2="556" y2="736" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="paint2_linear" x1="320" y1="264" x2="320" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#1C1917"/>
+    </linearGradient>
+  </defs>
+</svg>

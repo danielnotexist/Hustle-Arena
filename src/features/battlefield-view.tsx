@@ -1,6 +1,13 @@
 ﻿import { Clock3, Lock, MessageSquare, Radio, Server, Users } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import anubisMap from "../assets/maps/anubis.svg";
+import ancientMap from "../assets/maps/ancient.svg";
+import dust2Map from "../assets/maps/dust2.svg";
 import { isSupabaseConfigured } from "../lib/env";
+import infernoMap from "../assets/maps/inferno.svg";
+import mirageMap from "../assets/maps/mirage.svg";
+import nukeMap from "../assets/maps/nuke.svg";
+import overpassMap from "../assets/maps/overpass.svg";
 import {
   castLobbyMapVote,
   completeDemoMatchForTesting,
@@ -40,6 +47,16 @@ const MAP_LABELS: Record<string, string> = {
   overpass: "Overpass",
 };
 
+const MAP_BACKGROUNDS: Record<string, string> = {
+  dust2: dust2Map,
+  inferno: infernoMap,
+  mirage: mirageMap,
+  nuke: nukeMap,
+  anubis: anubisMap,
+  ancient: ancientMap,
+  overpass: overpassMap,
+};
+
 const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
@@ -51,9 +68,9 @@ const formatMode = (value: string | null | undefined) =>
 const getActiveMembers = (lobby: MatchmakingLobby | null) =>
   (lobby?.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at);
 
-const getCountdown = (turnEndsAt: string | null | undefined) => {
+const getCountdown = (turnEndsAt: string | null | undefined, nowMs = Date.now()) => {
   if (!turnEndsAt) return "00:00";
-  const seconds = Math.max(0, Math.ceil((new Date(turnEndsAt).getTime() - Date.now()) / 1000));
+  const seconds = Math.max(0, Math.ceil((new Date(turnEndsAt).getTime() - nowMs) / 1000));
   return `00:${seconds.toString().padStart(2, "0")}`;
 };
 
@@ -132,6 +149,70 @@ function TeamBoard({
   );
 }
 
+function MapVetoCard({
+  mapCode,
+  voteCount,
+  selected,
+  disabled,
+  onVote,
+}: {
+  mapCode: string;
+  voteCount: number;
+  selected: boolean;
+  disabled: boolean;
+  onVote: (mapCode: string) => Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => void onVote(mapCode)}
+      disabled={disabled}
+      className={cn(
+        "group relative h-[220px] w-[185px] shrink-0 snap-start overflow-hidden rounded-2xl border text-left transition-all duration-200",
+        selected
+          ? "border-esport-accent ring-2 ring-esport-accent shadow-[0_20px_45px_rgba(59,130,246,0.18)]"
+          : "border-white/10 hover:-translate-y-1 hover:border-white/30",
+        disabled ? "cursor-not-allowed opacity-65" : ""
+      )}
+      style={{
+        backgroundImage: `linear-gradient(180deg, rgba(5,10,20,0.08) 0%, rgba(5,10,20,0.88) 100%), url(${MAP_BACKGROUNDS[mapCode]})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/5" />
+      <div className="relative flex h-full flex-col justify-between p-4">
+        <div className="flex items-start justify-between gap-3">
+          <span className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/90">
+            Map Pool
+          </span>
+          {selected && (
+            <span className="rounded-full border border-esport-accent/40 bg-esport-accent/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+              Your Vote
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="text-2xl font-display font-bold uppercase tracking-wide text-white">
+              {MAP_LABELS[mapCode] || mapCode}
+            </div>
+            <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.24em] text-white/65">
+              {disabled && !selected ? "Waiting for turn" : "Select to veto"}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/35 px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/65">Team clicks</span>
+            <span className="text-sm font-bold text-white">{voteCount}</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function CustomLobbyView({
   addToast,
   openModal,
@@ -160,6 +241,7 @@ export function CustomLobbyView({
   const [recentMatches, setRecentMatches] = useState<RecentMatchSummary[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
+  const [clockTick, setClockTick] = useState(() => Date.now());
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
     name: "",
@@ -201,9 +283,16 @@ export function CustomLobbyView({
   useEffect(() => {
     const interval = window.setInterval(() => {
       void loadState();
-    }, 3000);
+    }, 1000);
     return () => window.clearInterval(interval);
   }, [user?.id, accountMode]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setClockTick(Date.now());
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setFormState((current) => ({
@@ -252,6 +341,8 @@ export function CustomLobbyView({
   const hasJoinedServer = !!activeMatch?.match_players?.some((player) => player.user_id === user?.id && player.joined_server);
   const joinedServerCount = (activeMatch?.match_players || []).filter((player) => player.joined_server).length;
   const totalServerPlayers = (activeMatch?.match_players || []).length;
+  const isMyVotingTurn = !!activeVoteSession && !!myMembership && myMembership.team_side === activeVoteSession.active_team;
+  const countdownLabel = getCountdown(activeVoteSession?.turn_ends_at, clockTick);
 
   const guardedAction = async (action: () => Promise<void>) => {
     if (requiresKyc && !isKycVerified) {
@@ -541,7 +632,6 @@ export function CustomLobbyView({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Bench / Unassigned</div>
-                    <div className="text-xs text-esport-text-muted mt-1">Click Terrorists or Counter-Terrorists above to join a side.</div>
                   </div>
                   <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{benchMembers.length} players</div>
                 </div>
@@ -588,23 +678,60 @@ export function CustomLobbyView({
 
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div></div>
-                    {activeVoteSession && <div className="text-right"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Turn</div><div className="text-sm font-bold text-white">{activeVoteSession.active_team}</div></div>}
+                    <div className="space-y-1">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div>
+                      {activeVoteSession && (
+                        <div className="text-sm font-bold text-white">
+                          {activeVoteSession.active_team} team voting turn <span className="font-mono text-esport-accent">{countdownLabel}</span>
+                        </div>
+                      )}
+                    </div>
+                    {activeVoteSession && (
+                      <div className={cn(
+                        "rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]",
+                        isMyVotingTurn
+                          ? "border-esport-accent/40 bg-esport-accent/10 text-esport-accent"
+                          : "border-white/10 bg-black/20 text-esport-text-muted"
+                      )}>
+                        {isMyVotingTurn ? "Your team can vote" : "Opposing team locked"}
+                      </div>
+                    )}
                   </div>
                   {!activeVoteSession ? null : (
                     <>
-                      <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2"><Clock3 className="w-4 h-4 text-esport-accent" /><div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">Round {activeVoteSession.round_number} · Team {activeVoteSession.active_team} veto</div></div>
-                        <div className="font-mono text-sm font-bold text-white">{getCountdown(activeVoteSession.turn_ends_at)}</div>
+                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock3 className="w-4 h-4 text-esport-accent" />
+                          <div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">
+                            Round {activeVoteSession.round_number} · {activeVoteSession.active_team} team veto window
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {activeVoteSession.last_vetoed_map && (
+                            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                              Last veto: {MAP_LABELS[activeVoteSession.last_vetoed_map] || activeVoteSession.last_vetoed_map}
+                            </div>
+                          )}
+                          <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 font-mono text-sm font-bold text-white">
+                            {countdownLabel}
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+
+                      <div className="overflow-x-auto custom-scrollbar pb-2">
+                        <div className="flex min-w-max gap-4 snap-x snap-mandatory">
                         {activeVoteSession.remaining_maps.map((mapCode) => (
-                          <button key={mapCode} onClick={() => void handleVote(mapCode)} className={cn("rounded-xl border bg-gradient-to-br from-[#262c43] to-[#0c1020] p-3 text-left transition-all min-h-[110px] hover:border-esport-accent/70", myVote === mapCode ? "ring-2 ring-esport-accent border-esport-accent" : "border-esport-border")}>
-                            <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Map</div>
-                            <div className="mt-2 text-sm font-display font-bold uppercase text-white">{MAP_LABELS[mapCode] || mapCode}</div>
-                            <div className="mt-4 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{voteCounts[mapCode] ? `${voteCounts[mapCode]} vote${voteCounts[mapCode] === 1 ? "" : "s"}` : "No vote"}</div>
-                          </button>
+                          <div key={mapCode}>
+                            <MapVetoCard
+                              mapCode={mapCode}
+                              voteCount={voteCounts[mapCode] || 0}
+                              selected={myVote === mapCode}
+                              disabled={!isMyVotingTurn}
+                              onVote={handleVote}
+                            />
+                          </div>
                         ))}
+                        </div>
                       </div>
                     </>
                   )}
