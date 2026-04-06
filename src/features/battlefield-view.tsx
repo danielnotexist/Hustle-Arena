@@ -1,5 +1,5 @@
 ﻿import { Clock3, Lock, MessageSquare, Radio, Server, Users } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   castLobbyMapVote,
@@ -160,6 +160,7 @@ export function CustomLobbyView({
   const [recentMatches, setRecentMatches] = useState<RecentMatchSummary[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
+  const redirectedLobbyIdRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
     name: "",
     stakeAmount: "5",
@@ -211,6 +212,20 @@ export function CustomLobbyView({
       gameMode: current.teamSize === 2 ? "wingman" : current.gameMode,
     }));
   }, [accountMode]);
+
+  useEffect(() => {
+    if (!browserOnly || !activeLobby?.id) {
+      redirectedLobbyIdRef.current = null;
+      return;
+    }
+
+    if (redirectedLobbyIdRef.current === activeLobby.id) {
+      return;
+    }
+
+    redirectedLobbyIdRef.current = activeLobby.id;
+    onLobbyJoined?.();
+  }, [browserOnly, activeLobby?.id, onLobbyJoined]);
 
   const activeMembers = useMemo(() => getActiveMembers(activeLobby), [activeLobby]);
   const tMembers = activeMembers.filter((member) => member.team_side === "T");
@@ -276,8 +291,8 @@ export function CustomLobbyView({
       const password = lobby.password_required ? window.prompt("Enter lobby password") || "" : null;
       await joinMatchmakingLobby(lobby.id, password);
       addToast("Joined lobby.", "success");
-      await loadState();
       onLobbyJoined?.();
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to join lobby.", "error");
