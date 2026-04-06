@@ -139,6 +139,7 @@ export function CustomLobbyView({
   accountMode,
   refreshSession,
   browserOnly = false,
+  onLobbyJoined,
 }: {
   addToast: any;
   openModal: any;
@@ -146,6 +147,7 @@ export function CustomLobbyView({
   accountMode: AccountMode;
   refreshSession: () => Promise<void>;
   browserOnly?: boolean;
+  onLobbyJoined?: () => void;
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
@@ -275,6 +277,7 @@ export function CustomLobbyView({
       await joinMatchmakingLobby(lobby.id, password);
       addToast("Joined lobby.", "success");
       await loadState();
+      onLobbyJoined?.();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to join lobby.", "error");
@@ -636,6 +639,7 @@ export function CustomLobbyBrowserView(props: {
   user: any;
   accountMode: AccountMode;
   refreshSession: () => Promise<void>;
+  onLobbyJoined?: () => void;
 }) {
   return <CustomLobbyView {...props} browserOnly />;
 }
