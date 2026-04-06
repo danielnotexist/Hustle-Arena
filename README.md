@@ -54,7 +54,7 @@ This project is the active React + Vite workspace for Hustle Arena.
 - Terminate demo/live matches with zero-fee refunds
 - Force-close stale lobbies
 
-7. Penalties and interruption logic
+7. Penalties and interruption logic.
 - Abandon timers, surrender/risk vote window, cooldown penalties
 - Funds split rules and notification popups
 
