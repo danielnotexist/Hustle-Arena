@@ -145,6 +145,12 @@ export interface MatchServerBootstrap {
   };
 }
 
+interface PublicProfileBasic {
+  id: string;
+  username: string | null;
+  email: string | null;
+}
+
 const OPEN_LOBBY_SELECT = `
   id,
   mode,
@@ -184,6 +190,77 @@ const ACTIVE_LOBBY_SELECT = `
   lobby_messages(id, user_id, message, created_at, profiles:user_id(username)),
   map_vote_sessions(id, lobby_id, active_team, turn_ends_at, turn_seconds, remaining_maps, status, round_number, last_vetoed_map, map_votes(user_id, map_code, updated_at))
 `;
+
+async function fetchPublicProfileBasics(userIds: string[]) {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (!uniqueUserIds.length) {
+    return new Map<string, PublicProfileBasic>();
+  }
+
+  const { data, error } = await supabase.rpc("get_public_profile_basics", {
+    p_user_ids: uniqueUserIds,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return new Map(
+    ((data || []) as PublicProfileBasic[]).map((profile) => [
+      profile.id,
+      {
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+      },
+    ])
+  );
+}
+
+function enrichLobbyProfiles(lobby: MatchmakingLobby | null, profilesById: Map<string, PublicProfileBasic>) {
+  if (!lobby) {
+    return lobby;
+  }
+
+  return {
+    ...lobby,
+    lobby_members: (lobby.lobby_members || []).map((member) => ({
+      ...member,
+      profiles: profilesById.get(member.user_id)
+        ? {
+            username: profilesById.get(member.user_id)?.username || undefined,
+            email: profilesById.get(member.user_id)?.email || undefined,
+          }
+        : member.profiles || null,
+    })),
+    lobby_messages: (lobby.lobby_messages || []).map((message) => ({
+      ...message,
+      profiles: profilesById.get(message.user_id)
+        ? {
+            username: profilesById.get(message.user_id)?.username || undefined,
+          }
+        : message.profiles || null,
+    })),
+  } satisfies MatchmakingLobby;
+}
+
+function enrichMatchProfiles(match: ActiveMatch | null, profilesById: Map<string, PublicProfileBasic>) {
+  if (!match) {
+    return match;
+  }
+
+  return {
+    ...match,
+    match_players: (match.match_players || []).map((player) => ({
+      ...player,
+      profiles: profilesById.get(player.user_id)
+        ? {
+            username: profilesById.get(player.user_id)?.username || undefined,
+          }
+        : player.profiles || null,
+    })),
+  } satisfies ActiveMatch;
+}
 
 export async function createMatchmakingLobby(input: {
   mode: LobbyMode;
@@ -237,9 +314,15 @@ export async function fetchOpenMatchmakingLobbies(mode: LobbyMode) {
     throw error;
   }
 
-  return ((data || []) as MatchmakingLobby[]).filter((lobby) =>
+  const lobbies = ((data || []) as MatchmakingLobby[]).filter((lobby) =>
     (lobby.lobby_members || []).some((member) => !member.left_at && !member.kicked_at)
   );
+
+  const profilesById = await fetchPublicProfileBasics(
+    lobbies.flatMap((lobby) => (lobby.lobby_members || []).map((member) => member.user_id))
+  );
+
+  return lobbies.map((lobby) => enrichLobbyProfiles(lobby, profilesById));
 }
 
 export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {
@@ -259,10 +342,19 @@ export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {
 
   const rawLobby = (data?.[0] as { lobbies?: MatchmakingLobby | MatchmakingLobby[] } | undefined)?.lobbies;
   if (Array.isArray(rawLobby)) {
-    return rawLobby[0] || null;
+    const lobby = rawLobby[0] || null;
+    const profilesById = await fetchPublicProfileBasics([
+      ...(lobby?.lobby_members || []).map((member) => member.user_id),
+      ...(lobby?.lobby_messages || []).map((message) => message.user_id),
+    ]);
+    return enrichLobbyProfiles(lobby, profilesById);
   }
 
-  return rawLobby || null;
+  const profilesById = await fetchPublicProfileBasics([
+    ...(rawLobby?.lobby_members || []).map((member) => member.user_id),
+    ...(rawLobby?.lobby_messages || []).map((message) => message.user_id),
+  ]);
+  return enrichLobbyProfiles(rawLobby || null, profilesById);
 }
 
 export async function fetchMyActiveMatch(lobbyId: string) {
@@ -279,7 +371,11 @@ export async function fetchMyActiveMatch(lobbyId: string) {
     throw error;
   }
 
-  return (data || null) as ActiveMatch | null;
+  const match = (data || null) as ActiveMatch | null;
+  const profilesById = await fetchPublicProfileBasics(
+    (match?.match_players || []).map((player) => player.user_id)
+  );
+  return enrichMatchProfiles(match, profilesById);
 }
 
 export async function fetchRecentMatches(mode: LobbyMode, limit = 6) {
