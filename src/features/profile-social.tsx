@@ -43,7 +43,6 @@ import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
 import type { AccountMode, Mission, UserStats, WalletSnapshot } from "./types";
 import { DynamicImage, KYCForm } from "./landing-auth";
-import { CustomLobbyView } from "./battlefield-view";
 
 export function UserProfileView({
   user,
@@ -781,17 +780,9 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
-          <p className="text-sm text-esport-text-muted">Create and manage private custom lobbies, then handle squad invites, DMs, and friend requests.</p>
+          <p className="text-sm text-esport-text-muted">Handle squad invites, direct messages, and friend requests from one place.</p>
         </div>
       </div>
-
-      <CustomLobbyView
-        addToast={addToast}
-        openModal={openModal}
-        user={user}
-        accountMode={accountMode}
-        refreshSession={refreshSession || (async () => undefined)}
-      />
 
       <div className="esport-card p-4">
         <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>

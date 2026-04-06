@@ -393,14 +393,8 @@ export function CustomLobbyView({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col lg:flex-row justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Create Custom Lobby</h2>
-        </div>
-        <div className="rounded-xl border border-esport-border bg-esport-card px-4 py-3 flex items-center gap-3">
-          <Radio className="w-4 h-4 text-esport-accent" />
-          <div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">{loading ? "Syncing" : "Backend synced"}</div>
-        </div>
+      <div>
+        <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Custom Lobby Browser</h2>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-6">
@@ -582,9 +576,6 @@ export function CustomLobbyView({
               })}
             </div>
           </div>
-
-          <div className="esport-card p-5"><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">Custom Lobby Notes</div><div className="text-sm text-esport-text-muted">Use Squad Hub for private lobby creation and management. Battlefield is reserved for quick-match queueing.</div></div>
-          <div className="esport-card p-5"><div className="flex items-center gap-2 mb-3"><Users className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Custom Lobby Ruleset</div></div><div className="space-y-3 text-sm text-esport-text-muted"><p>2v2 custom lobbies only allow Wingman. 5v5 custom lobbies support Competitive, Team FFA, and FFA presets.</p><p>The lobby organiser controls stake, player population, password protection, and final map flow before server launch.</p><p>Map veto rotates every 15 seconds between T and CT until one CS2 map remains, then the server join phase opens.</p></div></div>
         </div>
       </div>
     </div>

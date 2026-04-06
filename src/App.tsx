@@ -40,6 +40,7 @@ import {
   ApexListView,
   AuthForm,
   BattlefieldView,
+  CustomLobbyBrowserView,
   DashboardView,
   DepositPage,
   HustlePrimeView,
@@ -60,6 +61,7 @@ import { usePlatformSession } from "./features/use-platform-session";
 export default function App() {
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
   const [activeTab, setActiveTab] = useState("Dashboard");
+  const [battlefieldMenuOpen, setBattlefieldMenuOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
@@ -96,7 +98,6 @@ export default function App() {
 
   const menuItems = [
     { id: "Dashboard", icon: <LayoutDashboard size={20} />, label: "Dashboard" },
-    { id: "Battlefield", icon: <Sword size={20} />, label: "Battlefield" },
     { id: "Squad Hub", icon: <Users size={20} />, label: "Squad Hub" },
     { id: "Apex List", icon: <Trophy size={20} />, label: "Apex List" },
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
@@ -111,6 +112,9 @@ export default function App() {
     { id: "Vault", icon: <ShoppingBag size={20} />, label: "Vault" },
     { id: "Hustle Prime", icon: <Crown size={20} />, label: "Hustle Prime", highlight: true },
   ];
+
+  const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
+  const isBattlefieldTab = battlefieldTabs.includes(activeTab);
 
   useEffect(() => {
     if (user) {
@@ -202,6 +206,50 @@ export default function App() {
               <div>
                 <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
                 <div className="space-y-1">
+                  <SidebarItem
+                    icon={<Sword size={20} />}
+                    label="Battlefield"
+                    active={isBattlefieldTab}
+                    onClick={() => {
+                      setBattlefieldMenuOpen((current) => {
+                        const next = !current;
+                        if (!current && !isBattlefieldTab) {
+                          setActiveTab("Battlefield Matchmaking");
+                        }
+                        return next;
+                      });
+                    }}
+                  />
+                  {(battlefieldMenuOpen || isBattlefieldTab) && (
+                    <div className="ml-6 space-y-1 border-l border-esport-border pl-3">
+                      <button
+                        onClick={() => {
+                          setBattlefieldMenuOpen(true);
+                          setActiveTab("Battlefield Matchmaking");
+                        }}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                          activeTab === "Battlefield Matchmaking"
+                            ? "bg-esport-accent/10 text-esport-accent"
+                            : "text-esport-text-muted hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        Matchmaking
+                      </button>
+                      <button
+                        onClick={() => {
+                          setBattlefieldMenuOpen(true);
+                          setActiveTab("Custom Lobby Browser");
+                        }}
+                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                          activeTab === "Custom Lobby Browser"
+                            ? "bg-esport-accent/10 text-esport-accent"
+                            : "text-esport-text-muted hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        Custom Lobby Browser
+                      </button>
+                    </div>
+                  )}
                   {menuItems.map(item => (
                     <SidebarItem 
                       key={item.id} 
@@ -282,7 +330,8 @@ export default function App() {
                 {reconnectMatch && (
                   <button
                     onClick={() => {
-                      setActiveTab("Battlefield");
+                      setBattlefieldMenuOpen(true);
+                      setActiveTab("Battlefield Matchmaking");
                       try {
                         launchMatchServer(reconnectMatch.dedicated_server_endpoint);
                       } catch (error: any) {
@@ -368,7 +417,8 @@ export default function App() {
                         openModal={openModal}
                       />
                     )}
-                    {activeTab === "Battlefield" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
+                    {activeTab === "Battlefield Matchmaking" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
+                    {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
@@ -458,4 +508,3 @@ export default function App() {
 }
 
 // --- Sub-Components ---
-
