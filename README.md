@@ -58,7 +58,7 @@ This project is the active React + Vite workspace for Hustle Arena.
 - Abandon timers, surrender/risk vote window, cooldown penalties
 - Funds split rules and notification popups
 
-## Important notes
+## Important notes.
 - We are intentionally migrating in slices to keep the app stable.
 - Existing Firebase flow can remain during transition until each feature is fully replaced.
 - The workspace currently passes TypeScript, migration validation, and production build checks.
