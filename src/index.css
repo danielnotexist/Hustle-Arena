@@ -26,6 +26,17 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-bold tracking-tight;
   }
+
+  select {
+    color-scheme: dark;
+    background-color: #1a1d21;
+    color: #ffffff;
+  }
+
+  option {
+    background-color: #1a1d21;
+    color: #ffffff;
+  }
 }
 
 @layer components {
