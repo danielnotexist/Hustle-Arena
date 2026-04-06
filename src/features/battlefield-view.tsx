@@ -71,6 +71,18 @@ const getMemberDisplayName = (member: MatchmakingLobbyMember) => {
   return `Player ${member.user_id.slice(0, 8)}`;
 };
 
+const getTeamNameColorClass = (teamSide: TeamSide | null | undefined) => {
+  if (teamSide === "T") {
+    return "text-[#ff5e7b]";
+  }
+
+  if (teamSide === "CT") {
+    return "text-[#30d5ff]";
+  }
+
+  return "text-esport-accent";
+};
+
 function TeamBoard({
   title,
   accentClass,
@@ -200,6 +212,13 @@ export function CustomLobbyView({
   const tMembers = activeMembers.filter((member) => member.team_side === "T");
   const ctMembers = activeMembers.filter((member) => member.team_side === "CT");
   const benchMembers = activeMembers.filter((member) => member.team_side === "UNASSIGNED");
+  const teamSideByUserId = useMemo(
+    () =>
+      new Map(
+        activeMembers.map((member) => [member.user_id, member.team_side] as const)
+      ),
+    [activeMembers]
+  );
   const myMembership = activeMembers.find((member) => member.user_id === user?.id) || null;
   const isLeader = activeLobby?.leader_id === user?.id;
   const readyCount = activeMembers.filter((member) => member.is_ready).length;
@@ -468,7 +487,14 @@ export function CustomLobbyView({
                   <div className="flex items-center gap-2 mb-3"><MessageSquare className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby chat</div></div>
                   <div className="h-52 rounded-lg border border-white/10 bg-black/20 p-3 overflow-y-auto space-y-2">
                     {(activeLobby.lobby_messages || []).length === 0 && <div className="text-xs text-esport-text-muted">No messages yet.</div>}
-                    {(activeLobby.lobby_messages || []).map((message) => <div key={message.id} className="text-sm"><span className="font-bold text-esport-accent">{message.profiles?.username || "Player"}:</span> <span className="text-white">{message.message}</span></div>)}
+                    {(activeLobby.lobby_messages || []).map((message) => (
+                      <div key={message.id} className="text-sm">
+                        <span className={`font-bold ${getTeamNameColorClass(teamSideByUserId.get(message.user_id))}`}>
+                          {message.profiles?.username || "Player"}:
+                        </span>{" "}
+                        <span className="text-white">{message.message}</span>
+                      </div>
+                    ))}
                   </div>
                   <div className="mt-3 flex gap-2">
                     <input value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleSendMessage(); } }} className="flex-1 bg-black/30 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Type a message..." />
