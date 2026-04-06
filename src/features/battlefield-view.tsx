@@ -138,12 +138,14 @@ export function CustomLobbyView({
   user,
   accountMode,
   refreshSession,
+  browserOnly = false,
 }: {
   addToast: any;
   openModal: any;
   user: any;
   accountMode: AccountMode;
   refreshSession: () => Promise<void>;
+  browserOnly?: boolean;
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
@@ -391,14 +393,84 @@ export function CustomLobbyView({
     );
   }
 
+  if (browserOnly) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Custom Lobby Browser</h2>
+        </div>
+
+        <div className="esport-card overflow-hidden">
+          <div className="p-6 border-b border-esport-border">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+              CS2 {accountMode === "demo" ? "Demo" : "Live"} Server Browser
+            </div>
+          </div>
+
+          {openLobbies.length === 0 ? (
+            <div className="p-10 text-sm text-center text-esport-text-muted">No open custom lobbies right now.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="border-b border-esport-border text-left text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">
+                    <th className="px-6 py-4">Lobby</th>
+                    <th className="px-6 py-4">Mode</th>
+                    <th className="px-6 py-4">Players</th>
+                    <th className="px-6 py-4">Stake</th>
+                    <th className="px-6 py-4">Access</th>
+                    <th className="px-6 py-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-esport-border">
+                  {openLobbies.map((lobby) => {
+                    const count = getActiveMembers(lobby).length;
+                    return (
+                      <tr key={lobby.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-white">{lobby.name}</div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted mt-1">
+                            {formatMode(lobby.game_mode)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-white">{lobby.team_size}v{lobby.team_size}</td>
+                        <td className="px-6 py-4 text-white">{count}/{lobby.max_players}</td>
+                        <td className="px-6 py-4 text-white">{Number(lobby.stake_amount).toFixed(2)} USDT</td>
+                        <td className="px-6 py-4">
+                          {lobby.password_required ? (
+                            <span className="badge badge-secondary">Locked</span>
+                          ) : (
+                            <span className="badge badge-success">Open</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => void handleJoinLobby(lobby)}
+                            disabled={joiningLobbyId === lobby.id}
+                            className="esport-btn-secondary disabled:opacity-50"
+                          >
+                            {joiningLobbyId === lobby.id ? "Joining..." : "Join"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Custom Lobby Browser</h2>
+        <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub</h2>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-6">
-        <div className="space-y-6">
+      <div className="space-y-6">
           {!activeLobby && (
             <div className="esport-card p-5 space-y-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
@@ -554,30 +626,17 @@ export function CustomLobbyView({
             </div>
           </div>
         </div>
-
-        <div className="space-y-6">
-          <div className="esport-card p-5">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent mb-3">CS2 {accountMode === "demo" ? "Demo" : "Live"} Server Browser</div>
-            <div className="space-y-3">
-              {openLobbies.length === 0 && <div className="rounded-lg border border-dashed border-white/15 p-4 text-sm text-esport-text-muted">No open custom lobbies yet.</div>}
-              {openLobbies.map((lobby) => {
-                const count = getActiveMembers(lobby).length;
-                return (
-                  <div key={lobby.id} className="rounded-xl border border-esport-border bg-white/5 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2"><div className="font-bold text-white">{lobby.name}</div>{lobby.password_required && <Lock className="w-3.5 h-3.5 text-esport-secondary" />}</div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted mt-1">{formatMode(lobby.game_mode)} · {count}/{lobby.max_players} players · Stake {Number(lobby.stake_amount).toFixed(2)} USDT</div>
-                      </div>
-                      <button onClick={() => void handleJoinLobby(lobby)} disabled={joiningLobbyId === lobby.id} className="esport-btn-secondary disabled:opacity-50">{joiningLobbyId === lobby.id ? "Joining..." : "Join"}</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
+}
+
+export function CustomLobbyBrowserView(props: {
+  addToast: any;
+  openModal: any;
+  user: any;
+  accountMode: AccountMode;
+  refreshSession: () => Promise<void>;
+}) {
+  return <CustomLobbyView {...props} browserOnly />;
 }

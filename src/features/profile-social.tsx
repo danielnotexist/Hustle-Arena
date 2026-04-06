@@ -43,6 +43,7 @@ import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
 import type { AccountMode, Mission, UserStats, WalletSnapshot } from "./types";
 import { DynamicImage, KYCForm } from "./landing-auth";
+import { CustomLobbyView } from "./battlefield-view";
 
 export function UserProfileView({
   user,
@@ -440,7 +441,7 @@ export function UserProfileView({
   );
 }
 
-export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
@@ -779,8 +780,8 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, 
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Squad Hub</h3>
-          <p className="text-sm text-esport-text-muted">Handle squad invites, direct messages, and friend requests from one place.</p>
+          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Social</h3>
+          <p className="text-sm text-esport-text-muted">Manage your friends list, direct messages, and incoming invites from one place.</p>
         </div>
       </div>
 
@@ -930,5 +931,17 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, 
         </div>
       )}
     </div>
+  );
+}
+
+export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
+  return (
+    <CustomLobbyView
+      addToast={addToast}
+      openModal={openModal}
+      user={user}
+      accountMode={accountMode}
+      refreshSession={refreshSession || (async () => undefined)}
+    />
   );
 }

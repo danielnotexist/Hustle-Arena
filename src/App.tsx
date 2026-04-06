@@ -49,6 +49,7 @@ import {
   MissionsView,
   NeuralMapView,
   PulseView,
+  SocialView,
   SidebarItem,
   SquadHubView,
   SyndicatesView,
@@ -96,14 +97,17 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const menuItems = [
-    { id: "Dashboard", icon: <LayoutDashboard size={20} />, label: "Dashboard" },
+  const primaryNavigationItems = [
     { id: "Squad Hub", icon: <Users size={20} />, label: "Squad Hub" },
     { id: "Apex List", icon: <Trophy size={20} />, label: "Apex List" },
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
-    { id: "Live Matches TV", icon: <PlayCircle size={20} />, label: "Live Matches TV" },
+    { id: "Arena TV", icon: <PlayCircle size={20} />, label: "Arena TV" },
     { id: "Pulse", icon: <Zap size={20} />, label: "Pulse" },
     { id: "Deposit", icon: <Wallet size={20} />, label: "Deposit", highlight: true },
+  ];
+
+  const socialItems = [
+    { id: "Social", icon: <MessageSquare size={20} />, label: "Social" },
   ];
 
   const collectiveItems = [
@@ -207,6 +211,12 @@ export default function App() {
                 <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
                 <div className="space-y-1">
                   <SidebarItem
+                    icon={<LayoutDashboard size={20} />}
+                    label="Dashboard"
+                    active={activeTab === "Dashboard"}
+                    onClick={() => setActiveTab("Dashboard")}
+                  />
+                  <SidebarItem
                     icon={<Sword size={20} />}
                     label="Battlefield"
                     active={isBattlefieldTab}
@@ -250,12 +260,26 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  {menuItems.map(item => (
+                  {primaryNavigationItems.map(item => (
                     <SidebarItem 
                       key={item.id} 
                       {...item} 
                       active={activeTab === item.id} 
                       onClick={() => setActiveTab(item.id)} 
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Social</div>
+                <div className="space-y-1">
+                  {socialItems.map(item => (
+                    <SidebarItem
+                      key={item.id}
+                      {...item}
+                      active={activeTab === item.id}
+                      onClick={() => setActiveTab(item.id)}
                     />
                   ))}
                 </div>
@@ -420,11 +444,13 @@ export default function App() {
                     {activeTab === "Battlefield Matchmaking" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
                     {activeTab === "Vault" && <VaultView addToast={addToast} />}
                     {activeTab === "Pulse" && <PulseView />}
+                    {activeTab === "Arena TV" && <PulseView />}
                     {activeTab === "Syndicates" && <SyndicatesView />}
                     {activeTab === "Hustle Prime" && <HustlePrimeView />}
                     {activeTab === "Dashboard" && <DashboardView stats={stats} />}
