@@ -40,11 +40,7 @@ const MAP_LABELS: Record<string, string> = {
   overpass: "Overpass",
 };
 
-const TEAM_ACTIONS: Array<{ label: string; value: TeamSide }> = [
-  { label: "T", value: "T" },
-  { label: "CT", value: "CT" },
-  { label: "Bench", value: "UNASSIGNED" },
-];
+const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
@@ -67,6 +63,8 @@ function TeamBoard({
   members,
   teamSize,
   currentUserId,
+  teamSide,
+  isCurrentTeam,
   onMove,
 }: {
   title: string;
@@ -74,10 +72,20 @@ function TeamBoard({
   members: MatchmakingLobbyMember[];
   teamSize: number;
   currentUserId?: string;
+  teamSide: Exclude<TeamSide, "UNASSIGNED">;
+  isCurrentTeam: boolean;
   onMove: (side: TeamSide) => Promise<void>;
 }) {
   return (
-    <div className={`rounded-xl border p-4 ${accentClass}`}>
+    <button
+      type="button"
+      onClick={() => void onMove(teamSide)}
+      className={cn(
+        "rounded-xl border p-4 text-left transition-all",
+        accentClass,
+        isCurrentTeam ? "ring-2 ring-white/80" : "hover:border-white/70"
+      )}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="text-[10px] font-bold uppercase tracking-[0.2em]">{title}</div>
         <div className="text-[10px] uppercase tracking-[0.2em]">{members.length}/{teamSize}</div>
@@ -90,15 +98,11 @@ function TeamBoard({
               <div className="text-sm font-bold text-white">{member.profiles?.username || member.user_id}</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
             </div>
-            {member.user_id === currentUserId && (
-              <button onClick={() => void onMove("UNASSIGNED")} className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted hover:text-white">
-                Move
-              </button>
-            )}
+            {member.user_id === currentUserId && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
           </div>
         ))}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -173,7 +177,7 @@ export function CustomLobbyView({
   useEffect(() => {
     setFormState((current) => ({
       ...current,
-      stakeAmount: accountMode === "demo" ? "0" : current.stakeAmount,
+      stakeAmount: accountMode === "demo" ? (current.stakeAmount || "0") : current.stakeAmount || "5",
       gameMode: current.teamSize === 2 ? "wingman" : current.gameMode,
     }));
   }, [accountMode]);
@@ -215,7 +219,7 @@ export function CustomLobbyView({
           name: formState.name || `${accountMode === "demo" ? "Demo" : "Live"} Custom Lobby`,
           teamSize: formState.teamSize,
           gameMode: formState.teamSize === 2 ? "wingman" : formState.gameMode,
-          stakeAmount: accountMode === "demo" ? 0 : Number(formState.stakeAmount || 0),
+          stakeAmount: Number(formState.stakeAmount || 0),
           password: formState.password,
         });
         addToast("Custom lobby created.", "success");
@@ -246,6 +250,7 @@ export function CustomLobbyView({
 
   const handleMove = async (side: TeamSide) => {
     if (!activeLobby) return;
+    if (myMembership?.team_side === side) return;
     try {
       await setLobbyMemberTeamSide(activeLobby.id, side);
       await loadState();
@@ -357,8 +362,7 @@ export function CustomLobbyView({
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col lg:flex-row justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub Custom Lobbies</h2>
-          <p className="text-sm text-esport-text-muted max-w-3xl">Create and manage private CS2 custom lobbies with stake selection, passwords, side assignment, lobby chat, map veto, and dedicated-server staging. Quick matchmaking belongs in Battlefield.</p>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Create Custom Lobby</h2>
         </div>
         <div className="rounded-xl border border-esport-border bg-esport-card px-4 py-3 flex items-center gap-3">
           <Radio className="w-4 h-4 text-esport-accent" />
@@ -370,9 +374,15 @@ export function CustomLobbyView({
         <div className="space-y-6">
           {!activeLobby && (
             <div className="esport-card p-5 space-y-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
               <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
-              <input value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} disabled={accountMode === "demo"} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60 disabled:opacity-50" placeholder="Stake amount" />
+              <select value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
+                {STAKE_OPTIONS.map((amount) => (
+                  <option key={amount} value={amount}>
+                    {amount} USDT
+                  </option>
+                ))}
+              </select>
               <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
                 <option value={2}>2v2</option>
                 <option value={5}>5v5</option>
@@ -402,19 +412,19 @@ export function CustomLobbyView({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby status</div><div className="mt-2 text-sm font-bold text-white">{activeMatch ? activeMatch.status : activeLobby.status}</div></div>
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ready players</div><div className="mt-2 text-sm font-bold text-esport-success">{readyCount}/{activeMembers.length}</div></div>
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Funds locked</div><div className="mt-2 text-sm font-bold text-white">{activeLobby.mode === "demo" ? "0.00 USDT" : `${Number(activeLobby.stake_amount).toFixed(2)} USDT / player`}</div></div>
+                <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Stake Amount</div><div className="mt-2 text-sm font-bold text-white">{`${Number(activeLobby.stake_amount || 0).toFixed(2)} USDT / player`}</div></div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} onMove={handleMove} />
-                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} onMove={handleMove} />
+                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} />
+                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} />
               </div>
 
               <div className="rounded-xl border border-esport-border bg-white/5 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Bench / Unassigned</div>
-                    <div className="text-xs text-esport-text-muted mt-1">Pick a Counter-Strike side before readying up.</div>
+                    <div className="text-xs text-esport-text-muted mt-1">Click Terrorists or Counter-Terrorists above to join a side.</div>
                   </div>
                   <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{benchMembers.length} players</div>
                 </div>
@@ -426,7 +436,7 @@ export function CustomLobbyView({
                         <div className="text-sm font-bold text-white">{member.profiles?.username || member.user_id}</div>
                         <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
                       </div>
-                      {member.user_id === user?.id && <div className="flex gap-2">{TEAM_ACTIONS.filter((team) => team.value !== "UNASSIGNED").map((team) => <button key={team.value} onClick={() => void handleMove(team.value)} className="esport-btn-secondary !px-3 !py-2 text-[10px] uppercase tracking-[0.2em]">{team.label}</button>)}</div>}
+                      {member.user_id === user?.id && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
                     </div>
                   ))}
                 </div>

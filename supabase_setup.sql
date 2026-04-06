@@ -1678,10 +1678,6 @@ begin
 
   perform public.assert_user_can_access_mode(v_user_id, p_mode);
 
-  if p_mode = 'demo' then
-    v_safe_stake := 0;
-  end if;
-
   insert into public.lobbies (
     mode,
     kind,
@@ -2980,10 +2976,6 @@ begin
       and l.status in ('open', 'in_progress')
   ) then
     raise exception 'Leave your current lobby before creating a new one';
-  end if;
-
-  if p_mode = 'demo' then
-    v_safe_stake := 0;
   end if;
 
   if v_password_plaintext is not null then
