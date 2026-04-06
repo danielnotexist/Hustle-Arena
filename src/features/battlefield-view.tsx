@@ -132,7 +132,7 @@ export function CustomLobbyView({
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
   const [formState, setFormState] = useState({
     name: "",
-    stakeAmount: accountMode === "demo" ? "0" : "5",
+    stakeAmount: "5",
     teamSize: 5 as 2 | 5,
     gameMode: "competitive" as SupportedGameMode,
     password: "",
@@ -177,7 +177,7 @@ export function CustomLobbyView({
   useEffect(() => {
     setFormState((current) => ({
       ...current,
-      stakeAmount: accountMode === "demo" ? (current.stakeAmount || "0") : current.stakeAmount || "5",
+      stakeAmount: current.stakeAmount || "5",
       gameMode: current.teamSize === 2 ? "wingman" : current.gameMode,
     }));
   }, [accountMode]);
@@ -464,10 +464,10 @@ export function CustomLobbyView({
 
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div><div className="text-xs text-esport-text-muted mt-1">Two matching clicks from the active team veto the map and rotate the turn.</div></div>
+                    <div><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div></div>
                     {activeVoteSession && <div className="text-right"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Turn</div><div className="text-sm font-bold text-white">{activeVoteSession.active_team}</div></div>}
                   </div>
-                  {!activeVoteSession ? <div className="rounded-lg border border-dashed border-white/15 p-4 text-sm text-esport-text-muted">Fill both teams, then let the lobby leader start the veto flow.</div> : (
+                  {!activeVoteSession ? null : (
                     <>
                       <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2"><Clock3 className="w-4 h-4 text-esport-accent" /><div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">Round {activeVoteSession.round_number} · Team {activeVoteSession.active_team} veto</div></div>
@@ -550,4 +550,3 @@ export function CustomLobbyView({
     </div>
   );
 }
-
