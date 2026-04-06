@@ -33,7 +33,7 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
-import { fetchMyReconnectableMatch, launchMatchServer, type ReconnectableMatch } from "./lib/supabase/matchmaking";
+import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, type ReconnectableMatch } from "./lib/supabase/matchmaking";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
@@ -164,6 +164,35 @@ export default function App() {
       window.clearInterval(interval);
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== "Custom Lobby Browser" || !user?.id || !isSupabaseConfigured()) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const redirectIntoJoinedLobby = async () => {
+      try {
+        const activeLobby = await fetchMyActiveLobby(user.id, accountMode);
+        if (!isCancelled && activeLobby) {
+          setActiveTab("Squad Hub");
+        }
+      } catch (error) {
+        console.error("Failed to detect joined custom lobby:", error);
+      }
+    };
+
+    void redirectIntoJoinedLobby();
+    const interval = window.setInterval(() => {
+      void redirectIntoJoinedLobby();
+    }, 1000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [activeTab, user?.id, accountMode]);
 
   const handleLogout = async () => {
     await signOut(auth);
