@@ -626,7 +626,6 @@ export function CustomLobbyView({
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }
