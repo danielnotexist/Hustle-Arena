@@ -229,6 +229,7 @@ export async function fetchOpenMatchmakingLobbies(mode: LobbyMode) {
     .from("lobbies")
     .select(OPEN_LOBBY_SELECT)
     .eq("mode", mode)
+    .eq("kind", "custom")
     .eq("status", "open")
     .order("created_at", { ascending: true });
 
@@ -236,7 +237,9 @@ export async function fetchOpenMatchmakingLobbies(mode: LobbyMode) {
     throw error;
   }
 
-  return (data || []) as MatchmakingLobby[];
+  return ((data || []) as MatchmakingLobby[]).filter((lobby) =>
+    (lobby.lobby_members || []).some((member) => !member.left_at && !member.kicked_at)
+  );
 }
 
 export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {
