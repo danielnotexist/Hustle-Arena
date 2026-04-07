@@ -196,7 +196,7 @@ function MapVetoCard({
       onClick={() => void onVote(mapCode)}
       disabled={disabled}
       className={cn(
-        "group relative h-[220px] w-[185px] shrink-0 snap-start overflow-hidden rounded-2xl border text-left transition-all duration-200",
+        "group relative h-[200px] w-[165px] shrink-0 snap-start overflow-hidden rounded-2xl border text-left transition-all duration-200",
         selected
           ? "border-esport-accent ring-2 ring-esport-accent shadow-[0_20px_45px_rgba(59,130,246,0.18)]"
           : "border-white/10 hover:-translate-y-1 hover:border-white/30",
@@ -294,7 +294,25 @@ export function CustomLobbyView({
       if (myLobby?.map_vote_sessions?.[0]?.id) {
         await syncMapVoteSession(myLobby.map_vote_sessions[0].id);
       }
-      const refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
+      let refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
+      const refreshedVoteSessions = Array.isArray(refreshedLobby?.map_vote_sessions)
+        ? refreshedLobby.map_vote_sessions
+        : refreshedLobby?.map_vote_sessions
+          ? [refreshedLobby.map_vote_sessions]
+          : [];
+
+      if (
+        refreshedLobby?.id &&
+        refreshedLobby.leader_id === user.id &&
+        refreshedLobby.auto_veto_starts_at &&
+        new Date(refreshedLobby.auto_veto_starts_at).getTime() <= Date.now() &&
+        !refreshedLobby.selected_map &&
+        !refreshedVoteSessions.some((session) => session.status === "active")
+      ) {
+        await syncLobbyAutoVeto(refreshedLobby.id);
+        refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
+      }
+
       setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== refreshedLobby?.id));
       setActiveLobby(refreshedLobby);
       setRecentMatches(matches);
@@ -703,7 +721,7 @@ export function CustomLobbyView({
                 {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.9fr] gap-4">
+              <div className="space-y-4">
                 <div className="rounded-xl border border-esport-border bg-white/5 p-4">
                   <div className="flex items-center gap-2 mb-3"><MessageSquare className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby chat</div></div>
                   <div className="h-52 rounded-lg border border-white/10 bg-black/20 p-3 overflow-y-auto space-y-2">
@@ -723,66 +741,79 @@ export function CustomLobbyView({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div>
+                {(activeVoteSession || activeLobby.map_voting_active || activeLobby.auto_veto_starts_at) && (
+                  <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div>
+                        {activeVoteSession ? (
+                          <div className="text-sm font-bold text-white">
+                            {activeVoteSession.active_team} team voting turn <span className="font-mono text-esport-accent">{countdownLabel}</span>
+                          </div>
+                        ) : activeLobby.auto_veto_starts_at ? (
+                          <div className="text-sm font-bold text-white">
+                            Map voting starts in <span className="font-mono text-esport-accent">{autoVetoCountdownLabel}</span>
+                          </div>
+                        ) : (
+                          <div className="text-sm font-bold text-esport-text-muted">Waiting for map voting session...</div>
+                        )}
+                      </div>
                       {activeVoteSession && (
-                        <div className="text-sm font-bold text-white">
-                          {activeVoteSession.active_team} team voting turn <span className="font-mono text-esport-accent">{countdownLabel}</span>
+                        <div className={cn(
+                          "rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]",
+                          isMyVotingTurn
+                            ? "border-esport-accent/40 bg-esport-accent/10 text-esport-accent"
+                            : "border-white/10 bg-black/20 text-esport-text-muted"
+                        )}>
+                          {isMyVotingTurn ? "Your team can vote" : "Opposing team locked"}
                         </div>
                       )}
                     </div>
-                    {activeVoteSession && (
-                      <div className={cn(
-                        "rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]",
-                        isMyVotingTurn
-                          ? "border-esport-accent/40 bg-esport-accent/10 text-esport-accent"
-                          : "border-white/10 bg-black/20 text-esport-text-muted"
-                      )}>
-                        {isMyVotingTurn ? "Your team can vote" : "Opposing team locked"}
+
+                    {activeVoteSession ? (
+                      <>
+                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex items-center gap-2">
+                            <Clock3 className="w-4 h-4 text-esport-accent" />
+                            <div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">
+                              Round {activeVoteSession.round_number} · {activeVoteSession.active_team} team veto window
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {activeVoteSession.last_vetoed_map && (
+                              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                                Last veto: {MAP_LABELS[activeVoteSession.last_vetoed_map] || activeVoteSession.last_vetoed_map}
+                              </div>
+                            )}
+                            <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 font-mono text-sm font-bold text-white">
+                              {countdownLabel}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto custom-scrollbar pb-2">
+                          <div className="flex min-w-max gap-3 snap-x snap-mandatory">
+                            {activeVoteSession.remaining_maps.map((mapCode) => (
+                              <div key={mapCode}>
+                                <MapVetoCard
+                                  mapCode={mapCode}
+                                  voteCount={voteCounts[mapCode] || 0}
+                                  selected={myVote === mapCode}
+                                  disabled={!isMyVotingTurn}
+                                  onVote={handleVote}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-5 text-sm text-esport-text-muted">
+                        Map voting will appear here automatically as soon as the countdown completes.
                       </div>
                     )}
                   </div>
-                  {!activeVoteSession ? null : (
-                    <>
-                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex items-center gap-2">
-                          <Clock3 className="w-4 h-4 text-esport-accent" />
-                          <div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">
-                            Round {activeVoteSession.round_number} · {activeVoteSession.active_team} team veto window
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          {activeVoteSession.last_vetoed_map && (
-                            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
-                              Last veto: {MAP_LABELS[activeVoteSession.last_vetoed_map] || activeVoteSession.last_vetoed_map}
-                            </div>
-                          )}
-                          <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 font-mono text-sm font-bold text-white">
-                            {countdownLabel}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="overflow-x-auto custom-scrollbar pb-2">
-                        <div className="flex min-w-max gap-4 snap-x snap-mandatory">
-                        {activeVoteSession.remaining_maps.map((mapCode) => (
-                          <div key={mapCode}>
-                            <MapVetoCard
-                              mapCode={mapCode}
-                              voteCount={voteCounts[mapCode] || 0}
-                              selected={myVote === mapCode}
-                              disabled={!isMyVotingTurn}
-                              onVote={handleVote}
-                            />
-                          </div>
-                        ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
               </div>
 
               {activeMatch && (
