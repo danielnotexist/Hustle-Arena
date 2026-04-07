@@ -70,6 +70,13 @@ const formatMode = (value: string | null | undefined) =>
 const getActiveMembers = (lobby: MatchmakingLobby | null) =>
   (lobby?.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at);
 
+const getLobbyVoteSessions = (lobby: MatchmakingLobby | null) =>
+  Array.isArray(lobby?.map_vote_sessions)
+    ? lobby.map_vote_sessions
+    : lobby?.map_vote_sessions
+      ? [lobby.map_vote_sessions]
+      : [];
+
 const getCountdown = (turnEndsAt: string | null | undefined, nowMs = Date.now()) => {
   if (!turnEndsAt) return "00:00";
   const seconds = Math.max(0, Math.ceil((new Date(turnEndsAt).getTime() - nowMs) / 1000));
@@ -292,15 +299,12 @@ export function CustomLobbyView({
       if (myLobby?.id && myLobby.leader_id === user.id) {
         await syncLobbyAutoVeto(myLobby.id);
       }
-      if (myLobby?.map_vote_sessions?.[0]?.id) {
-        await syncMapVoteSession(myLobby.map_vote_sessions[0].id);
+      const myLobbyVoteSession = getLobbyVoteSessions(myLobby)[0];
+      if (myLobbyVoteSession?.id) {
+        await syncMapVoteSession(myLobbyVoteSession.id);
       }
       let refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
-      const refreshedVoteSessions = Array.isArray(refreshedLobby?.map_vote_sessions)
-        ? refreshedLobby.map_vote_sessions
-        : refreshedLobby?.map_vote_sessions
-          ? [refreshedLobby.map_vote_sessions]
-          : [];
+      const refreshedVoteSessions = getLobbyVoteSessions(refreshedLobby);
 
       if (
         refreshedLobby?.id &&
@@ -380,11 +384,7 @@ export function CustomLobbyView({
   const myMembership = activeMembers.find((member) => member.user_id === user?.id) || null;
   const isLeader = activeLobby?.leader_id === user?.id;
   const readyCount = activeMembers.filter((member) => member.is_ready).length;
-  const voteSessions = Array.isArray(activeLobby?.map_vote_sessions)
-    ? activeLobby.map_vote_sessions
-    : activeLobby?.map_vote_sessions
-      ? [activeLobby.map_vote_sessions]
-      : [];
+  const voteSessions = getLobbyVoteSessions(activeLobby);
   const activeVoteSession = voteSessions.find((session) => session.status === "active") || null;
   const myVote = (activeVoteSession?.map_votes || []).find((vote) => vote.user_id === user?.id)?.map_code || null;
   const voteCounts = (activeVoteSession?.map_votes || []).reduce<Record<string, number>>((acc, vote) => {
