@@ -19,11 +19,13 @@ import {
   fetchRecentMatches,
   joinMatchmakingLobby,
   joinMatchServer,
+  kickLobbyMember,
   launchMatchServer,
   leaveMatchmakingLobby,
   sendLobbyMessage,
   setLobbyMemberReady,
   setLobbyMemberTeamSide,
+  syncLobbyAutoVeto,
   syncMapVoteSession,
   type ActiveMatch,
   type LobbyMode,
@@ -97,27 +99,31 @@ const getTeamNameColorClass = (teamSide: TeamSide | null | undefined) => {
     return "text-[#30d5ff]";
   }
 
-  return "text-esport-accent";
+  return "text-slate-400";
 };
 
 function TeamBoard({
   title,
   accentClass,
   members,
-  teamSize,
+  capacity,
   currentUserId,
   teamSide,
   isCurrentTeam,
   onMove,
+  canKick,
+  onKick,
 }: {
   title: string;
   accentClass: string;
   members: MatchmakingLobbyMember[];
-  teamSize: number;
+  capacity: number;
   currentUserId?: string;
-  teamSide: Exclude<TeamSide, "UNASSIGNED">;
+  teamSide: TeamSide;
   isCurrentTeam: boolean;
   onMove: (side: TeamSide) => Promise<void>;
+  canKick?: boolean;
+  onKick?: (userId: string) => Promise<void>;
 }) {
   return (
     <button
@@ -131,7 +137,7 @@ function TeamBoard({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="text-[10px] font-bold uppercase tracking-[0.2em]">{title}</div>
-        <div className="text-[10px] uppercase tracking-[0.2em]">{members.length}/{teamSize}</div>
+        <div className="text-[10px] uppercase tracking-[0.2em]">{members.length}/{capacity}</div>
       </div>
       <div className="space-y-2 min-h-[120px]">
         {members.length === 0 && <div className="text-xs text-esport-text-muted">No players yet</div>}
@@ -141,7 +147,29 @@ function TeamBoard({
               <div className="text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
             </div>
-            {member.user_id === currentUserId && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
+            <div className="flex items-center gap-2">
+              {canKick && onKick && member.user_id !== currentUserId && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void onKick(member.user_id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void onKick(member.user_id);
+                    }
+                  }}
+                  className="rounded-full border border-esport-danger/40 bg-esport-danger/10 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-esport-danger"
+                >
+                  Kick
+                </span>
+              )}
+              {member.user_id === currentUserId && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
+            </div>
           </div>
         ))}
       </div>
@@ -260,6 +288,9 @@ export function CustomLobbyView({
         fetchMyActiveLobby(user.id, accountMode as LobbyMode),
         fetchRecentMatches(accountMode as LobbyMode),
       ]);
+      if (myLobby?.id && myLobby.leader_id === user.id) {
+        await syncLobbyAutoVeto(myLobby.id);
+      }
       if (myLobby?.map_vote_sessions?.[0]?.id) {
         await syncMapVoteSession(myLobby.map_vote_sessions[0].id);
       }
@@ -330,7 +361,7 @@ export function CustomLobbyView({
   const myMembership = activeMembers.find((member) => member.user_id === user?.id) || null;
   const isLeader = activeLobby?.leader_id === user?.id;
   const readyCount = activeMembers.filter((member) => member.is_ready).length;
-  const activeVoteSession = (activeLobby?.map_vote_sessions || [])[0] || null;
+  const activeVoteSession = (activeLobby?.map_vote_sessions || []).find((session) => session.status === "active") || null;
   const myVote = (activeVoteSession?.map_votes || []).find((vote) => vote.user_id === user?.id)?.map_code || null;
   const voteCounts = (activeVoteSession?.map_votes || []).reduce<Record<string, number>>((acc, vote) => {
     acc[vote.map_code] = (acc[vote.map_code] || 0) + 1;
@@ -343,6 +374,11 @@ export function CustomLobbyView({
   const totalServerPlayers = (activeMatch?.match_players || []).length;
   const isMyVotingTurn = !!activeVoteSession && !!myMembership && myMembership.team_side === activeVoteSession.active_team;
   const countdownLabel = getCountdown(activeVoteSession?.turn_ends_at, clockTick);
+  const autoVetoCountdownLabel = getCountdown(activeLobby?.auto_veto_starts_at, clockTick);
+  const everyoneReady = activeMembers.length > 0 && readyCount === activeMembers.length;
+  const teamsFilled = !!activeLobby && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size;
+  const shouldShowAutoVetoBar = !!activeLobby && !activeMatch && !activeVoteSession && !activeLobby.selected_map;
+  const canKickPlayers = isLeader && activeLobby?.status === "open";
 
   const guardedAction = async (action: () => Promise<void>) => {
     if (requiresKyc && !isKycVerified) {
@@ -446,6 +482,18 @@ export function CustomLobbyView({
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to cast map veto.", "error");
+    }
+  };
+
+  const handleKickPlayer = async (targetUserId: string) => {
+    if (!activeLobby) return;
+    try {
+      await kickLobbyMember(activeLobby.id, targetUserId);
+      await loadState();
+      addToast("Player removed from lobby.", "success");
+    } catch (error: any) {
+      console.error(error);
+      addToast(error?.message || "Failed to kick player.", "error");
     }
   };
 
@@ -624,35 +672,29 @@ export function CustomLobbyView({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} />
-                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} teamSize={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} />
+                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
+                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
               </div>
 
-              <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Bench / Unassigned</div>
-                  </div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{benchMembers.length} players</div>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {benchMembers.length === 0 && <div className="text-xs text-esport-text-muted">No unassigned players.</div>}
-                  {benchMembers.map((member) => (
-                    <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
-                        <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
-                      </div>
-                      {member.user_id === user?.id && <div className="text-[10px] uppercase tracking-[0.2em] text-white">You</div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={activeLobby.max_players} currentUserId={user?.id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
 
               <div className="flex flex-wrap gap-2">
                 <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
                 <button onClick={handleReadyToggle} disabled={!myMembership || myMembership.team_side === "UNASSIGNED"} className="esport-btn-primary disabled:opacity-50">{myMembership?.is_ready ? "Unready" : "Ready"}</button>
-                {!activeMatch && <button onClick={handleStartVote} disabled={!canStartVote} className="esport-btn-secondary disabled:opacity-50">Start Map Veto</button>}
+                {shouldShowAutoVetoBar && (
+                  <div className={cn(
+                    "min-w-[260px] rounded-lg border px-4 py-2.5 text-sm font-bold",
+                    activeLobby?.auto_veto_starts_at
+                      ? "border-esport-accent/35 bg-esport-accent/10 text-white"
+                      : "border-white/10 bg-black/20 text-esport-text-muted"
+                  )}>
+                    {activeLobby?.auto_veto_starts_at
+                      ? `Map Voting starts in ${autoVetoCountdownLabel}`
+                      : everyoneReady && teamsFilled
+                        ? "Map Voting waiting for countdown sync"
+                        : "Map Voting waits for both teams and all players ready"}
+                  </div>
+                )}
                 {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
               </div>
 

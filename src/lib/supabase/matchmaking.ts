@@ -42,7 +42,7 @@ export interface MapVoteSession {
   turn_ends_at: string | null;
   turn_seconds: number;
   remaining_maps: string[];
-  status: "active" | "completed";
+  status: "active" | "completed" | "cancelled";
   round_number: number;
   last_vetoed_map?: string | null;
   map_votes?: MapVote[];
@@ -62,6 +62,7 @@ export interface MatchmakingLobby {
   password_required: boolean;
   selected_map?: string | null;
   map_voting_active?: boolean;
+  auto_veto_starts_at?: string | null;
   join_server_deadline?: string | null;
   created_at: string;
   lobby_members?: MatchmakingLobbyMember[];
@@ -165,6 +166,7 @@ const OPEN_LOBBY_SELECT = `
   password_required,
   selected_map,
   map_voting_active,
+  auto_veto_starts_at,
   join_server_deadline,
   created_at,
   lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email))
@@ -184,6 +186,7 @@ const ACTIVE_LOBBY_SELECT = `
   password_required,
   selected_map,
   map_voting_active,
+  auto_veto_starts_at,
   join_server_deadline,
   created_at,
   lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email)),
@@ -507,10 +510,31 @@ export async function syncMapVoteSession(sessionId: string) {
   }
 }
 
+export async function syncLobbyAutoVeto(lobbyId: string) {
+  const { error } = await supabase.rpc("sync_lobby_auto_veto", {
+    p_lobby_id: lobbyId,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function castLobbyMapVote(sessionId: string, mapCode: string) {
   const { error } = await supabase.rpc("cast_lobby_map_vote", {
     p_session_id: sessionId,
     p_map_code: mapCode,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function kickLobbyMember(lobbyId: string, userId: string) {
+  const { error } = await supabase.rpc("kick_lobby_member", {
+    p_lobby_id: lobbyId,
+    p_target_user_id: userId,
   });
 
   if (error) {
