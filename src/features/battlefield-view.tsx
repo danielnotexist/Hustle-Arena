@@ -361,7 +361,12 @@ export function CustomLobbyView({
   const myMembership = activeMembers.find((member) => member.user_id === user?.id) || null;
   const isLeader = activeLobby?.leader_id === user?.id;
   const readyCount = activeMembers.filter((member) => member.is_ready).length;
-  const activeVoteSession = (activeLobby?.map_vote_sessions || []).find((session) => session.status === "active") || null;
+  const voteSessions = Array.isArray(activeLobby?.map_vote_sessions)
+    ? activeLobby.map_vote_sessions
+    : activeLobby?.map_vote_sessions
+      ? [activeLobby.map_vote_sessions]
+      : [];
+  const activeVoteSession = voteSessions.find((session) => session.status === "active") || null;
   const myVote = (activeVoteSession?.map_votes || []).find((vote) => vote.user_id === user?.id)?.map_code || null;
   const voteCounts = (activeVoteSession?.map_votes || []).reduce<Record<string, number>>((acc, vote) => {
     acc[vote.map_code] = (acc[vote.map_code] || 0) + 1;
