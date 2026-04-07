@@ -271,6 +271,7 @@ export function CustomLobbyView({
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
   const [clockTick, setClockTick] = useState(() => Date.now());
   const redirectedLobbyIdRef = useRef<string | null>(null);
+  const autoVetoSyncRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
     name: "",
     stakeAmount: "5",
@@ -402,6 +403,46 @@ export function CustomLobbyView({
   const teamsFilled = !!activeLobby && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size;
   const shouldShowAutoVetoBar = !!activeLobby && !activeMatch && !activeVoteSession && !activeLobby.selected_map;
   const canKickPlayers = isLeader && activeLobby?.status === "open";
+
+  useEffect(() => {
+    if (
+      !activeLobby?.id ||
+      !isLeader ||
+      !activeLobby.auto_veto_starts_at ||
+      !!activeLobby.selected_map ||
+      !!activeVoteSession
+    ) {
+      autoVetoSyncRef.current = null;
+      return;
+    }
+
+    const countdownKey = `${activeLobby.id}:${activeLobby.auto_veto_starts_at}`;
+    if (new Date(activeLobby.auto_veto_starts_at).getTime() > clockTick) {
+      autoVetoSyncRef.current = null;
+      return;
+    }
+
+    if (autoVetoSyncRef.current === countdownKey) {
+      return;
+    }
+
+    autoVetoSyncRef.current = countdownKey;
+    void (async () => {
+      try {
+        await syncLobbyAutoVeto(activeLobby.id);
+        await loadState();
+      } catch (error) {
+        console.error("Failed to auto-start map veto session:", error);
+      }
+    })();
+  }, [
+    activeLobby?.id,
+    activeLobby?.auto_veto_starts_at,
+    activeLobby?.selected_map,
+    activeVoteSession,
+    isLeader,
+    clockTick,
+  ]);
 
   const guardedAction = async (action: () => Promise<void>) => {
     if (requiresKyc && !isKycVerified) {
@@ -699,7 +740,7 @@ export function CustomLobbyView({
                 <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
               </div>
 
-              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={activeLobby.max_players} currentUserId={user?.id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
+              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
 
               <div className="flex flex-wrap gap-2">
                 <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
