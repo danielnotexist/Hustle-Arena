@@ -567,6 +567,7 @@ export async function fetchUnreadDemoMatchResultNotifications(limit = 1) {
     .select("id, title, body, metadata, created_at")
     .eq("notice_type", "demo_match_completed")
     .eq("is_read", false)
+    .contains("metadata", { result_popup: true })
     .order("created_at", { ascending: true })
     .limit(limit);
 
