@@ -120,6 +120,14 @@ export interface ReconnectableMatch {
   dedicated_server_endpoint: string | null;
 }
 
+export interface MatchResultNotification {
+  id: number;
+  title: string;
+  body: string;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+}
+
 export interface MatchServerBootstrap {
   game: "counter-strike-2";
   gameKey: "cs2";
@@ -546,6 +554,32 @@ export async function completeDemoMatchForTesting(matchId: string, winningSide: 
   const { error } = await supabase.rpc("complete_demo_match_for_testing", {
     p_match_id: matchId,
     p_winning_side: winningSide,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function fetchUnreadDemoMatchResultNotifications(limit = 1) {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, title, body, metadata, created_at")
+    .eq("notice_type", "demo_match_completed")
+    .eq("is_read", false)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []) as MatchResultNotification[];
+}
+
+export async function markNotificationRead(notificationId: number) {
+  const { error } = await supabase.rpc("mark_notification_read", {
+    p_notice_id: notificationId,
   });
 
   if (error) {

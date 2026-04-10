@@ -1,4 +1,5 @@
 ﻿import { Clock3, Lock, MessageSquare, Radio, Server, Users } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import anubisMap from "../assets/maps/anubis.svg";
 import ancientMap from "../assets/maps/ancient.svg";
@@ -13,6 +14,7 @@ import {
   completeDemoMatchForTesting,
   createMatchmakingLobby,
   ensureLobbyMapVoteSession,
+  fetchUnreadDemoMatchResultNotifications,
   fetchMyActiveLobby,
   fetchMyActiveMatch,
   fetchOpenMatchmakingLobbies,
@@ -22,6 +24,7 @@ import {
   kickLobbyMember,
   launchMatchServer,
   leaveMatchmakingLobby,
+  markNotificationRead,
   sendLobbyMessage,
   setLobbyMemberReady,
   setLobbyMemberTeamSide,
@@ -277,6 +280,13 @@ export function CustomLobbyView({
   const [chatDraft, setChatDraft] = useState("");
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
   const [clockTick, setClockTick] = useState(() => Date.now());
+  const [matchResultPopup, setMatchResultPopup] = useState<{
+    id: number;
+    title: string;
+    body: string;
+    isWinner: boolean;
+    amount: number;
+  } | null>(null);
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
@@ -347,6 +357,70 @@ export function CustomLobbyView({
     }, 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || accountMode !== "demo") {
+      setMatchResultPopup(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkMatchResultPopup = async () => {
+      if (cancelled || matchResultPopup) {
+        return;
+      }
+
+      try {
+        const notices = await fetchUnreadDemoMatchResultNotifications(1);
+        const nextNotice = notices[0];
+
+        if (!nextNotice || cancelled) {
+          return;
+        }
+
+        const metadata = (nextNotice.metadata || {}) as Record<string, any>;
+        const payoutAmount = Number(metadata.payout_amount ?? 0);
+        const safePayoutAmount = Number.isFinite(payoutAmount) ? payoutAmount : 0;
+        const amount = Math.abs(safePayoutAmount);
+        const isWinner = Boolean(metadata.winner ?? (safePayoutAmount > 0));
+
+        await markNotificationRead(nextNotice.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        setMatchResultPopup({
+          id: nextNotice.id,
+          title: nextNotice.title || (isWinner ? "Congratulations! You won" : "Demo match result"),
+          body: nextNotice.body || (isWinner
+            ? `Congratulations! you won ${amount.toFixed(2)} USDT`
+            : `You lose ${amount.toFixed(2)} USDT staked on this server, better luck next time!`),
+          isWinner,
+          amount,
+        });
+
+        try {
+          await refreshSession();
+        } catch (refreshError) {
+          console.error("Failed to refresh session after match result notification:", refreshError);
+        }
+      } catch (error) {
+        console.error("Failed to check demo match result notification:", error);
+      }
+    };
+
+    void checkMatchResultPopup();
+    const interval = window.setInterval(() => {
+      void checkMatchResultPopup();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [user?.id, accountMode, refreshSession, matchResultPopup]);
 
   useEffect(() => {
     setFormState((current) => ({
@@ -890,6 +964,48 @@ export function CustomLobbyView({
             </div>
           </div>
         </div>
+
+        <AnimatePresence>
+          {matchResultPopup && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 14, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.94, y: 8, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className={cn(
+                  "w-full max-w-xl rounded-2xl border p-7 text-center shadow-[0_28px_70px_rgba(0,0,0,0.45)]",
+                  matchResultPopup.isWinner
+                    ? "border-emerald-300/35 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.32),rgba(15,23,42,0.95)_56%)]"
+                    : "border-rose-300/35 bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.28),rgba(15,23,42,0.95)_56%)]"
+                )}
+              >
+                <div className="text-[11px] uppercase tracking-[0.26em] text-white/70">
+                  Match Result
+                </div>
+                <h3 className="mt-3 text-3xl font-display font-bold text-white">
+                  {matchResultPopup.isWinner ? "VICTORY" : "DEFEAT"}
+                </h3>
+                <p className="mt-4 text-lg font-bold text-white">{matchResultPopup.body}</p>
+                <p className="mt-2 text-sm text-white/80">
+                  Stake settled: {matchResultPopup.amount.toFixed(2)} USDT
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMatchResultPopup(null)}
+                  className="mt-6 esport-btn-primary px-8 py-2.5"
+                >
+                  Continue
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   );
 }
