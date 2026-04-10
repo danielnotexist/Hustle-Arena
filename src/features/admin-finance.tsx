@@ -86,9 +86,20 @@ function mapPayoutJob(record: any): PayoutJobView {
   };
 }
 
-export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
+export function DepositPage({
+  addToast,
+  user,
+  accountMode = "demo",
+  visibleBalance = 0,
+}: {
+  addToast: any;
+  user: any;
+  accountMode?: "demo" | "live";
+  visibleBalance?: number;
+}) {
   const hotWalletAddress = appEnv.platformHotWalletAddress || "0xe9485f341b23d1d00a8a742a0ef1ad456a7ff3b6";
   const walletNetwork = appEnv.platformHotWalletNetwork || "BEP20";
+  const isDemoMode = accountMode === "demo";
   const [amountUsdt, setAmountUsdt] = useState("");
   const [txid, setTxid] = useState("");
   const [fromWalletAddress, setFromWalletAddress] = useState("");
@@ -103,6 +114,12 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
   const [loadingRequests, setLoadingRequests] = useState(false);
 
   const loadDepositRequests = async () => {
+    if (isDemoMode) {
+      setDepositRequests([]);
+      setWithdrawalRequests([]);
+      return;
+    }
+
     if (!isSupabaseConfigured() || !user?.id) {
       return;
     }
@@ -154,7 +171,7 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
 
   useEffect(() => {
     void loadDepositRequests();
-  }, [user?.id]);
+  }, [user?.id, accountMode]);
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(hotWalletAddress);
@@ -197,14 +214,27 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center space-y-4">
-        <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white">USDT Deposit</h3>
-        <p className="text-esport-text-muted max-w-xl mx-auto">
-          Deposit USDT to the platform hot wallet on the {walletNetwork} network to fund your account.
-          Credits should only be applied after backend-side verification and reconciliation.
-        </p>
+      <div className="esport-card p-6">
+        <div className="rounded-2xl border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(0,243,255,0.22),rgba(7,10,18,0.92)_58%)] px-6 py-5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-esport-accent">Account Balance</div>
+          <div className="mt-2 text-4xl font-display font-bold text-white">{Number(visibleBalance || 0).toLocaleString()} USDT</div>
+          <div className="mt-2 text-xs text-esport-text-muted">
+            {isDemoMode ? "Demo account balance (virtual funds)." : "Live account balance (real funds)."}
+          </div>
+        </div>
       </div>
 
+      <div className="text-center space-y-4">
+        <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white">Wallet</h3>
+        {!isDemoMode && (
+          <p className="text-esport-text-muted max-w-xl mx-auto">
+            Deposit USDT to the platform hot wallet on the {walletNetwork} network to fund your account.
+            Credits should only be applied after backend-side verification and reconciliation.
+          </p>
+        )}
+      </div>
+
+      {!isDemoMode ? (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="esport-card p-8 flex flex-col items-center justify-center space-y-6">
           <div className="bg-white p-4 rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.1)]">
@@ -358,7 +388,17 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
           </div>
         </div>
       </div>
+      ) : (
+        <div className="esport-card p-8 text-center">
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">Demo Mode Wallet</div>
+          <div className="mt-3 text-sm text-esport-text-muted">
+            Deposit and withdrawal actions are disabled in demo mode.
+            Switch to live mode to access real fund operations.
+          </div>
+        </div>
+      )}
 
+      {!isDemoMode && (
       <div className="esport-card p-6">
         <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Recent Deposits</h4>
         {loadingRequests ? (
@@ -392,7 +432,9 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
           </div>
         )}
       </div>
+      )}
 
+      {!isDemoMode && (
       <div className="esport-card p-6">
         <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Recent Withdrawals</h4>
         {loadingRequests ? (
@@ -437,6 +479,7 @@ export function DepositPage({ addToast, user }: { addToast: any, user: any }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

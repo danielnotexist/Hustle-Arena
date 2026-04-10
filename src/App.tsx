@@ -104,7 +104,7 @@ export default function App() {
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
     { id: "Arena TV", icon: <PlayCircle size={20} />, label: "Arena TV" },
     { id: "Pulse", icon: <Zap size={20} />, label: "Pulse" },
-    { id: "Deposit", icon: <Wallet size={20} />, label: "Deposit", highlight: true },
+    { id: "Wallet", icon: <Wallet size={20} />, label: "Wallet", highlight: true },
   ];
 
   const socialItems = [
@@ -465,7 +465,7 @@ export default function App() {
                     transition={{ duration: 0.2 }}
                   >
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
-                    {activeTab === "Deposit" && <DepositPage addToast={addToast} user={user} />}
+                    {activeTab === "Wallet" && <DepositPage addToast={addToast} user={user} accountMode={accountMode} visibleBalance={visibleBalance} />}
                     {activeTab === "Profile" && (
                       <UserProfileView
                         user={user}
