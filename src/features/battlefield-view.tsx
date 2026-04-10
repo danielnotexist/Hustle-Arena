@@ -259,6 +259,8 @@ export function CustomLobbyView({
   refreshSession,
   browserOnly = false,
   onLobbyJoined,
+  showJoinTransition = false,
+  onJoinTransitionDone,
 }: {
   addToast: any;
   openModal: any;
@@ -267,6 +269,8 @@ export function CustomLobbyView({
   refreshSession: () => Promise<void>;
   browserOnly?: boolean;
   onLobbyJoined?: () => void;
+  showJoinTransition?: boolean;
+  onJoinTransitionDone?: () => void;
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
@@ -287,6 +291,8 @@ export function CustomLobbyView({
     isWinner: boolean;
     amount: number;
   } | null>(null);
+  const [showJoiningLobbyState, setShowJoiningLobbyState] = useState(showJoinTransition);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
@@ -337,8 +343,30 @@ export function CustomLobbyView({
       addToast("Failed to load lobby data.", "error");
     } finally {
       setLoading(false);
+      setLoadedOnce(true);
     }
   };
+
+  useEffect(() => {
+    setShowJoiningLobbyState(showJoinTransition);
+  }, [showJoinTransition]);
+
+  useEffect(() => {
+    if (!showJoiningLobbyState) {
+      return;
+    }
+
+    if (activeLobby) {
+      setShowJoiningLobbyState(false);
+      onJoinTransitionDone?.();
+      return;
+    }
+
+    if (loadedOnce && !loading) {
+      setShowJoiningLobbyState(false);
+      onJoinTransitionDone?.();
+    }
+  }, [showJoiningLobbyState, activeLobby, loadedOnce, loading, onJoinTransitionDone]);
 
   useEffect(() => {
     void loadState();
@@ -767,7 +795,26 @@ export function CustomLobbyView({
       </div>
 
       <div className="space-y-6">
-          {!activeLobby && (
+          {!activeLobby && showJoiningLobbyState && (
+            <div className="esport-card p-7">
+              <div className="rounded-2xl border border-esport-accent/30 bg-esport-accent/10 p-6">
+                <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+                  Joining Lobby
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="h-3 w-3 animate-pulse rounded-full bg-esport-accent" />
+                  <div className="text-lg font-display font-bold text-white">
+                    Connecting you to the custom lobby...
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-esport-text-muted">
+                  Syncing lobby state and team slots in real time.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!activeLobby && !showJoiningLobbyState && (
             <div className="esport-card p-5 space-y-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
               <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />

@@ -934,7 +934,15 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   );
 }
 
-export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
+export function SquadHubView({
+  addToast,
+  user,
+  accountMode = 'demo',
+  openModal,
+  refreshSession,
+  showJoinTransition = false,
+  onJoinTransitionDone,
+}: any) {
   return (
     <CustomLobbyView
       addToast={addToast}
@@ -942,6 +950,8 @@ export function SquadHubView({ addToast, user, accountMode = 'demo', openModal, 
       user={user}
       accountMode={accountMode}
       refreshSession={refreshSession || (async () => undefined)}
+      showJoinTransition={showJoinTransition}
+      onJoinTransitionDone={onJoinTransitionDone}
     />
   );
 }

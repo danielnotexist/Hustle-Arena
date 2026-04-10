@@ -63,6 +63,7 @@ export default function App() {
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [battlefieldMenuOpen, setBattlefieldMenuOpen] = useState(false);
+  const [joiningLobbyTransition, setJoiningLobbyTransition] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
@@ -196,6 +197,12 @@ export default function App() {
       window.clearInterval(interval);
     };
   }, [activeTab, user?.id, accountMode]);
+
+  useEffect(() => {
+    if (activeTab !== "Squad Hub" && joiningLobbyTransition) {
+      setJoiningLobbyTransition(false);
+    }
+  }, [activeTab, joiningLobbyTransition]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -474,8 +481,8 @@ export default function App() {
                       />
                     )}
                     {activeTab === "Battlefield Matchmaking" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
-                    {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => setActiveTab("Squad Hub")} />}
-                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
+                    {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
+                    {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
                     {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
                     {activeTab === "Apex List" && <ApexListView />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
