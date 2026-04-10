@@ -457,6 +457,7 @@ export function CustomLobbyView({
   );
   const myMembership = activeMembers.find((member) => member.user_id === user?.id) || null;
   const isLeader = activeLobby?.leader_id === user?.id;
+  const canResolveDemoMatch = accountMode === "demo" && activeMatch?.status === "live" && (isLeader || user?.role === "admin");
   const readyCount = activeMembers.filter((member) => member.is_ready).length;
   const voteSessions = getLobbyVoteSessions(activeLobby);
   const activeVoteSession = voteSessions.find((session) => session.status === "active") || null;
@@ -944,7 +945,24 @@ export function CustomLobbyView({
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
-                    {accountMode === "demo" && activeMatch.status === "live" && <><select value={selectedWinningSide} onChange={(e) => setSelectedWinningSide(e.target.value as "T" | "CT")} className="bg-black/30 border border-esport-border rounded-lg px-3 py-2 text-sm"><option value="T">Team T wins</option><option value="CT">Team CT wins</option></select><button onClick={handleCompleteDemoMatch} className="esport-btn-primary">Complete Demo Match</button></>}
+                    {canResolveDemoMatch && (
+                      <>
+                        <select
+                          value={selectedWinningSide}
+                          onChange={(e) => setSelectedWinningSide(e.target.value as "T" | "CT")}
+                          className="bg-black/30 border border-esport-border rounded-lg px-3 py-2 text-sm"
+                        >
+                          <option value="T">Team T wins</option>
+                          <option value="CT">Team CT wins</option>
+                        </select>
+                        <button onClick={handleCompleteDemoMatch} className="esport-btn-primary">Complete Demo Match</button>
+                      </>
+                    )}
+                    {accountMode === "demo" && activeMatch.status === "live" && !canResolveDemoMatch && (
+                      <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-esport-text-muted">
+                        Waiting for lobby organiser to complete the match.
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
