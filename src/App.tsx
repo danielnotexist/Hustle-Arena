@@ -151,6 +151,9 @@ export default function App() {
         }
       } catch (error) {
         console.error("Failed to load reconnectable match:", error);
+        if (!isCancelled) {
+          setReconnectMatch(null);
+        }
       }
     };
 
