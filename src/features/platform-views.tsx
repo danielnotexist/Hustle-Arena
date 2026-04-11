@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, CheckCircle2, ChevronDown, Clock, Crown, Map, MessageSquare, MoreVertical, PlayCircle, Server, Settings, Shield, ShoppingBag, Star, Sword, Target, Trophy, User, Users, Zap } from "lucide-react";
+import { Activity, CheckCircle2, ChevronDown, Clock, Crown, Download, FileVideo, Map, MessageSquare, MoreVertical, PlayCircle, Server, Settings, Shield, ShieldAlert, ShoppingBag, Star, Sword, Target, Trophy, Upload, User, Users, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { collection, db, getDocs, limit, orderBy, query } from "../firebase";
 import type { Mission, UserStats } from "./types";
@@ -385,28 +385,168 @@ export function PulseView() {
   );
 }
 
-export function SyndicatesView() {
+export function SyndicatesView({ addToast }: any) {
+  const [suspectName, setSuspectName] = useState("");
+  const [cheatType, setCheatType] = useState("aimbot");
+  const [description, setDescription] = useState("");
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleEvidenceSelected = (files: FileList | null) => {
+    const nextFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"));
+    if (!nextFiles.length) {
+      return;
+    }
+    setEvidenceFiles((current) => [...current, ...nextFiles].slice(0, 8));
+  };
+
+  const handleRemoveEvidence = (index: number) => {
+    setEvidenceFiles((current) => current.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitReport = async () => {
+    if (!suspectName.trim() || !description.trim() || evidenceFiles.length === 0) {
+      addToast?.("Please fill suspect name, report details, and upload evidence.", "error");
+      return;
+    }
+
+    setSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    setSubmitting(false);
+    setSuspectName("");
+    setCheatType("aimbot");
+    setDescription("");
+    setEvidenceFiles([]);
+    addToast?.("Report submitted to Arena Guard review queue.", "success");
+  };
+
+  const handleDownloadAntiCheat = () => {
+    addToast?.("Arena-Guard Anti cheat download will be enabled in the next rollout.", "info");
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Syndicates</h3>
-        <button className="esport-btn-primary">Join Syndicate</button>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Arena Guard</h3>
+          <p className="text-sm text-esport-text-muted">Self-report anti-cheat hub for suspicious player activity.</p>
+        </div>
+        <button onClick={handleDownloadAntiCheat} className="esport-btn-primary flex items-center gap-2">
+          <Download size={16} />
+          Download Arena-Guard Anti cheat
+        </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="esport-card p-8 esport-card-hover group">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-esport-border flex items-center justify-center mb-6 group-hover:border-esport-accent/50 transition-all">
-              <Shield size={32} className="text-esport-accent" />
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 esport-card p-6 space-y-5">
+          <div className="rounded-2xl border border-esport-danger/30 bg-esport-danger/10 p-4 flex items-start gap-3">
+            <ShieldAlert className="text-esport-danger mt-0.5" size={18} />
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-danger">Fair Play Enforcement</div>
+              <div className="text-sm text-esport-text-muted mt-1">
+                Submit accurate reports with video or screenshot proof. False reports may result in moderation action.
+              </div>
             </div>
-            <h4 className="text-xl font-display font-bold uppercase mb-2">Shadow Protocol {i}</h4>
-            <p className="text-xs text-esport-text-muted mb-6">The elite tactical syndicate of the Nexus.</p>
-            <div className="flex justify-between text-[10px] font-bold uppercase text-esport-text-muted mb-6">
-              <span>Members: <span className="text-white">124</span></span>
-              <span>Rank: <span className="text-esport-accent">#12</span></span>
-            </div>
-            <button className="w-full py-2.5 bg-white/5 border border-esport-border hover:bg-white/10 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all">View Profile</button>
           </div>
-        ))}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Suspected Player</label>
+              <input
+                value={suspectName}
+                onChange={(e) => setSuspectName(e.target.value)}
+                placeholder="Nickname or Steam ID"
+                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Cheat Type</label>
+              <select
+                value={cheatType}
+                onChange={(e) => setCheatType(e.target.value)}
+                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+              >
+                <option value="aimbot">Aimbot</option>
+                <option value="wallhack">Wallhack</option>
+                <option value="spinbot">Spinbot</option>
+                <option value="aimlock">Aimlock</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Report Details</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe what happened, round/time context, and why this looked suspicious..."
+              className="w-full min-h-[140px] bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Evidence Upload (Photos/Videos)</label>
+            <label className="block cursor-pointer rounded-xl border border-dashed border-esport-accent/40 bg-esport-accent/10 p-5 text-center hover:border-esport-accent transition-all">
+              <input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleEvidenceSelected(e.target.files)}
+              />
+              <div className="flex items-center justify-center gap-2 text-esport-accent font-bold text-sm">
+                <Upload size={16} />
+                Upload Evidence Files
+              </div>
+              <div className="text-xs text-esport-text-muted mt-1">PNG / JPG / MP4 / MOV up to 8 files</div>
+            </label>
+
+            {evidenceFiles.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {evidenceFiles.map((file, index) => (
+                  <div key={`${file.name}-${index}`} className="rounded-lg border border-esport-border bg-white/5 px-3 py-2 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-white truncate">{file.name}</div>
+                      <div className="text-[10px] text-esport-text-muted">{file.type.startsWith("video/") ? <><FileVideo size={11} className="inline mr-1" />Video</> : "Image"} · {(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveEvidence(index)}
+                      className="text-[10px] uppercase font-bold tracking-[0.15em] text-esport-danger"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-1">
+            <button onClick={() => void handleSubmitReport()} disabled={submitting} className="esport-btn-primary w-full disabled:opacity-50">
+              {submitting ? "Submitting Report..." : "Submit Arena Guard Report"}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="esport-card p-5">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Detection Queue</div>
+            <div className="mt-3 text-sm text-esport-text-muted">Incoming reports are triaged by evidence quality and severity signal.</div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex justify-between"><span className="text-esport-text-muted">Aimbot</span><span className="text-white font-bold">High</span></div>
+              <div className="flex justify-between"><span className="text-esport-text-muted">Wallhack</span><span className="text-white font-bold">High</span></div>
+              <div className="flex justify-between"><span className="text-esport-text-muted">Spinbot</span><span className="text-white font-bold">Critical</span></div>
+              <div className="flex justify-between"><span className="text-esport-text-muted">Aimlock</span><span className="text-white font-bold">Medium</span></div>
+            </div>
+          </div>
+
+          <div className="esport-card p-5">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Roadmap Placeholder</div>
+            <div className="mt-3 text-sm text-esport-text-muted">
+              Next phase can include case tracking IDs, status updates, trust scoring, and automated demo parsing.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

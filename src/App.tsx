@@ -112,7 +112,7 @@ export default function App() {
   ];
 
   const collectiveItems = [
-    { id: "Syndicates", icon: <Shield size={20} />, label: "Syndicates" },
+    { id: "Arena Guard", icon: <Shield size={20} />, label: "Arena Guard" },
     { id: "Missions", icon: <Target size={20} />, label: "Missions" },
     { id: "Vault", icon: <ShoppingBag size={20} />, label: "Vault" },
     { id: "Hustle Prime", icon: <Crown size={20} />, label: "Hustle Prime", highlight: true },
@@ -490,7 +490,7 @@ export default function App() {
                     {activeTab === "Vault" && <VaultView addToast={addToast} />}
                     {activeTab === "Pulse" && <PulseView />}
                     {activeTab === "Arena TV" && <PulseView />}
-                    {activeTab === "Syndicates" && <SyndicatesView />}
+                    {activeTab === "Arena Guard" && <SyndicatesView addToast={addToast} />}
                     {activeTab === "Hustle Prime" && <HustlePrimeView />}
                     {activeTab === "Dashboard" && <DashboardView stats={stats} />}
                   </motion.div>
