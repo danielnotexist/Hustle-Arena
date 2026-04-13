@@ -433,6 +433,9 @@ export default function App() {
       setPublicProfileState(null);
       setActiveTab("Social");
       setSocialRefreshNonce((current) => current + 1);
+    } else if (notice.link_target === "/battlefield" || notice.notice_type === "party_invite" || notice.notice_type === "party_invite_response") {
+      setPublicProfileState(null);
+      setActiveTab("Battlefield");
     } else if (notice.link_target === "/squad-hub") {
       setActiveTab("Squad Hub");
     }

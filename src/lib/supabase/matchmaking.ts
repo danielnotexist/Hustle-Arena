@@ -141,6 +141,19 @@ export interface QuickQueueStatus {
   accepted_user_ids?: string[];
 }
 
+export interface QuickQueuePartyInvite {
+  id: number;
+  host_user_id: string;
+  invitee_user_id: string;
+  mode: LobbyMode;
+  team_size: 2 | 5;
+  stake_amount: number;
+  status: "pending" | "accepted" | "declined" | "cancelled" | "expired";
+  created_at: string;
+  updated_at: string;
+  responded_at?: string | null;
+}
+
 export interface MatchServerBootstrap {
   game: "counter-strike-2";
   gameKey: "cs2";
@@ -717,4 +730,46 @@ export async function quickQueueCancel(mode: LobbyMode) {
   if (error) {
     throw error;
   }
+}
+
+export async function fetchQuickQueuePartyInvites(userId: string) {
+  const { data, error } = await supabase
+    .from("quick_queue_party_invites")
+    .select("id, host_user_id, invitee_user_id, mode, team_size, stake_amount, status, created_at, updated_at, responded_at")
+    .or(`host_user_id.eq.${userId},invitee_user_id.eq.${userId}`)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []) as QuickQueuePartyInvite[];
+}
+
+export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: LobbyMode, teamSize: 2 | 5, stakeAmount: number) {
+  const { data, error } = await supabase.rpc("send_quick_queue_party_invite", {
+    p_invitee_user_id: inviteeUserId,
+    p_mode: mode,
+    p_team_size: teamSize,
+    p_stake_amount: stakeAmount,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || "sent") as string;
+}
+
+export async function respondQuickQueuePartyInvite(inviteId: number, action: "accept" | "decline" | "cancel") {
+  const { data, error } = await supabase.rpc("respond_quick_queue_party_invite", {
+    p_invite_id: inviteId,
+    p_action: action,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || action) as string;
 }
