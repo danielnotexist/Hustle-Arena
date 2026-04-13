@@ -828,20 +828,40 @@ export function BattlefieldView({
       )}
 
       {matchState === "searching" && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[440px] relative overflow-hidden border-esport-accent/40 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
+          <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
             <div className="w-96 h-96 border border-esport-accent rounded-full animate-[ping_3s_linear_infinite]" />
             <div className="w-64 h-64 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_1s]" />
             <div className="w-32 h-32 border border-esport-accent rounded-full absolute animate-[ping_3s_linear_infinite_2s]" />
           </div>
 
-          <div className="relative z-10 text-center space-y-6">
-            <div className="w-20 h-20 mx-auto bg-esport-accent/20 rounded-full flex items-center justify-center border border-esport-accent animate-spin-slow">
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-esport-accent/10 to-transparent pointer-events-none" />
+
+          <div className="relative z-10 text-center space-y-7 w-full max-w-2xl">
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.25em] text-esport-accent shadow-[0_0_30px_rgba(59,130,246,0.14)]">
+              <Clock className="h-3.5 w-3.5" />
+              {selectedStakeAmount ? `Searching for ${formatStakeLabel(selectedStakeAmount)}` : "Searching queue"}
+            </div>
+            <div className="w-20 h-20 mx-auto bg-esport-accent/20 rounded-full flex items-center justify-center border border-esport-accent animate-spin-slow shadow-[0_0_30px_rgba(59,130,246,0.2)]">
               <Search className="w-8 h-8 text-esport-accent" />
             </div>
             <div>
               <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-esport-accent mb-2">{queueMode === "solo" ? "Searching Solo Queue" : "Searching Party Queue"}</h3>
               <div className="text-4xl font-mono font-bold text-white">{formatTime(searchTime)}</div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Players Found</div>
+                  <div className="mt-2 text-2xl font-display font-bold text-white">
+                    {playersJoined} / {selectedTeamSize * 2}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.06] px-5 py-4 shadow-[0_0_25px_rgba(59,130,246,0.08)]">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Still Waiting</div>
+                  <div className="mt-2 text-2xl font-display font-bold text-esport-accent">
+                    {Math.max(playersNeeded, 0)}
+                  </div>
+                </div>
+              </div>
               <div className="mt-5 space-y-2">
                 <div className="text-sm font-bold uppercase tracking-[0.2em] text-white/90">
                   Found {playersJoined} / {selectedTeamSize * 2} players
@@ -850,22 +870,31 @@ export function BattlefieldView({
                   Waiting for {Math.max(playersNeeded, 0)} more player{Math.max(playersNeeded, 0) === 1 ? "" : "s"} to accept this pool.
                 </div>
                 {selectedStakeAmount && (
-                  <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+                  <div className="inline-flex items-center rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
                     Current pool: {formatStakeLabel(selectedStakeAmount)}
                   </div>
                 )}
               </div>
             </div>
-            <button onClick={() => void cancelSearch()} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
-              Cancel Search
-            </button>
+            <div className="flex justify-center">
+              <button
+                onClick={() => void cancelSearch()}
+                className="esport-btn-secondary min-w-[220px] text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10"
+              >
+                Cancel Search
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {matchState === "ready_check" && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-success shadow-[0_0_50px_rgba(16,185,129,0.2)]">
-          <div className="w-24 h-24 mx-auto bg-esport-success/20 rounded-full flex items-center justify-center border-2 border-esport-success mb-6 animate-bounce">
+        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[440px] border-esport-success shadow-[0_0_50px_rgba(16,185,129,0.2)] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-esport-success/30 bg-esport-success/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.14)]">
+            <Target className="h-3.5 w-3.5" />
+            {selectedStakeAmount ? `Playing for ${formatStakeLabel(selectedStakeAmount)}` : "Ready Check Live"}
+          </div>
+          <div className="w-24 h-24 mx-auto bg-esport-success/20 rounded-full flex items-center justify-center border-2 border-esport-success mb-6 animate-bounce shadow-[0_0_35px_rgba(16,185,129,0.18)]">
             <CheckCircle2 className="w-12 h-12 text-esport-success" />
           </div>
           <h3 className="text-4xl font-bold font-display uppercase tracking-widest text-white mb-2">MATCH FOUND</h3>
@@ -899,15 +928,15 @@ export function BattlefieldView({
             })}
           </div>
 
-          <div className="text-xl font-mono font-bold text-esport-accent mb-8">
+          <div className="rounded-full border border-esport-accent/20 bg-esport-accent/10 px-6 py-3 text-xl font-mono font-bold text-esport-accent mb-8 shadow-[0_0_20px_rgba(59,130,246,0.12)]">
             {acceptedUserIds.length} / {participantUserIds.length || selectedTeamSize * 2} Accepted
           </div>
 
-          <div className="flex gap-4">
-            <button onClick={() => void acceptMatch(true)} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+          <div className="flex w-full max-w-md flex-col sm:flex-row items-center justify-center gap-4">
+            <button onClick={() => void acceptMatch(true)} className="w-full sm:flex-1 bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
               ACCEPT
             </button>
-            <button onClick={() => void acceptMatch(false)} className="esport-btn-secondary py-4 px-8">
+            <button onClick={() => void acceptMatch(false)} className="w-full sm:flex-1 esport-btn-secondary py-4 px-8">
               DECLINE
             </button>
           </div>
