@@ -137,6 +137,7 @@ export default function App() {
   const [globalPartyInvites, setGlobalPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
   const [globalPartyInviteProfiles, setGlobalPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [globalPartyInviteActionId, setGlobalPartyInviteActionId] = useState<number | null>(null);
+  const [globalOnlineUserIds, setGlobalOnlineUserIds] = useState<string[]>([]);
   const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
@@ -159,6 +160,7 @@ export default function App() {
   const previousUserIdRef = useRef<string | null>(null);
   const previousUnreadNotificationCountRef = useRef(0);
   const seenNotificationIdsRef = useRef<Set<number>>(new Set());
+  const globalPresenceChannelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!shouldUseSupabase) {
@@ -451,6 +453,78 @@ export default function App() {
 
     void loadProfiles();
   }, [globalPartyInvites]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) {
+      setGlobalOnlineUserIds([]);
+      if (globalPresenceChannelRef.current) {
+        supabase.removeChannel(globalPresenceChannelRef.current);
+        globalPresenceChannelRef.current = null;
+      }
+      return;
+    }
+
+    if (globalPresenceChannelRef.current) {
+      supabase.removeChannel(globalPresenceChannelRef.current);
+      globalPresenceChannelRef.current = null;
+    }
+
+    let cancelled = false;
+    let heartbeatInterval: number | null = null;
+
+    const trackPresence = async (channel: any) => {
+      try {
+        await channel.track({
+          user_id: user.id,
+          username: user.username || user.email?.split("@")[0] || "Player",
+          online_at: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Failed to track global presence:", error);
+      }
+    };
+
+    const channel = supabase.channel("site-online-presence", {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        if (cancelled) return;
+        const state = channel.presenceState();
+        const ids = new Set<string>();
+        Object.values(state)
+          .flat()
+          .forEach((entry: any) => {
+            if (entry?.user_id && entry.user_id !== user.id) {
+              ids.add(entry.user_id);
+            }
+          });
+        setGlobalOnlineUserIds(Array.from(ids));
+      })
+      .subscribe(async (status: string) => {
+        if (cancelled) return;
+        if (status === "SUBSCRIBED") {
+          await trackPresence(channel);
+          heartbeatInterval = window.setInterval(() => {
+            void trackPresence(channel);
+          }, 20000);
+        }
+      });
+
+    globalPresenceChannelRef.current = channel;
+
+    return () => {
+      cancelled = true;
+      if (heartbeatInterval) {
+        window.clearInterval(heartbeatInterval);
+      }
+      if (globalPresenceChannelRef.current) {
+        supabase.removeChannel(globalPresenceChannelRef.current);
+        globalPresenceChannelRef.current = null;
+      }
+    };
+  }, [user?.email, user?.id, user?.username]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -888,7 +962,7 @@ export default function App() {
                     )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
-                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} onlineUserIds={globalOnlineUserIds} />}
                     {activeTab === "Apex List" && <ApexListView onOpenPublicProfile={openPublicProfilePage} />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}

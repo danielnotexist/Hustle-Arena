@@ -725,10 +725,9 @@ export function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0 }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [] }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
-  const [onlineFriendIds, setOnlineFriendIds] = useState<string[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
   const [pendingLobbyInvites, setPendingLobbyInvites] = useState<Array<{ id: number; lobby_id: string; lobby_name: string; from_user_id: string; from_username: string; password_required: boolean }>>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -738,7 +737,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const socialRealtimeChannelRef = useRef<any>(null);
   const typingRealtimeChannelRef = useRef<any>(null);
-  const socialPresenceChannelRef = useRef<any>(null);
   const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
@@ -746,6 +744,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
   const getAvatarUrl = (friend: { username: string; avatarUrl: string | null }) =>
     friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username || "Player")}&background=1f2937&color=ffffff&size=96`;
+  const onlineFriendIds = useMemo(
+    () => friendsList.filter((friend) => onlineUserIds.includes(friend.id)).map((friend) => friend.id),
+    [friendsList, onlineUserIds]
+  );
   const isFriendOnline = (friendId: string) => onlineFriendIds.includes(friendId);
 
   const openFriendProfile = async (friendId: string) => {
@@ -809,52 +811,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     const diffDays = Math.floor(diffHours / 24);
     return `Last seen ${diffDays}d ago`;
   }, [isSelectedFriendTyping, selectedFriendLastMessageAt, selectedFriendId, onlineFriendIds]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    if (socialPresenceChannelRef.current) {
-      supabase.removeChannel(socialPresenceChannelRef.current);
-      socialPresenceChannelRef.current = null;
-    }
-
-    const channel = supabase.channel("social-online-presence", {
-      config: { presence: { key: user.id } },
-    });
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const ids = new Set<string>();
-
-        Object.values(state)
-          .flat()
-          .forEach((entry: any) => {
-            if (entry?.user_id && entry.user_id !== user.id) {
-              ids.add(entry.user_id);
-            }
-          });
-
-        setOnlineFriendIds(Array.from(ids));
-      })
-      .subscribe(async (status: string) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({
-            user_id: user.id,
-            username: user.username || user.email?.split("@")[0] || "Player",
-            online_at: new Date().toISOString(),
-          });
-        }
-      });
-
-    socialPresenceChannelRef.current = channel;
-
-    return () => {
-      if (socialPresenceChannelRef.current) {
-        supabase.removeChannel(socialPresenceChannelRef.current);
-        socialPresenceChannelRef.current = null;
-      }
-    };
-  }, [user?.id, user?.username, user?.email]);
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -1349,70 +1305,74 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
   };
 
+  const totalUnreadCount = Object.values(unreadByFriend).reduce((sum, count) => sum + count, 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Social</h3>
-          <p className="text-sm text-esport-text-muted">Manage your friends list, direct messages, and incoming invites from one place.</p>
-        </div>
-      </div>
+      <div className="overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(7,10,18,0.98))] p-6 shadow-[0_25px_70px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+              <Activity size={14} />
+              Live Squad Network
+            </div>
+            <h3 className="mt-5 text-4xl font-display font-bold uppercase tracking-tight text-white">Social Command</h3>
+            <p className="mt-3 text-base text-esport-text-muted">
+              Manage friends, direct messages, and incoming invites from one richer social control room.
+            </p>
+          </div>
 
-      <div className="esport-card p-4">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Add Friend</div>
-        <div className="flex gap-2">
-          <input
-            value={addFriendUsername}
-            onChange={(e) => setAddFriendUsername(e.target.value)}
-            placeholder="Enter exact username"
-            className="flex-1 bg-white/5 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/50"
-          />
-          <button onClick={() => sendFriendRequest().catch((err) => console.error(err))} className="esport-btn-primary">Send Request</button>
-        </div>
-      </div>
-
-      {pendingRequests.length ? (
-        <div className="esport-card p-4">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Friend Requests</div>
-          <div className="space-y-2">
-            {pendingRequests.map((req) => (
-              <div key={req.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
-                <div className="text-sm"><span className="font-bold">{req.username}</span> sent you a friend request</div>
-                <div className="flex gap-2">
-                  <button className="esport-btn-primary" onClick={() => handleFriendRequest(req, 'accept').catch((err) => console.error(err))}>Accept</button>
-                  <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'ignore').catch((err) => console.error(err))}>Ignore</button>
-                  <button className="esport-btn-secondary" onClick={() => handleFriendRequest(req, 'block').catch((err) => console.error(err))}>Block</button>
-                </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              { label: "Friends", value: friendsList.length, tone: "text-white" },
+              { label: "Online", value: onlineFriendIds.length, tone: "text-emerald-300" },
+              { label: "Unread", value: totalUnreadCount, tone: "text-esport-accent" },
+              { label: "Invites", value: pendingRequests.length + pendingLobbyInvites.length, tone: "text-amber-200" },
+            ].map((card) => (
+              <div key={card.label} className="min-w-[128px] rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">{card.label}</div>
+                <div className={`mt-2 text-2xl font-display font-bold ${card.tone}`}>{card.value}</div>
               </div>
             ))}
           </div>
         </div>
-      ) : null}
 
-      {pendingLobbyInvites.length ? (
-        <div className="esport-card p-4">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Squad Invites</div>
-          <div className="space-y-2">
-            {pendingLobbyInvites.map((invite) => (
-              <div key={invite.id} className="p-3 rounded-lg border border-esport-border bg-white/5 flex items-center justify-between gap-3">
-                <div className="text-sm">
-                  <span className="font-bold">{invite.from_username}</span> invited you to join <span className="font-bold">{invite.lobby_name}</span>
-                </div>
-                <div className="flex gap-2">
-                  <button className="esport-btn-primary" onClick={() => handleLobbyInvite(invite, 'accept').catch((err) => console.error(err))}>Join</button>
-                  <button className="esport-btn-secondary" onClick={() => handleLobbyInvite(invite, 'ignore').catch((err) => console.error(err))}>Ignore</button>
-                </div>
+        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+          <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Add Friend</div>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <input
+                value={addFriendUsername}
+                onChange={(e) => setAddFriendUsername(e.target.value)}
+                placeholder="Enter exact username"
+                className="h-12 flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition-colors placeholder:text-esport-text-muted focus:border-esport-accent/50"
+              />
+              <button onClick={() => sendFriendRequest().catch((err) => console.error(err))} className="h-12 rounded-xl bg-esport-accent px-5 text-sm font-bold text-white shadow-[0_0_20px_rgba(59,130,246,0.28)] transition-transform hover:scale-[1.01]">
+                Send Request
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Presence Status</div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10">
+                <Bell size={18} className="text-emerald-300" />
               </div>
-            ))}
+              <div>
+                <div className="text-sm font-bold text-white">Live across the entire site</div>
+                <div className="text-xs text-esport-text-muted">Players stay online while browsing any section and only fall back to last seen after leaving the site.</div>
+              </div>
+            </div>
           </div>
         </div>
-      ) : null}
+      </div>
 
       {loading ? (
         <div className="esport-card p-12 text-center animate-shimmer">Loading chats...</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-          <div className="esport-card p-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_300px] gap-6">
+          <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,24,37,0.98),rgba(11,15,24,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.25)]">
             <div className="text-[10px] font-bold uppercase tracking-widest text-esport-text-muted mb-3">Your Friends</div>
             {!friendsList.length ? (
               <div className="text-sm text-esport-text-muted">No friends yet. Add friends to start direct messaging.</div>
@@ -1425,7 +1385,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                     <button
                       key={friend.id}
                       onClick={() => setSelectedFriendId(friend.id)}
-                      className={'w-full text-left p-3 rounded-lg border transition-all ' + (active ? 'border-esport-accent bg-esport-accent/10' : 'border-esport-border hover:border-white/30 hover:bg-white/5')}
+                      className={'w-full text-left p-3 rounded-2xl border transition-all ' + (active ? 'border-esport-accent bg-esport-accent/10 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]' : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]')}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -1433,7 +1393,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                             <img
                               src={getAvatarUrl(friend)}
                               alt={friend.username}
-                              className="h-10 w-10 rounded-full border border-white/15 object-cover"
+                              className="h-11 w-11 rounded-2xl border border-white/15 object-cover"
                               role="button"
                               tabIndex={0}
                               onClick={(event) => {
@@ -1471,11 +1431,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                             {friend.username}
                           </div>
                         </div>
-                        {unread > 0 ? (
-                          <span className="min-w-[20px] h-5 px-1 bg-esport-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                            {unread > 99 ? '99+' : unread}
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={cn("rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em]", isFriendOnline(friend.id) ? "bg-emerald-400/10 text-emerald-300" : "bg-white/[0.06] text-esport-text-muted")}>
+                            {isFriendOnline(friend.id) ? "Online" : "Away"}
                           </span>
-                        ) : null}
+                          {unread > 0 ? (
+                            <span className="min-w-[20px] h-5 px-1 bg-esport-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                              {unread > 99 ? '99+' : unread}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </button>
                   );
@@ -1484,15 +1449,15 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             )}
           </div>
 
-          <div className="esport-card p-0 overflow-hidden flex flex-col h-[560px] max-h-[70vh]">
-            <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
+          <div className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,24,37,0.98),rgba(8,11,18,0.98))] p-0 overflow-hidden flex flex-col h-[640px] max-h-[74vh] shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
+            <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 {selectedFriend && (
                   <div className="relative">
                     <img
                       src={getAvatarUrl(selectedFriend)}
                       alt={selectedFriend.username}
-                      className="h-11 w-11 cursor-pointer rounded-full border border-white/15 object-cover transition-transform hover:scale-105"
+                      className="h-11 w-11 cursor-pointer rounded-2xl border border-white/15 object-cover transition-transform hover:scale-105"
                       onClick={() => void openFriendProfile(selectedFriend.id)}
                     />
                     {isFriendOnline(selectedFriend.id) && (
@@ -1522,7 +1487,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
               </div>
             </div>
 
-            <div ref={threadScrollContainerRef} className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3 bg-black/10">
+            <div ref={threadScrollContainerRef} className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(8,11,18,0.4),rgba(3,5,10,0.65))]">
               {!selectedFriend ? (
                 <div className="text-sm text-esport-text-muted">Choose a friend from the left to open your chat.</div>
               ) : threadMessages.length === 0 ? (
@@ -1545,9 +1510,9 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                         <img
                           src={avatarUrl}
                           alt={senderName}
-                          className="w-7 h-7 rounded-full border border-white/15 object-cover shrink-0"
+                          className="w-8 h-8 rounded-full border border-white/15 object-cover shrink-0"
                         />
-                        <div className={'px-3 py-2 rounded-xl text-sm ' + (mine ? 'bg-esport-accent text-white' : 'bg-white/10 text-white border border-esport-border')}>
+                        <div className={'px-4 py-3 rounded-2xl text-sm shadow-[0_10px_24px_rgba(0,0,0,0.18)] ' + (mine ? 'bg-esport-accent text-white' : 'bg-white/10 text-white border border-esport-border')}>
                           <div>{msg.message}</div>
                           {isInvite ? (
                             <div className="mt-2">
@@ -1597,15 +1562,66 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                 }}
                 placeholder={selectedFriend ? ('Message ' + selectedFriend.username + '...') : 'Select a friend first'}
                 disabled={!selectedFriend}
-                className="flex-1 bg-white/5 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/50 disabled:opacity-50"
+                className="h-12 flex-1 bg-white/5 border border-esport-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-esport-accent/50 disabled:opacity-50"
               />
               <button
                 onClick={() => sendMessage().catch((err) => console.error(err))}
                 disabled={!selectedFriend || !messageDraft.trim()}
-                className="esport-btn-primary disabled:opacity-40"
+                className="h-12 rounded-xl bg-esport-accent px-5 text-sm font-bold text-white disabled:opacity-40"
               >
                 Send
               </button>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,24,37,0.98),rgba(11,15,24,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Friend Requests</div>
+                <div className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">{pendingRequests.length}</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {pendingRequests.length ? pendingRequests.map((req) => (
+                  <div key={req.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                    <div className="text-sm text-white">
+                      <span className="font-bold">{req.username}</span> sent you a friend request.
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button className="rounded-xl bg-esport-success px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-black" onClick={() => handleFriendRequest(req, 'accept').catch((err) => console.error(err))}>Accept</button>
+                      <button className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white" onClick={() => handleFriendRequest(req, 'ignore').catch((err) => console.error(err))}>Ignore</button>
+                      <button className="rounded-xl border border-esport-danger/25 bg-esport-danger/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-rose-200" onClick={() => handleFriendRequest(req, 'block').catch((err) => console.error(err))}>Block</button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-sm text-esport-text-muted">
+                    No pending friend requests right now.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,24,37,0.98),rgba(11,15,24,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Squad Invites</div>
+                <div className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">{pendingLobbyInvites.length}</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {pendingLobbyInvites.length ? pendingLobbyInvites.map((invite) => (
+                  <div key={invite.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                    <div className="text-sm text-white">
+                      <span className="font-bold">{invite.from_username}</span> invited you to <span className="font-bold">{invite.lobby_name}</span>.
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button className="rounded-xl bg-esport-accent px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white" onClick={() => handleLobbyInvite(invite, 'accept').catch((err) => console.error(err))}>Join</button>
+                      <button className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white" onClick={() => handleLobbyInvite(invite, 'ignore').catch((err) => console.error(err))}>Ignore</button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-sm text-esport-text-muted">
+                    No squad invites waiting for you.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
