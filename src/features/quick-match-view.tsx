@@ -379,19 +379,26 @@ export function BattlefieldView({
       try {
         const { data, error } = await supabase
           .from("quick_queue_entries")
-          .select("status")
-          .eq("user_id", user.id)
+          .select("user_id, status, updated_at")
+          .in("user_id", [user.id, acceptedIncomingPartyInvite.host_user_id])
           .eq("mode", accountMode)
           .eq("team_size", selectedTeamSize)
           .eq("queue_mode", "party")
           .eq("selected_stake_amount", selectedStakeAmount)
           .in("status", ["searching", "ready_check", "matched"])
-          .maybeSingle();
+          .order("updated_at", { ascending: false });
 
-        if (error || !data) {
+        if (error || !data?.length) {
           if (error) {
             console.error("Failed to sync guest party queue state:", error);
           }
+          return;
+        }
+
+        const hostEntry = data.find((entry) => entry.user_id === acceptedIncomingPartyInvite.host_user_id);
+        const guestEntry = data.find((entry) => entry.user_id === user.id);
+
+        if (!hostEntry && !guestEntry) {
           return;
         }
 
