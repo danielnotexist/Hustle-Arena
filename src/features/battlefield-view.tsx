@@ -179,24 +179,29 @@ function TeamBoard({
       type="button"
       onClick={() => void onMove(teamSide)}
       className={cn(
-        "rounded-xl border p-4 text-left transition-all",
+        "rounded-[24px] border p-5 text-left transition-all duration-200 shadow-[0_18px_45px_rgba(0,0,0,0.22)]",
         accentClass,
-        isCurrentTeam ? "ring-2 ring-white/80" : "hover:border-white/70"
+        isCurrentTeam ? "ring-2 ring-white/80 scale-[1.01]" : "hover:-translate-y-0.5 hover:border-white/70"
       )}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-[10px] font-bold uppercase tracking-[0.2em]">{title}</div>
-        <div className="text-[10px] uppercase tracking-[0.2em]">{members.length}/{capacity}</div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/75">{title}</div>
+          <div className="mt-2 text-xs text-white/50">{isCurrentTeam ? "Your active side" : "Tap to move here"}</div>
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white/80">
+          {members.length}/{capacity}
+        </div>
       </div>
-      <div className="space-y-2 min-h-[120px]">
-        {members.length === 0 && <div className="text-xs text-esport-text-muted">No players yet</div>}
+      <div className="space-y-2.5 min-h-[120px]">
+        {members.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-5 text-xs text-esport-text-muted">No players yet</div>}
         {members.map((member) => (
-          <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
+          <div key={member.user_id} className="rounded-2xl border border-white/10 bg-black/25 px-3.5 py-3 flex items-center justify-between gap-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex min-w-0 items-center gap-2.5">
               <img
                 src={getMemberAvatarUrl(member, currentUserId, currentUserAvatarUrl)}
                 alt={getMemberDisplayName(member)}
-                className="h-8 w-8 rounded-lg border border-white/15 object-cover"
+                className="h-9 w-9 rounded-xl border border-white/15 object-cover"
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -207,7 +212,10 @@ function TeamBoard({
                     </div>
                   )}
                 </div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
+                <div className={cn(
+                  "mt-1 text-[10px] uppercase tracking-[0.2em]",
+                  member.is_ready ? "text-emerald-300" : "text-esport-text-muted"
+                )}>{member.is_ready ? "Ready" : "Pending"}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1141,9 +1149,11 @@ export function CustomLobbyView({
 
               <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} currentUserAvatarUrl={user?.avatarUrl || null} leaderId={activeLobby.leader_id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
 
-              <div className="flex flex-wrap gap-2">
-                <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
-                <button onClick={handleReadyToggle} disabled={!myMembership || myMembership.team_side === "UNASSIGNED"} className="esport-btn-primary disabled:opacity-50">{myMembership?.is_ready ? "Unready" : "Ready"}</button>
+              <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Lobby Controls</div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
+                  <button onClick={handleReadyToggle} disabled={!myMembership || myMembership.team_side === "UNASSIGNED"} className="esport-btn-primary disabled:opacity-50">{myMembership?.is_ready ? "Unready" : "Ready"}</button>
                 {shouldShowAutoVetoBar && (
                   <div className={cn(
                     "min-w-[260px] rounded-lg border px-4 py-2.5 text-sm font-bold",
@@ -1158,11 +1168,12 @@ export function CustomLobbyView({
                         : "Map Voting waits for both teams and all players ready"}
                   </div>
                 )}
-                {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
+                  {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
+                </div>
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+                <div className="rounded-[24px] border border-esport-border bg-white/5 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div className="flex items-center gap-2 mb-3"><MessageSquare className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby chat</div></div>
                   <div className="h-52 rounded-lg border border-white/10 bg-black/20 p-3 overflow-y-auto space-y-2">
                     {(activeLobby.lobby_messages || []).length === 0 && <div className="text-xs text-esport-text-muted">No messages yet.</div>}
@@ -1182,7 +1193,7 @@ export function CustomLobbyView({
                 </div>
 
                 {(activeVoteSession || activeLobby.map_voting_active || activeLobby.auto_veto_starts_at) && (
-                  <div className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-4">
+                  <div className="rounded-[24px] border border-esport-border bg-white/5 p-4 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div>
@@ -1257,7 +1268,7 @@ export function CustomLobbyView({
               </div>
 
               {activeMatch && (
-                <div className="rounded-xl border border-esport-secondary/30 bg-esport-secondary/10 p-4 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+                <div className="rounded-[24px] border border-esport-secondary/30 bg-esport-secondary/10 p-4 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between shadow-[0_0_30px_rgba(59,130,246,0.08)]">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 dedicated server state</div>
                     <div className="mt-2 text-lg font-bold text-white">{activeMatch.status === "pending" ? "CS2 server staged · waiting for player joins" : "CS2 match live · Lobby removed from browser"}</div>
@@ -1293,14 +1304,19 @@ export function CustomLobbyView({
             </div>
           )}
 
-          <div className="esport-card border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.94),rgba(2,6,23,0.96))] p-5">
-            <div className="flex items-center gap-2 mb-4"><Server className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Recent matches</div></div>
+          <div className="esport-card border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.94),rgba(2,6,23,0.96))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2"><Server className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Recent matches</div></div>
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/75">
+                {recentMatches.length} results
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-[10px] uppercase tracking-[0.2em] text-esport-text-muted"><th className="pb-3">Lobby</th><th className="pb-3">Mode</th><th className="pb-3">Map</th><th className="pb-3">Score</th><th className="pb-3">Stake</th></tr></thead>
                 <tbody>
                   {recentMatches.length === 0 && <tr><td colSpan={5} className="py-6 text-esport-text-muted">No finished matches yet.</td></tr>}
-                  {recentMatches.map((match) => <tr key={match.id} className="border-t border-white/5"><td className="py-3"><div className="font-bold text-white">{match.name}</div><div className="text-xs text-esport-text-muted">{match.winningSide === "DRAW" ? "Draw" : `Winner: ${match.winningSide}`}</div></td><td className="py-3 text-white">{formatMode(match.gameMode)}</td><td className="py-3 text-white">{MAP_LABELS[match.selectedMap] || match.selectedMap}</td><td className="py-3 text-white">{match.winningScore} - {match.losingScore}</td><td className="py-3 text-white">{match.stakeAmount.toFixed(2)} USDT</td></tr>)}
+                  {recentMatches.map((match) => <tr key={match.id} className="border-t border-white/5 hover:bg-white/[0.03] transition-colors"><td className="py-3"><div className="font-bold text-white">{match.name}</div><div className="text-xs text-esport-text-muted">{match.winningSide === "DRAW" ? "Draw" : `Winner: ${match.winningSide}`}</div></td><td className="py-3 text-white">{formatMode(match.gameMode)}</td><td className="py-3 text-white">{MAP_LABELS[match.selectedMap] || match.selectedMap}</td><td className="py-3 text-white">{match.winningScore} - {match.losingScore}</td><td className="py-3 text-white">{match.stakeAmount.toFixed(2)} USDT</td></tr>)}
                 </tbody>
               </table>
             </div>
