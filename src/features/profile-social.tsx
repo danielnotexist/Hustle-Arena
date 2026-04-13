@@ -456,6 +456,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   const [messageDraft, setMessageDraft] = useState('');
   const [addFriendUsername, setAddFriendUsername] = useState('');
+  const socialRealtimeChannelRef = useRef<any>(null);
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
@@ -681,6 +682,93 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     void loadThread(selectedFriendId);
   }, [selectedFriendId, user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    if (socialRealtimeChannelRef.current) {
+      supabase.removeChannel(socialRealtimeChannelRef.current);
+      socialRealtimeChannelRef.current = null;
+    }
+
+    const channel = supabase.channel(`social-direct-messages-${user.id}`);
+
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `sender_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: number;
+            sender_id: string;
+            receiver_id: string;
+            message: string;
+            message_type: string;
+            metadata: any;
+            created_at: string;
+          };
+
+          if (
+            selectedFriendId &&
+            ((row.sender_id === user.id && row.receiver_id === selectedFriendId) ||
+              (row.sender_id === selectedFriendId && row.receiver_id === user.id))
+          ) {
+            setThreadMessages((current) =>
+              current.some((entry) => entry.id === row.id) ? current : [...current, row]
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id: number;
+            sender_id: string;
+            receiver_id: string;
+            message: string;
+            message_type: string;
+            metadata: any;
+            created_at: string;
+          };
+
+          if (
+            selectedFriendId &&
+            ((row.sender_id === user.id && row.receiver_id === selectedFriendId) ||
+              (row.sender_id === selectedFriendId && row.receiver_id === user.id))
+          ) {
+            setThreadMessages((current) =>
+              current.some((entry) => entry.id === row.id) ? current : [...current, row]
+            );
+          }
+
+          void loadUnreadCounts();
+        }
+      )
+      .subscribe();
+
+    socialRealtimeChannelRef.current = channel;
+
+    return () => {
+      if (socialRealtimeChannelRef.current) {
+        supabase.removeChannel(socialRealtimeChannelRef.current);
+        socialRealtimeChannelRef.current = null;
+      }
+    };
+  }, [user?.id, selectedFriendId]);
+
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
 
@@ -731,17 +819,27 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     const text = messageDraft.trim();
     if (!text || !selectedFriendId || !user?.id) return;
 
-    const { error } = await supabase.from('direct_messages').insert({
-      sender_id: user.id,
-      receiver_id: selectedFriendId,
-      message: text,
-      message_type: 'text',
-      metadata: {}
-    });
+    const { data, error } = await supabase
+      .from('direct_messages')
+      .insert({
+        sender_id: user.id,
+        receiver_id: selectedFriendId,
+        message: text,
+        message_type: 'text',
+        metadata: {}
+      })
+      .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
+      .single();
 
     if (error) {
       addToast('Failed to send message', 'error');
       return;
+    }
+
+    if (data) {
+      setThreadMessages((current) =>
+        current.some((entry) => entry.id === data.id) ? current : [...current, data as any]
+      );
     }
 
     setMessageDraft('');
