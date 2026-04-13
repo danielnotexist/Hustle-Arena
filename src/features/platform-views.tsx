@@ -732,7 +732,7 @@ export function HustlePrimeView() {
           <div className="text-2xl font-bold mb-2">$7.99/month</div>
           <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes • Cancel anytime</div>
           
-          <button className="esport-btn-primary py-3 px-8 text-lg mb-4">
+          <button className="esport-btn-primary py-3 px-8 text-lg mb-4 mx-auto block">
             UPGRADE TO PRIME
           </button>
           
