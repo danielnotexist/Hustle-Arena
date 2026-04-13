@@ -6,6 +6,12 @@ export type SendFriendRequestResult =
   | "already_friends"
   | "friends";
 
+export type RespondFriendRequestResult =
+  | "accepted"
+  | "ignored"
+  | "blocked"
+  | "already_resolved";
+
 export async function sendFriendRequest(targetUserId: string) {
   const { data, error } = await supabase.rpc("send_friend_request", {
     p_target_user_id: targetUserId,
@@ -16,6 +22,19 @@ export async function sendFriendRequest(targetUserId: string) {
   }
 
   return (data || "requested") as SendFriendRequestResult;
+}
+
+export async function respondFriendRequest(requestId: number, action: "accept" | "ignore" | "block") {
+  const { data, error } = await supabase.rpc("respond_friend_request", {
+    p_request_id: requestId,
+    p_action: action,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || "already_resolved") as RespondFriendRequestResult;
 }
 
 export interface PublicProfileBasic {

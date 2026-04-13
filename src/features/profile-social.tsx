@@ -36,7 +36,11 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
-import { fetchPublicProfileBasics, sendFriendRequest as sendFriendRequestRpc } from "../lib/supabase/social";
+import {
+  fetchPublicProfileBasics,
+  respondFriendRequest as respondFriendRequestRpc,
+  sendFriendRequest as sendFriendRequestRpc,
+} from "../lib/supabase/social";
 import { joinMatchmakingLobby } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
@@ -562,24 +566,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const handleFriendRequest = async (request: { id: number; requester_id: string }, action: 'accept' | 'ignore' | 'block') => {
     if (!user?.id) return;
 
-    if (action === 'accept') {
-      await supabase.from('friend_requests').update({ status: 'accepted' }).eq('id', request.id).eq('target_id', user.id);
-      await supabase.from('friends').upsert([
-        { user_id: user.id, friend_id: request.requester_id },
-        { user_id: request.requester_id, friend_id: user.id }
-      ]);
+    const result = await respondFriendRequestRpc(request.id, action);
+
+    if (result === 'accepted') {
       addToast('Friend request accepted', 'success');
-    }
-
-    if (action === 'ignore') {
-      await supabase.from('friend_requests').update({ status: 'ignored' }).eq('id', request.id).eq('target_id', user.id);
+    } else if (result === 'ignored') {
       addToast('Friend request ignored', 'info');
-    }
-
-    if (action === 'block') {
-      await supabase.from('friend_requests').update({ status: 'blocked' }).eq('id', request.id).eq('target_id', user.id);
-      await supabase.from('blocked_users').upsert({ user_id: user.id, blocked_user_id: request.requester_id });
+    } else if (result === 'blocked') {
       addToast('User blocked', 'info');
+    } else {
+      addToast('This friend request was already resolved.', 'info');
     }
 
     await Promise.all([loadPendingRequests(), loadFriends()]);
