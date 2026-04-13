@@ -30,6 +30,8 @@ begin
 end;
 $$;
 
+drop function if exists public.get_public_profile_basics(uuid[]);
+
 create or replace function public.get_public_profile_basics(
   p_user_ids uuid[]
 )
@@ -53,6 +55,8 @@ as $$
 $$;
 
 grant execute on function public.get_public_profile_basics(uuid[]) to authenticated;
+
+drop function if exists public.find_public_profile_by_username(text);
 
 create or replace function public.find_public_profile_by_username(
   p_username text
