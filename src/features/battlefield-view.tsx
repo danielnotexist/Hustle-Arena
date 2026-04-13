@@ -38,6 +38,7 @@ import {
   type SupportedGameMode,
   type TeamSide,
 } from "../lib/supabase/matchmaking";
+import { sendFriendRequest } from "../lib/supabase/social";
 import { supabase } from "../lib/supabase";
 import type { AccountMode } from "./types";
 import { KYCForm } from "./landing-auth";
@@ -804,57 +805,18 @@ export function CustomLobbyView({
 
     setAddingFriendIds((current) => ({ ...current, [targetUserId]: true }));
     try {
-      const existingFriendship = await supabase
-        .from("friends")
-        .select("user_id")
-        .or(
-          `and(user_id.eq.${user.id},friend_id.eq.${targetUserId}),and(user_id.eq.${targetUserId},friend_id.eq.${user.id})`
-        )
-        .limit(1)
-        .maybeSingle();
-
-      if (existingFriendship.error) {
-        throw existingFriendship.error;
-      }
-
-      if (existingFriendship.data) {
-        addToast("You are already friends with this player.", "info");
+      const result = await sendFriendRequest(targetUserId);
+      if (result === "already_friends" || result === "friends") {
+        setFriendActionByUserId((current) => ({ ...current, [targetUserId]: "friends" }));
+        addToast(result === "friends" ? "Friend request matched. You are now friends." : "You are already friends with this player.", "info");
         return;
       }
 
-      const { error: requestError } = await supabase.from("friend_requests").upsert(
-        {
-          requester_id: user.id,
-          target_id: targetUserId,
-          status: "pending",
-        },
-        { onConflict: "requester_id,target_id" }
+      setFriendActionByUserId((current) => ({ ...current, [targetUserId]: "requested" }));
+      addToast(
+        result === "already_requested" ? "Friend request already sent." : "Friend request sent.",
+        "success"
       );
-
-      if (requestError) {
-        throw requestError;
-      }
-
-      const requesterName = user.username || user.email?.split("@")[0] || "A player";
-      const { error: notificationError } = await supabase.from("notifications").insert({
-        user_id: targetUserId,
-        notice_type: "friend_request",
-        title: "Friend Request",
-        body: `${requesterName} sent you a friend request`,
-        link_target: "/social",
-        is_read: false,
-        metadata: {},
-      });
-
-      if (notificationError) {
-        throw notificationError;
-      }
-
-      addToast("Friend request sent.", "success");
-      setFriendActionByUserId((current) => ({
-        ...current,
-        [targetUserId]: "requested",
-      }));
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to send friend request.", "error");

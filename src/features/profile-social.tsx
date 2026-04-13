@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
+import { fetchPublicProfileBasics, sendFriendRequest as sendFriendRequestRpc } from "../lib/supabase/social";
 import { joinMatchmakingLobby } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
@@ -475,13 +476,14 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
 
     const idList = Array.from(ids);
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('id,username')
-      .in('id', idList)
-      .order('username', { ascending: true });
-
-    const mapped = (profilesData ?? []).map((p: any) => ({ id: p.id as string, username: p.username as string }));
+    const profileMap = await fetchPublicProfileBasics(idList);
+    const mapped = idList
+      .map((id) => {
+        const profile = profileMap.get(id);
+        const username = profile?.username?.trim() || profile?.email?.split('@')[0]?.trim() || `Player ${id.slice(0, 8)}`;
+        return { id, username };
+      })
+      .sort((a, b) => a.username.localeCompare(b.username));
     setFriendsList(mapped);
 
     if (!selectedFriendId || !mapped.some((f) => f.id === selectedFriendId)) {
@@ -505,22 +507,17 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       return;
     }
 
-    const requesterIds = rows.map((r: any) => r.requester_id);
-    const { data: requesterProfiles } = await supabase
-      .from('profiles')
-      .select('id,username')
-      .in('id', requesterIds);
-
-    const lookup: Record<string, string> = {};
-    (requesterProfiles ?? []).forEach((p: any) => {
-      lookup[p.id] = p.username;
-    });
+    const requesterIds = rows.map((r: any) => r.requester_id as string);
+    const profileMap = await fetchPublicProfileBasics(requesterIds);
 
     setPendingRequests(
       rows.map((r: any) => ({
         id: r.id,
         requester_id: r.requester_id,
-        username: lookup[r.requester_id] ?? 'Unknown'
+        username:
+          profileMap.get(r.requester_id)?.username?.trim() ||
+          profileMap.get(r.requester_id)?.email?.split('@')[0]?.trim() ||
+          `Player ${String(r.requester_id).slice(0, 8)}`
       }))
     );
   };
@@ -544,20 +541,8 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       return;
     }
 
-    const inviterIds = rows.map((invite: any) => invite.from_user_id);
-    const { data: inviterProfiles, error: inviterError } = await supabase
-      .from('profiles')
-      .select('id,username')
-      .in('id', inviterIds);
-
-    if (inviterError) {
-      throw inviterError;
-    }
-
-    const inviterLookup: Record<string, string> = {};
-    (inviterProfiles ?? []).forEach((profile: any) => {
-      inviterLookup[profile.id] = profile.username;
-    });
+    const inviterIds = rows.map((invite: any) => invite.from_user_id as string);
+    const inviterMap = await fetchPublicProfileBasics(inviterIds);
 
     setPendingLobbyInvites(
       rows.map((invite: any) => ({
@@ -565,7 +550,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
         lobby_id: invite.lobby_id,
         lobby_name: invite.lobbies?.name ?? 'Squad Lobby',
         from_user_id: invite.from_user_id,
-        from_username: inviterLookup[invite.from_user_id] ?? 'Unknown',
+        from_username:
+          inviterMap.get(invite.from_user_id)?.username?.trim() ||
+          inviterMap.get(invite.from_user_id)?.email?.split('@')[0]?.trim() ||
+          `Player ${String(invite.from_user_id).slice(0, 8)}`,
         password_required: !!invite.lobbies?.password_required,
       }))
     );
@@ -613,29 +601,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       return;
     }
 
-    const { error } = await supabase.from('friend_requests').upsert({
-      requester_id: user.id,
-      target_id: target.id,
-      status: 'pending'
-    }, { onConflict: 'requester_id,target_id' });
+    const result = await sendFriendRequestRpc(target.id);
 
-    if (error) {
-      addToast('Unable to send friend request', 'error');
+    setAddFriendUsername('');
+    if (result === 'already_friends' || result === 'friends') {
+      addToast(result === 'friends' ? 'Friend request matched. You are now friends.' : 'You are already friends.', 'info');
+      await loadFriends();
       return;
     }
 
-    await supabase.from('notifications').insert({
-      user_id: target.id,
-      notice_type: 'friend_request',
-      title: 'Friend Request',
-      body: user.username + ' sent you a friend request',
-      link_target: '/squad-hub',
-      is_read: false,
-      metadata: {}
-    });
-
-    setAddFriendUsername('');
-    addToast('Friend request sent', 'success');
+    addToast(result === 'already_requested' ? 'Friend request already sent' : 'Friend request sent', 'success');
   };
 
   const handleLobbyInvite = async (

@@ -33,7 +33,8 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
-import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, type ReconnectableMatch } from "./lib/supabase/matchmaking";
+import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
+import { fetchMyNotifications, type AppNotification } from "./lib/supabase/social";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
@@ -68,6 +69,8 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
   const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const {
     isLoggedIn,
     isAdmin,
@@ -204,9 +207,63 @@ export default function App() {
     }
   }, [activeTab, joiningLobbyTransition]);
 
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) {
+      setNotifications([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadNotifications = async () => {
+      try {
+        const rows = await fetchMyNotifications(20);
+        if (!cancelled) {
+          setNotifications(rows);
+        }
+      } catch (error) {
+        console.error("Failed to load notifications:", error);
+      }
+    };
+
+    void loadNotifications();
+    const interval = window.setInterval(() => {
+      void loadNotifications();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [user?.id]);
+
   const handleLogout = async () => {
     await signOut(auth);
     addToast("Logged out successfully", "info");
+  };
+
+  const unreadNotificationsCount = notifications.filter((notice) => !notice.is_read).length;
+
+  const handleNotificationClick = async (notice: AppNotification) => {
+    try {
+      if (!notice.is_read) {
+        await markNotificationRead(notice.id);
+        setNotifications((current) =>
+          current.map((entry) =>
+            entry.id === notice.id ? { ...entry, is_read: true } : entry
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+
+    if (notice.link_target === "/social" || notice.notice_type === "friend_request" || notice.notice_type === "direct_message") {
+      setActiveTab("Social");
+    } else if (notice.link_target === "/squad-hub") {
+      setActiveTab("Squad Hub");
+    }
+    setNotificationsOpen(false);
   };
 
   return (
@@ -417,10 +474,55 @@ export default function App() {
                   <Plus size={14} className="text-esport-text-muted" />
                 </div>
                 
-                <button className="relative p-2 text-esport-text-muted hover:text-white transition-colors">
-                  <Bell size={20} />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-esport-danger rounded-full ring-2 ring-esport-bg" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setNotificationsOpen((current) => !current)}
+                    className="relative p-2 text-esport-text-muted hover:text-white transition-colors"
+                  >
+                    <Bell size={20} />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-esport-danger text-[10px] font-bold text-white rounded-full flex items-center justify-center ring-2 ring-esport-bg">
+                        {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                      </span>
+                    )}
+                  </button>
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-[360px] max-h-[420px] overflow-y-auto custom-scrollbar rounded-xl border border-esport-border bg-[#12151e]/95 backdrop-blur-md shadow-2xl z-50">
+                      <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
+                        <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Notifications</div>
+                        <button
+                          onClick={() => setNotificationsOpen(false)}
+                          className="p-1 text-esport-text-muted hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {notifications.length === 0 && (
+                          <div className="px-4 py-6 text-sm text-esport-text-muted">No notifications yet.</div>
+                        )}
+                        {notifications.map((notice) => (
+                          <button
+                            key={notice.id}
+                            onClick={() => void handleNotificationClick(notice)}
+                            className={`w-full text-left px-4 py-3 transition-colors hover:bg-white/5 ${notice.is_read ? "opacity-70" : ""}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="text-sm font-bold text-white">{notice.title}</div>
+                                <div className="text-xs text-esport-text-muted mt-1">{notice.body}</div>
+                              </div>
+                              {!notice.is_read && <span className="mt-1 h-2 w-2 rounded-full bg-esport-accent shrink-0" />}
+                            </div>
+                            <div className="mt-2 text-[10px] uppercase tracking-[0.15em] text-esport-text-muted">
+                              {new Date(notice.created_at).toLocaleString()}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <button className="p-2 text-esport-text-muted hover:text-white transition-colors">
                   <MessageSquare size={20} />
