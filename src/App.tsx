@@ -59,10 +59,35 @@ import {
 } from "./features/app-sections";
 import { usePlatformSession } from "./features/use-platform-session";
 
+const DASHBOARD_TAB = "Dashboard";
+const ACTIVE_TAB_STORAGE_KEY = "hustle_arena_active_tab";
+const VALID_TABS = new Set([
+  "Dashboard",
+  "Admin",
+  "Wallet",
+  "Profile",
+  "Battlefield Matchmaking",
+  "Custom Lobby Browser",
+  "Squad Hub",
+  "Social",
+  "Apex List",
+  "Neural Map",
+  "Missions",
+  "Vault",
+  "Pulse",
+  "Arena TV",
+  "Arena Guard",
+  "Hustle Prime",
+]);
+
 // --- Main App Component ---
 export default function App() {
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
-  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return DASHBOARD_TAB;
+    const storedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    return storedTab && VALID_TABS.has(storedTab) ? storedTab : DASHBOARD_TAB;
+  });
   const [battlefieldMenuOpen, setBattlefieldMenuOpen] = useState(false);
   const [joiningLobbyTransition, setJoiningLobbyTransition] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -138,6 +163,19 @@ export default function App() {
     previousUserIdRef.current = null;
     setView("landing");
   }, [user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!isAdmin && activeTab === "Admin") {
+      setActiveTab(DASHBOARD_TAB);
+    }
+  }, [isAdmin, activeTab]);
 
   useEffect(() => {
     if (!user || !isSupabaseConfigured()) {

@@ -457,6 +457,12 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [messageDraft, setMessageDraft] = useState('');
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const socialRealtimeChannelRef = useRef<any>(null);
+  const typingRealtimeChannelRef = useRef<any>(null);
+  const typingStopTimeoutRef = useRef<number | null>(null);
+  const remoteTypingClearTimeoutRef = useRef<number | null>(null);
+  const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
+  const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const threadBottomRef = useRef<HTMLDivElement | null>(null);
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
@@ -683,6 +689,67 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   }, [selectedFriendId, user?.id]);
 
   useEffect(() => {
+    setIsSelectedFriendTyping(false);
+    if (remoteTypingClearTimeoutRef.current) {
+      window.clearTimeout(remoteTypingClearTimeoutRef.current);
+      remoteTypingClearTimeoutRef.current = null;
+    }
+  }, [selectedFriendId]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    if (typingRealtimeChannelRef.current) {
+      supabase.removeChannel(typingRealtimeChannelRef.current);
+      typingRealtimeChannelRef.current = null;
+    }
+
+    const channel = supabase.channel('social-typing');
+    channel
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+        const senderId = payload?.sender_id as string | undefined;
+        const receiverId = payload?.receiver_id as string | undefined;
+        const isTyping = Boolean(payload?.is_typing);
+
+        if (!senderId || !receiverId) return;
+        if (receiverId !== user.id) return;
+        if (!selectedFriendId || senderId !== selectedFriendId) return;
+
+        if (isTyping) {
+          setIsSelectedFriendTyping(true);
+          if (remoteTypingClearTimeoutRef.current) {
+            window.clearTimeout(remoteTypingClearTimeoutRef.current);
+          }
+          remoteTypingClearTimeoutRef.current = window.setTimeout(() => {
+            setIsSelectedFriendTyping(false);
+          }, 1800);
+        } else {
+          setIsSelectedFriendTyping(false);
+        }
+      })
+      .subscribe();
+
+    typingRealtimeChannelRef.current = channel;
+
+    return () => {
+      if (typingStopTimeoutRef.current) {
+        window.clearTimeout(typingStopTimeoutRef.current);
+        typingStopTimeoutRef.current = null;
+      }
+      if (remoteTypingClearTimeoutRef.current) {
+        window.clearTimeout(remoteTypingClearTimeoutRef.current);
+        remoteTypingClearTimeoutRef.current = null;
+      }
+      if (typingRealtimeChannelRef.current) {
+        supabase.removeChannel(typingRealtimeChannelRef.current);
+        typingRealtimeChannelRef.current = null;
+      }
+    };
+  }, [user?.id, selectedFriendId]);
+
+  useEffect(() => {
     if (!user?.id) {
       return;
     }
@@ -769,6 +836,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     };
   }, [user?.id, selectedFriendId]);
 
+  useEffect(() => {
+    if (!threadBottomRef.current) return;
+    threadBottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [threadMessages.length, selectedFriendId]);
+
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
 
@@ -843,6 +915,24 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
 
     setMessageDraft('');
+    setIsSelectedFriendTyping(false);
+
+    if (typingStopTimeoutRef.current) {
+      window.clearTimeout(typingStopTimeoutRef.current);
+      typingStopTimeoutRef.current = null;
+    }
+
+    if (typingRealtimeChannelRef.current && selectedFriendId) {
+      void typingRealtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          sender_id: user.id,
+          receiver_id: selectedFriendId,
+          is_typing: false,
+        },
+      });
+    }
   };
 
   return (
@@ -946,7 +1036,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
               </div>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3 bg-black/10">
+            <div ref={threadScrollContainerRef} className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3 bg-black/10">
               {!selectedFriend ? (
                 <div className="text-sm text-esport-text-muted">Choose a friend from the left to open your chat.</div>
               ) : threadMessages.length === 0 ? (
@@ -972,12 +1062,49 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                   );
                 })
               )}
+              {selectedFriend && isSelectedFriendTyping ? (
+                <div className="text-xs text-esport-text-muted italic">{selectedFriend.username} is typing...</div>
+              ) : null}
+              <div ref={threadBottomRef} />
             </div>
 
             <div className="p-3 border-t border-esport-border flex items-center gap-2">
               <input
                 value={messageDraft}
-                onChange={(e) => setMessageDraft(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setMessageDraft(value);
+                  if (!user?.id || !selectedFriendId || !typingRealtimeChannelRef.current) {
+                    return;
+                  }
+
+                  void typingRealtimeChannelRef.current.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: {
+                      sender_id: user.id,
+                      receiver_id: selectedFriendId,
+                      is_typing: value.trim().length > 0,
+                    },
+                  });
+
+                  if (typingStopTimeoutRef.current) {
+                    window.clearTimeout(typingStopTimeoutRef.current);
+                  }
+
+                  typingStopTimeoutRef.current = window.setTimeout(() => {
+                    if (!typingRealtimeChannelRef.current || !user?.id || !selectedFriendId) return;
+                    void typingRealtimeChannelRef.current.send({
+                      type: 'broadcast',
+                      event: 'typing',
+                      payload: {
+                        sender_id: user.id,
+                        receiver_id: selectedFriendId,
+                        is_typing: false,
+                      },
+                    });
+                  }, 900);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
