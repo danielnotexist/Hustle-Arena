@@ -367,6 +367,8 @@ export default function App() {
         <div className="min-h-screen" />
       ) : shouldUseSupabase && hasSupabaseSession === null ? (
         <div className="min-h-screen" />
+      ) : shouldUseSupabase && hasSupabaseSession === true && !user ? (
+        <div className="min-h-screen" />
       ) : (
       view === "landing" ? (
         <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
