@@ -367,13 +367,18 @@ export default function App() {
             (notice) => !notice.is_read && !seenNotificationIdsRef.current.has(notice.id)
           );
 
-          if (previousUnreadNotificationCountRef.current > 0) {
+          if (seenNotificationIdsRef.current.size > 0) {
             newUnreadNotices.forEach((notice) => {
               if (notice.notice_type === "direct_message") {
                 playChatMessageSound();
               } else {
                 playNotificationSound();
               }
+
+              addToast(
+                notice.body || notice.title || "You have a new notification.",
+                notice.notice_type === "party_invite_removed" ? "info" : "success"
+              );
             });
           }
 
@@ -606,7 +611,12 @@ export default function App() {
       setPublicProfileState(null);
       setActiveTab("Social");
       setSocialRefreshNonce((current) => current + 1);
-    } else if (notice.link_target === "/battlefield" || notice.notice_type === "party_invite" || notice.notice_type === "party_invite_response") {
+    } else if (
+      notice.link_target === "/battlefield" ||
+      notice.notice_type === "party_invite" ||
+      notice.notice_type === "party_invite_response" ||
+      notice.notice_type === "party_invite_removed"
+    ) {
       setPublicProfileState(null);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
