@@ -1004,7 +1004,14 @@ export default function App() {
                     {activeTab === "Arena TV" && <ArenaTVView isAdmin={isAdmin} user={user} />}
                     {activeTab === "Arena Guard" && <SyndicatesView addToast={addToast} />}
                     {activeTab === "Hustle Prime" && <HustlePrimeView />}
-                    {activeTab === "Dashboard" && <DashboardView stats={stats} />}
+                    {activeTab === "Dashboard" && (
+                      <DashboardView
+                        stats={stats}
+                        accountMode={accountMode}
+                        openModal={openModal}
+                        onOpenPublicProfile={openPublicProfilePage}
+                      />
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>
