@@ -584,9 +584,152 @@ export function UserProfileView({
   );
 }
 
+function PublicProfileView({
+  profile,
+  displayName,
+  avatarUrl,
+  coverUrl,
+}: {
+  profile: any;
+  displayName: string;
+  avatarUrl: string;
+  coverUrl: string;
+}) {
+  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "highlights">("overview");
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 pb-6">
+      <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden bg-esport-card border border-esport-border group">
+        <img
+          src={coverUrl}
+          alt={`${displayName} cover`}
+          className="w-full h-full object-cover opacity-70 group-hover:opacity-85 transition-opacity"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/60 to-transparent" />
+
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 flex flex-col md:flex-row items-end gap-6">
+          <div className="relative">
+            <img src={avatarUrl} alt={displayName} className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-[#0a0b0d] shadow-2xl object-cover" />
+            <div className="absolute -bottom-2 -right-2 bg-esport-accent text-white text-xs font-bold px-2 py-1 rounded-lg border-2 border-[#0a0b0d]">
+              LVL {profile.level ?? 1}
+            </div>
+          </div>
+
+          <div className="flex-1 pb-2">
+            <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight mb-1">{displayName}</h1>
+            <div className="flex items-center gap-4 text-sm text-esport-text-muted font-bold uppercase tracking-wider">
+              <span className="flex items-center gap-1"><MapPin size={14} /> {profile.country || "Unknown Region"}</span>
+              <span className="flex items-center gap-1"><Clock size={14} /> Member since 2026</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          <div className="esport-card p-6 border-2 border-esport-accent/20">
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Public Rank Snapshot</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-esport-accent">{profile.win_rate || "0%"}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">Win Rate</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-white">{Number(profile.kd_ratio ?? 0).toFixed(2)}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">K/D Ratio</div>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center col-span-2">
+                <div className="text-xl font-bold text-white">{profile.rank || "Unranked"}</div>
+                <div className="text-[10px] text-esport-text-muted uppercase tracking-wider">Current Rank</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="esport-card p-6">
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">About Player</h3>
+            <p className="text-sm leading-relaxed">{profile.bio || "No bio added yet."}</p>
+
+            <div className="mt-6 pt-6 border-t border-esport-border space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-esport-text-muted">Headshot Rate</span>
+                <span className="font-bold text-white">{profile.headshot_pct || "0%"}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-esport-text-muted">Status</span>
+                <span className="font-bold text-esport-success flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" /> Public Profile</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex overflow-x-auto custom-scrollbar gap-2 p-1 bg-esport-card border border-esport-border rounded-xl">
+            {["overview", "matches", "highlights"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as "overview" | "matches" | "highlights")}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab ? "bg-esport-accent text-white shadow-lg" : "text-esport-text-muted hover:text-white hover:bg-white/5"}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="esport-card p-6 min-h-[400px]">
+            {activeTab === "overview" && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Recent Performance</h3>
+                  <div className="h-32 flex items-end gap-2">
+                    {(profile.performance || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).map((h: number, i: number) => (
+                      <div key={i} className="flex-1 bg-esport-accent/20 rounded-t-sm hover:bg-esport-accent transition-colors relative group" style={{ height: `${h || 2}%` }}>
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          {h}pts
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Guestbook</h3>
+                  <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center">
+                    <MessageSquare className="w-12 h-12 text-esport-text-muted mx-auto mb-3 opacity-50" />
+                    <div className="font-bold mb-1">No messages yet</div>
+                    <div className="text-sm text-esport-text-muted">Guestbook is not open on public profiles yet.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "matches" && (
+              <div>
+                <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Match History</h3>
+                <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center text-sm text-esport-text-muted">
+                  Public match history will appear here.
+                </div>
+              </div>
+            )}
+
+            {activeTab === "highlights" && (
+              <div>
+                <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Video Highlights</h3>
+                <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center text-sm text-esport-text-muted">
+                  Highlights are not available for this public profile yet.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
+  const [onlineFriendIds, setOnlineFriendIds] = useState<string[]>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
   const [pendingLobbyInvites, setPendingLobbyInvites] = useState<Array<{ id: number; lobby_id: string; lobby_name: string; from_user_id: string; from_username: string; password_required: boolean }>>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -596,6 +739,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const socialRealtimeChannelRef = useRef<any>(null);
   const typingRealtimeChannelRef = useRef<any>(null);
+  const socialPresenceChannelRef = useRef<any>(null);
   const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
@@ -603,6 +747,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
   const getAvatarUrl = (friend: { username: string; avatarUrl: string | null }) =>
     friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username || "Player")}&background=1f2937&color=ffffff&size=96`;
+  const isFriendOnline = (friendId: string) => onlineFriendIds.includes(friendId);
 
   const openFriendProfile = async (friendId: string) => {
     try {
@@ -625,46 +770,17 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
       openModal(
         `${displayName} Profile`,
-        <div className="space-y-5">
-          <div className="relative overflow-hidden rounded-2xl border border-esport-border bg-esport-card">
-            <img src={coverUrl} alt={`${displayName} cover`} className="h-40 w-full object-cover opacity-50" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/55 to-transparent" />
-            <div className="absolute bottom-0 left-0 flex w-full items-end gap-4 p-5">
-              <img src={avatarUrl} alt={displayName} className="h-20 w-20 rounded-2xl border-4 border-[#0a0b0d] object-cover" />
-              <div className="pb-1">
-                <div className="text-2xl font-display font-bold text-white">{displayName}</div>
-                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-esport-text-muted">
-                  {profile.country || 'Unknown Region'} - Level {profile.level ?? 1}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Rank</div>
-              <div className="mt-2 text-sm font-bold text-white">{profile.rank || 'Unranked'}</div>
-            </div>
-            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Win Rate</div>
-              <div className="mt-2 text-sm font-bold text-white">{profile.win_rate || '0%'}</div>
-            </div>
-            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">K/D Ratio</div>
-              <div className="mt-2 text-sm font-bold text-white">{Number(profile.kd_ratio ?? 0).toFixed(2)}</div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-esport-border bg-white/5 p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">About</div>
-            <div className="mt-2 text-sm leading-relaxed text-white">
-              {profile.bio || 'No bio added yet.'}
-            </div>
-            <div className="mt-4 text-xs text-esport-text-muted">
-              Headshot rate: {profile.headshot_pct || '0%'}
-            </div>
-          </div>
-        </div>
+        <PublicProfileView
+          profile={profile}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          coverUrl={coverUrl}
+        />,
+        {
+          size: "full",
+          showFooter: false,
+          bodyPadding: "none",
+        }
       );
     } catch (error) {
       console.error('Failed to open public profile:', error);
@@ -705,6 +821,9 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     if (isSelectedFriendTyping) {
       return "Typing...";
     }
+    if (selectedFriendId && isFriendOnline(selectedFriendId)) {
+      return "Online now";
+    }
     if (!selectedFriendLastMessageAt) {
       return "Last seen unknown";
     }
@@ -716,7 +835,53 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     if (diffHours < 24) return `Last seen ${diffHours}h ago`;
     const diffDays = Math.floor(diffHours / 24);
     return `Last seen ${diffDays}d ago`;
-  }, [isSelectedFriendTyping, selectedFriendLastMessageAt]);
+  }, [isSelectedFriendTyping, selectedFriendLastMessageAt, selectedFriendId, onlineFriendIds]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (socialPresenceChannelRef.current) {
+      supabase.removeChannel(socialPresenceChannelRef.current);
+      socialPresenceChannelRef.current = null;
+    }
+
+    const channel = supabase.channel("social-online-presence", {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const ids = new Set<string>();
+
+        Object.values(state)
+          .flat()
+          .forEach((entry: any) => {
+            if (entry?.user_id && entry.user_id !== user.id) {
+              ids.add(entry.user_id);
+            }
+          });
+
+        setOnlineFriendIds(Array.from(ids));
+      })
+      .subscribe(async (status: string) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({
+            user_id: user.id,
+            username: user.username || user.email?.split("@")[0] || "Player",
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    socialPresenceChannelRef.current = channel;
+
+    return () => {
+      if (socialPresenceChannelRef.current) {
+        supabase.removeChannel(socialPresenceChannelRef.current);
+        socialPresenceChannelRef.current = null;
+      }
+    };
+  }, [user?.id, user?.username, user?.email]);
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -1273,24 +1438,29 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          <img
-                            src={getAvatarUrl(friend)}
-                            alt={friend.username}
-                            className="h-10 w-10 rounded-full border border-white/15 object-cover"
-                            role="button"
-                            tabIndex={0}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void openFriendProfile(friend.id);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
+                          <div className="relative shrink-0">
+                            <img
+                              src={getAvatarUrl(friend)}
+                              alt={friend.username}
+                              className="h-10 w-10 rounded-full border border-white/15 object-cover"
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
                                 event.stopPropagation();
                                 void openFriendProfile(friend.id);
-                              }
-                            }}
-                          />
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  void openFriendProfile(friend.id);
+                                }
+                              }}
+                            />
+                            {isFriendOnline(friend.id) && (
+                              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#1d2129] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.55)]" />
+                            )}
+                          </div>
                           <div
                             className="min-w-0 cursor-pointer font-bold text-sm truncate hover:text-esport-accent"
                             role="button"
@@ -1327,12 +1497,17 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {selectedFriend && (
-                  <img
-                    src={getAvatarUrl(selectedFriend)}
-                    alt={selectedFriend.username}
-                    className="h-11 w-11 cursor-pointer rounded-full border border-white/15 object-cover transition-transform hover:scale-105"
-                    onClick={() => void openFriendProfile(selectedFriend.id)}
-                  />
+                  <div className="relative">
+                    <img
+                      src={getAvatarUrl(selectedFriend)}
+                      alt={selectedFriend.username}
+                      className="h-11 w-11 cursor-pointer rounded-full border border-white/15 object-cover transition-transform hover:scale-105"
+                      onClick={() => void openFriendProfile(selectedFriend.id)}
+                    />
+                    {isFriendOnline(selectedFriend.id) && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#1d2129] bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.55)]" />
+                    )}
+                  </div>
                 )}
                 <div>
                   <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>

@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, Lock, Search, Server, ShieldAlert, Sword, Target, 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { quickQueueCancel, quickQueueJoinOrMatch } from "../lib/supabase/matchmaking";
+import { fetchPublicProfileBasics } from "../lib/supabase/social";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -31,11 +32,65 @@ export function BattlefieldView({
   const [estimatedWaitSeconds, setEstimatedWaitSeconds] = useState(75);
   const [onlineNow, setOnlineNow] = useState<Array<{ user_id: string; username: string; avatar_url?: string | null }>>([]);
   const [matchedLobbyId, setMatchedLobbyId] = useState<string | null>(null);
+  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
+  const [selectedPartyMemberIds, setSelectedPartyMemberIds] = useState<string[]>([]);
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
-  const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETETIVE 5V5";
+  const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
+  const maxPartyMembers = selectedTeamSize - 1;
+  const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
+  const selectedPartyMembers = friendsList.filter((friend) => selectedPartyMemberIds.includes(friend.id));
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const loadFriends = async () => {
+      try {
+        const [asOwnerRes, asPeerRes] = await Promise.all([
+          supabase.from("friends").select("friend_id").eq("user_id", user.id),
+          supabase.from("friends").select("user_id").eq("friend_id", user.id),
+        ]);
+
+        if (asOwnerRes.error) throw asOwnerRes.error;
+        if (asPeerRes.error) throw asPeerRes.error;
+
+        const ids = new Set<string>();
+        (asOwnerRes.data ?? []).forEach((row: any) => ids.add(row.friend_id));
+        (asPeerRes.data ?? []).forEach((row: any) => ids.add(row.user_id));
+
+        if (!ids.size) {
+          setFriendsList([]);
+          setSelectedPartyMemberIds([]);
+          return;
+        }
+
+        const profileMap = await fetchPublicProfileBasics(Array.from(ids));
+        const mapped = Array.from(ids)
+          .map((id) => {
+            const profile = profileMap.get(id);
+            return {
+              id,
+              username: profile?.username?.trim() || profile?.email?.split("@")[0]?.trim() || `Player ${id.slice(0, 8)}`,
+              avatarUrl: profile?.avatar_url || null,
+            };
+          })
+          .sort((a, b) => a.username.localeCompare(b.username));
+
+        setFriendsList(mapped);
+        setSelectedPartyMemberIds((current) => current.filter((friendId) => mapped.some((friend) => friend.id === friendId)).slice(0, maxPartyMembers));
+      } catch (error) {
+        console.error("Failed to load party friends:", error);
+      }
+    };
+
+    void loadFriends();
+  }, [user?.id, maxPartyMembers]);
+
+  useEffect(() => {
+    setSelectedPartyMemberIds((current) => current.slice(0, maxPartyMembers));
+  }, [maxPartyMembers]);
 
   useEffect(() => {
     if (matchState !== "searching") return;
@@ -129,6 +184,10 @@ export function BattlefieldView({
       addToast("Switch to Demo Account from Profile before entering matchmaking.", "error");
       return;
     }
+    if (queueMode === "party" && selectedPartyMemberIds.length === 0) {
+      addToast("Add at least one friend to your party before searching.", "error");
+      return;
+    }
     try {
       setSearchTime(0);
       setMatchState("searching");
@@ -148,6 +207,21 @@ export function BattlefieldView({
       setMatchState("idle");
       addToast(error?.message || "Failed to start quick queue.", "error");
     }
+  };
+
+  const togglePartyMember = (friendId: string) => {
+    setSelectedPartyMemberIds((current) => {
+      if (current.includes(friendId)) {
+        return current.filter((id) => id !== friendId);
+      }
+
+      if (current.length >= maxPartyMembers) {
+        addToast(`You can add up to ${maxPartyMembers} friend${maxPartyMembers === 1 ? "" : "s"} for this queue.`, "error");
+        return current;
+      }
+
+      return [...current, friendId];
+    });
   };
 
   const acceptMatch = () => {
@@ -324,6 +398,112 @@ export function BattlefieldView({
                 </div>
               </div>
             </div>
+
+            {queueMode === "party" && (
+              <div className="esport-card p-6 border border-esport-border">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold font-display uppercase">Party Members</h3>
+                    <p className="text-sm text-esport-text-muted">
+                      Add up to {maxPartyMembers} friend{maxPartyMembers === 1 ? "" : "s"} before starting queue.
+                    </p>
+                  </div>
+                  <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">
+                    {selectedPartyMemberIds.length}/{maxPartyMembers} selected
+                  </div>
+                </div>
+
+                <div className="mb-5 overflow-x-auto custom-scrollbar pb-2">
+                  <div className="flex min-w-max gap-4">
+                    {Array.from({ length: maxPartyMembers }).map((_, index) => {
+                      const friend = selectedPartyMembers[index];
+
+                      if (friend) {
+                        return (
+                          <button
+                            key={friend.id}
+                            type="button"
+                            onClick={() => togglePartyMember(friend.id)}
+                            className="w-[150px] rounded-2xl border border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 p-4 text-center transition-colors hover:border-esport-accent"
+                          >
+                            <img
+                              src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
+                              alt={friend.username}
+                              className="mx-auto w-20 h-20 rounded-full border-4 border-white/10 object-cover"
+                            />
+                            <div className="mt-3 text-sm font-bold text-white truncate">{friend.username}</div>
+                            <div className="mt-2 text-[10px] uppercase tracking-[0.2em] text-esport-accent">In Party</div>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={`empty-slot-${index}`}
+                          className="w-[150px] rounded-2xl border border-esport-border bg-black/20 p-4 flex flex-col items-center justify-center text-center min-h-[180px]"
+                        >
+                          <div className="text-5xl leading-none text-white/30">+</div>
+                          <div className="mt-3 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Empty Slot</div>
+                        </div>
+                      );
+                    })}
+
+                    <div className="w-[150px] rounded-2xl border border-esport-border bg-black/20 p-4 flex flex-col items-center justify-center text-center min-h-[180px]">
+                      <Search className="w-7 h-7 text-white/60" />
+                      <div className="mt-3 text-sm font-bold text-white">Find Parties</div>
+                      <div className="mt-2 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Coming Soon</div>
+                    </div>
+                  </div>
+                </div>
+
+                {friendsList.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-esport-border bg-black/20 px-4 py-6 text-sm text-esport-text-muted">
+                    No friends available yet. Add friends in Social before entering Party Queue.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {friendsList.map((friend) => {
+                      const isSelected = selectedPartyMemberIds.includes(friend.id);
+                      const isOnline = onlineNowIds.has(friend.id);
+
+                      return (
+                        <button
+                          key={friend.id}
+                          type="button"
+                          onClick={() => togglePartyMember(friend.id)}
+                          className={`rounded-xl border p-4 text-left transition-colors ${
+                            isSelected
+                              ? "border-esport-accent bg-esport-accent/10"
+                              : "border-esport-border bg-black/20 hover:border-white/20"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=96`}
+                              alt={friend.username}
+                              className="w-11 h-11 rounded-xl border border-white/15 object-cover"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-bold text-white truncate">{friend.username}</div>
+                              <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">
+                                {isSelected ? "Added to party" : "Tap to add"}
+                              </div>
+                            </div>
+                            <div className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
+                              isOnline
+                                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
+                                : "border-white/10 bg-white/5 text-esport-text-muted"
+                            }`}>
+                              {isOnline ? "Online" : "Offline"}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="esport-card p-6 flex flex-col justify-center items-center text-center space-y-6">
@@ -335,15 +515,54 @@ export function BattlefieldView({
               <div className="text-sm text-white font-bold">{selectedQueueLabel}</div>
               <div className="text-xs text-esport-text-muted mb-2">Estimated Wait</div>
               <div className="text-2xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
+              {queueMode === "party" && (
+                <div className="mt-2 text-xs text-esport-text-muted">
+                  Party size: {selectedPartyMembers.length + 1}/{selectedTeamSize}
+                </div>
+              )}
               {matchState === "searching" && (
                 <div className="mt-2 text-xs text-esport-text-muted">
                   {playersJoined} joined - {playersNeeded} needed
                 </div>
               )}
             </div>
-            <button onClick={() => void startSearch()} className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <button
+              onClick={() => void startSearch()}
+              disabled={queueMode === "party" && selectedPartyMemberIds.length === 0}
+              className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
+            >
               {queueMode === "solo" ? "FIND SOLO MATCH" : "FIND PARTY MATCH"}
             </button>
+            {queueMode === "party" && (
+              <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
+                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">
+                  Your Party
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "You")}&background=1f2937&color=ffffff&size=48`}
+                      alt={user?.username || "You"}
+                      className="w-6 h-6 rounded-full border border-white/20 object-cover"
+                    />
+                    <span className="text-xs font-bold text-white truncate">{user?.username || "You"} (You)</span>
+                  </div>
+                  {selectedPartyMembers.map((friend) => (
+                    <div key={friend.id} className="flex items-center gap-2">
+                      <img
+                        src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
+                        alt={friend.username}
+                        className="w-6 h-6 rounded-full border border-white/20 object-cover"
+                      />
+                      <span className="text-xs text-white truncate">{friend.username}</span>
+                    </div>
+                  ))}
+                  {selectedPartyMembers.length === 0 && (
+                    <div className="text-xs text-esport-text-muted">Add at least one friend to enable party matchmaking.</div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
               <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">
                 Online Right Now

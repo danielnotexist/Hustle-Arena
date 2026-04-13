@@ -98,7 +98,16 @@ export default function App() {
   const [joiningLobbyTransition, setJoiningLobbyTransition] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalContent, setModalContent] = useState<{title: string, body: React.ReactNode} | null>(null);
+  const [modalContent, setModalContent] = useState<{
+    title: string,
+    body: React.ReactNode,
+    options?: {
+      size?: "default" | "wide" | "full";
+      showHeader?: boolean;
+      showFooter?: boolean;
+      bodyPadding?: "default" | "none";
+    }
+  } | null>(null);
   const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -158,9 +167,18 @@ export default function App() {
     }, 3000);
   };
 
-  const openModal = (title: string, body: React.ReactNode) => {
+  const openModal = (
+    title: string,
+    body: React.ReactNode,
+    options?: {
+      size?: "default" | "wide" | "full";
+      showHeader?: boolean;
+      showFooter?: boolean;
+      bodyPadding?: "default" | "none";
+    }
+  ) => {
     console.log("Opening modal:", title);
-    setModalContent({ title, body });
+    setModalContent({ title, body, options });
     setIsModalOpen(true);
   };
 
@@ -761,29 +779,39 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="esport-card w-full max-w-lg relative z-10 overflow-hidden"
+              className={`esport-card w-full relative z-10 overflow-hidden ${
+                modalContent?.options?.size === "full"
+                  ? "max-w-7xl max-h-[92vh]"
+                  : modalContent?.options?.size === "wide"
+                    ? "max-w-5xl"
+                    : "max-w-lg"
+              }`}
             >
-              <div className="p-6 border-b border-esport-border flex items-center justify-between">
-                <h3 className="text-xl font-display font-bold uppercase">{modalContent?.title}</h3>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-8">
+              {modalContent?.options?.showHeader !== false && (
+                <div className="p-6 border-b border-esport-border flex items-center justify-between">
+                  <h3 className="text-xl font-display font-bold uppercase">{modalContent?.title}</h3>
+                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+              )}
+              <div className={`${modalContent?.options?.bodyPadding === "none" ? "" : "p-8"} ${modalContent?.options?.size === "full" ? "max-h-[calc(92vh-40px)] overflow-y-auto custom-scrollbar" : ""}`}>
                 {modalContent?.body}
               </div>
-              <div className="p-6 bg-black/20 border-t border-esport-border flex justify-end gap-3">
-                <button onClick={() => setIsModalOpen(false)} className="esport-btn-secondary px-8">Cancel</button>
-                <button 
-                  onClick={() => {
-                    addToast("Action confirmed!", "success");
-                    setIsModalOpen(false);
-                  }} 
-                  className="esport-btn-primary px-8"
-                >
-                  Confirm
-                </button>
-              </div>
+              {modalContent?.options?.showFooter !== false && (
+                <div className="p-6 bg-black/20 border-t border-esport-border flex justify-end gap-3">
+                  <button onClick={() => setIsModalOpen(false)} className="esport-btn-secondary px-8">Cancel</button>
+                  <button 
+                    onClick={() => {
+                      addToast("Action confirmed!", "success");
+                      setIsModalOpen(false);
+                    }} 
+                    className="esport-btn-primary px-8"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
