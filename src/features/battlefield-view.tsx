@@ -568,6 +568,12 @@ export function CustomLobbyView({
   const teamsFilled = !!activeLobby && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size;
   const shouldShowAutoVetoBar = !!activeLobby && !activeMatch && !activeVoteSession && !activeLobby.selected_map;
   const canKickPlayers = isLeader && activeLobby?.status === "open";
+  const lobbyOwnerLabel = useMemo(() => {
+    if (!activeLobby) return "-";
+    if (activeLobby.leader_id === user?.id) return "You";
+    const ownerMember = activeMembers.find((member) => member.user_id === activeLobby.leader_id);
+    return ownerMember ? getMemberDisplayName(ownerMember) : `Player ${activeLobby.leader_id.slice(0, 8)}`;
+  }, [activeLobby, activeMembers, user?.id]);
   const lobbyPeerIds = useMemo(
     () =>
       activeMembers
@@ -1009,6 +1015,7 @@ export function CustomLobbyView({
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{isLeader ? "My" : "Joined"} {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
                   <h3 className="text-2xl font-display font-bold uppercase">{activeLobby.name}</h3>
                   <div className="text-xs text-esport-text-muted mt-1">{formatMode(activeLobby.game_mode)} · {activeLobby.team_size}v{activeLobby.team_size} · Stake {Number(activeLobby.stake_amount).toFixed(2)} USDT</div>
+                  <div className="text-xs text-esport-text-muted mt-1">Owner: <span className="text-white font-bold">{lobbyOwnerLabel}</span></div>
                 </div>
                 <div className="rounded-xl border border-esport-border bg-black/20 px-4 py-3 min-w-[220px]">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Selected map</div>

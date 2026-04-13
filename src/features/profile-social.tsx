@@ -28,7 +28,6 @@ import {
   Sword,
   Target,
   Trophy,
-  User,
   Users,
   Wallet,
   X,
@@ -38,6 +37,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   fetchPublicProfileBasics,
+  findPublicProfileByUsername,
   respondFriendRequest as respondFriendRequestRpc,
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
@@ -162,9 +162,6 @@ export function UserProfileView({
           <div className="pb-2 w-full md:w-auto flex gap-3">
             <button onClick={() => { setActiveTab('settings'); setIsEditing(true); }} className="esport-btn-secondary flex-1 md:flex-none">
               <Settings size={16} /> Edit Profile
-            </button>
-            <button className="esport-btn-primary flex-1 md:flex-none">
-              <User size={16} /> Add Friend
             </button>
           </div>
         </div>
@@ -621,14 +618,9 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     const username = addFriendUsername.trim();
     if (!username || !user?.id) return;
 
-    const { data: target } = await supabase
-      .from('profiles')
-      .select('id,username')
-      .eq('username', username)
-      .neq('id', user.id)
-      .maybeSingle();
+    const target = await findPublicProfileByUsername(username);
 
-    if (!target?.id) {
+    if (!target?.id || target.id === user.id) {
       addToast('User not found', 'error');
       return;
     }

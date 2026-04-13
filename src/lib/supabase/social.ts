@@ -69,6 +69,19 @@ export async function fetchPublicProfileBasics(userIds: string[]) {
   );
 }
 
+export async function findPublicProfileByUsername(username: string) {
+  const { data, error } = await supabase.rpc("find_public_profile_by_username", {
+    p_username: username,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+  return (row as PublicProfileBasic | null) || null;
+}
+
 export interface AppNotification {
   id: number;
   title: string;
