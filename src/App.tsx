@@ -33,6 +33,7 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
+import { supabase } from "./lib/supabase";
 import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
 import { fetchMyNotifications, type AppNotification } from "./lib/supabase/social";
 import type { Toast } from "./features/types";
@@ -82,6 +83,7 @@ const VALID_TABS = new Set([
 
 // --- Main App Component ---
 export default function App() {
+  const shouldUseSupabase = isSupabaseConfigured();
   const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === "undefined") return DASHBOARD_TAB;
@@ -96,6 +98,7 @@ export default function App() {
   const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const {
     isLoggedIn,
     isAdmin,
@@ -111,6 +114,26 @@ export default function App() {
     refreshSession,
   } = usePlatformSession();
   const previousUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!shouldUseSupabase) {
+      setAuthBootstrapComplete(true);
+      return;
+    }
+
+    let isCancelled = false;
+    void supabase.auth
+      .getSession()
+      .finally(() => {
+        if (!isCancelled) {
+          setAuthBootstrapComplete(true);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [shouldUseSupabase]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -160,9 +183,13 @@ export default function App() {
       return;
     }
 
+    if (!authBootstrapComplete) {
+      return;
+    }
+
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user]);
+  }, [user, authBootstrapComplete]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -306,7 +333,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-esport-bg text-white font-sans">
-      {view === "landing" ? (
+      {!authBootstrapComplete ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
+            Restoring Session...
+          </div>
+        </div>
+      ) : (
+      view === "landing" ? (
         <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
       ) : (
         <div className="flex h-screen overflow-hidden">
@@ -639,7 +673,7 @@ export default function App() {
             </div>
           </main>
         </div>
-      )}
+      ))}
 
       {/* Toast System */}
       <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-3">
