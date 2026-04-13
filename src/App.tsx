@@ -573,7 +573,13 @@ export default function App() {
     }
   };
 
-  const unreadNotificationsCount = notifications.filter((notice) => !notice.is_read).length;
+  const unreadNotificationsCount = notifications.filter(
+    (notice) => !notice.is_read && notice.notice_type !== "direct_message"
+  ).length;
+  const unreadMessagesCount = notifications.filter(
+    (notice) => !notice.is_read && notice.notice_type === "direct_message"
+  ).length;
+  const generalNotifications = notifications.filter((notice) => notice.notice_type !== "direct_message");
   const primaryGlobalPartyInvite = globalPartyInvites[0] || null;
 
   const respondToGlobalPartyInvite = async (inviteId: number, action: "accept" | "decline") => {
@@ -868,10 +874,10 @@ export default function App() {
                         </button>
                       </div>
                       <div className="divide-y divide-white/5">
-                        {notifications.length === 0 && (
+                        {generalNotifications.length === 0 && (
                           <div className="px-4 py-6 text-sm text-esport-text-muted">No notifications yet.</div>
                         )}
-                        {notifications.map((notice) => (
+                        {generalNotifications.map((notice) => (
                           <button
                             key={notice.id}
                             onClick={() => void handleNotificationClick(notice)}
@@ -894,8 +900,21 @@ export default function App() {
                   )}
                 </div>
                 
-                <button className="p-2 text-esport-text-muted hover:text-white transition-colors">
+                <button
+                  onClick={() => {
+                    setNotificationsOpen(false);
+                    setPublicProfileState(null);
+                    setActiveTab("Social");
+                    setSocialRefreshNonce((current) => current + 1);
+                  }}
+                  className="relative p-2 text-esport-text-muted hover:text-white transition-colors"
+                >
                   <MessageSquare size={20} />
+                  {unreadMessagesCount > 0 && (
+                    <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-esport-accent text-[10px] font-bold text-esport-bg rounded-full flex items-center justify-center ring-2 ring-esport-bg">
+                      {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                    </span>
+                  )}
                 </button>
               </div>
             </header>
