@@ -669,7 +669,7 @@ export function BattlefieldView({
             )}
             <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
               <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">
-                Online Right Now
+                Looking To Play
               </div>
               <div className="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar">
                 {onlineNow.length === 0 && (
