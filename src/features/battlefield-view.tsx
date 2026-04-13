@@ -38,6 +38,7 @@ import {
   type SupportedGameMode,
   type TeamSide,
 } from "../lib/supabase/matchmaking";
+import { supabase } from "../lib/supabase";
 import type { AccountMode } from "./types";
 import { KYCForm } from "./landing-auth";
 import { cn } from "./shared-ui";
@@ -100,6 +101,11 @@ const getMemberDisplayName = (member: MatchmakingLobbyMember) => {
   return `Player ${member.user_id.slice(0, 8)}`;
 };
 
+const getMemberAvatarUrl = (member: MatchmakingLobbyMember) => {
+  const display = getMemberDisplayName(member);
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(display)}&background=1f2937&color=ffffff&size=96`;
+};
+
 const getTeamNameColorClass = (teamSide: TeamSide | null | undefined) => {
   if (teamSide === "T") {
     return "text-[#ff5e7b]";
@@ -123,6 +129,9 @@ function TeamBoard({
   onMove,
   canKick,
   onKick,
+  onAddFriend,
+  friendActionByUserId,
+  addingFriendIds,
 }: {
   title: string;
   accentClass: string;
@@ -134,6 +143,9 @@ function TeamBoard({
   onMove: (side: TeamSide) => Promise<void>;
   canKick?: boolean;
   onKick?: (userId: string) => Promise<void>;
+  onAddFriend?: (userId: string) => Promise<void>;
+  friendActionByUserId?: Record<string, "none" | "requested" | "friends">;
+  addingFriendIds?: Record<string, boolean>;
 }) {
   return (
     <button
@@ -153,11 +165,58 @@ function TeamBoard({
         {members.length === 0 && <div className="text-xs text-esport-text-muted">No players yet</div>}
         {members.map((member) => (
           <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <img
+                src={getMemberAvatarUrl(member)}
+                alt={getMemberDisplayName(member)}
+                className="h-8 w-8 rounded-lg border border-white/15 object-cover"
+              />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-white">{getMemberDisplayName(member)}</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">{member.is_ready ? "Ready" : "Pending"}</div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
+              {onAddFriend && member.user_id !== currentUserId && (() => {
+                const relationState = friendActionByUserId?.[member.user_id] || "none";
+                const isSending = !!addingFriendIds?.[member.user_id];
+                const label = isSending
+                  ? "Sending..."
+                  : relationState === "friends"
+                    ? "Friends"
+                    : relationState === "requested"
+                      ? "Requested"
+                      : "Add Friend";
+                const isDisabled = isSending || relationState !== "none";
+
+                return (
+                  <span
+                    role={isDisabled ? undefined : "button"}
+                    tabIndex={isDisabled ? -1 : 0}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (isDisabled) return;
+                      void onAddFriend(member.user_id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (isDisabled) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void onAddFriend(member.user_id);
+                      }
+                    }}
+                    className={cn(
+                      "rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.2em]",
+                      isDisabled
+                        ? "border-white/15 bg-white/5 text-white/60"
+                        : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
+                    )}
+                  >
+                    {label}
+                  </span>
+                );
+              })()}
               {canKick && onKick && member.user_id !== currentUserId && (
                 <span
                   role="button"
@@ -292,6 +351,8 @@ export function CustomLobbyView({
     amount: number;
   } | null>(null);
   const [showJoiningLobbyState, setShowJoiningLobbyState] = useState(showJoinTransition);
+  const [addingFriendIds, setAddingFriendIds] = useState<Record<string, boolean>>({});
+  const [friendActionByUserId, setFriendActionByUserId] = useState<Record<string, "none" | "requested" | "friends">>({});
   const [loadedOnce, setLoadedOnce] = useState(false);
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
@@ -506,6 +567,13 @@ export function CustomLobbyView({
   const teamsFilled = !!activeLobby && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size;
   const shouldShowAutoVetoBar = !!activeLobby && !activeMatch && !activeVoteSession && !activeLobby.selected_map;
   const canKickPlayers = isLeader && activeLobby?.status === "open";
+  const lobbyPeerIds = useMemo(
+    () =>
+      activeMembers
+        .map((member) => member.user_id)
+        .filter((memberUserId) => !!memberUserId && memberUserId !== user?.id),
+    [activeMembers, user?.id]
+  );
 
   useEffect(() => {
     if (
@@ -546,6 +614,71 @@ export function CustomLobbyView({
     isLeader,
     clockTick,
   ]);
+
+  useEffect(() => {
+    const loadFriendActionsForLobby = async () => {
+      if (!user?.id || lobbyPeerIds.length === 0) {
+        setFriendActionByUserId({});
+        return;
+      }
+
+      try {
+        const [friendsAsOwner, friendsAsPeer, outgoingRequests, incomingRequests] = await Promise.all([
+          supabase
+            .from("friends")
+            .select("friend_id")
+            .eq("user_id", user.id)
+            .in("friend_id", lobbyPeerIds),
+          supabase
+            .from("friends")
+            .select("user_id")
+            .eq("friend_id", user.id)
+            .in("user_id", lobbyPeerIds),
+          supabase
+            .from("friend_requests")
+            .select("target_id")
+            .eq("requester_id", user.id)
+            .eq("status", "pending")
+            .in("target_id", lobbyPeerIds),
+          supabase
+            .from("friend_requests")
+            .select("requester_id")
+            .eq("target_id", user.id)
+            .eq("status", "pending")
+            .in("requester_id", lobbyPeerIds),
+        ]);
+
+        if (friendsAsOwner.error) throw friendsAsOwner.error;
+        if (friendsAsPeer.error) throw friendsAsPeer.error;
+        if (outgoingRequests.error) throw outgoingRequests.error;
+        if (incomingRequests.error) throw incomingRequests.error;
+
+        const nextState: Record<string, "none" | "requested" | "friends"> = {};
+        lobbyPeerIds.forEach((peerId) => {
+          nextState[peerId] = "none";
+        });
+
+        (outgoingRequests.data || []).forEach((request) => {
+          nextState[request.target_id] = "requested";
+        });
+        (incomingRequests.data || []).forEach((request) => {
+          nextState[request.requester_id] = "requested";
+        });
+        (friendsAsOwner.data || []).forEach((friendship) => {
+          nextState[friendship.friend_id] = "friends";
+        });
+        (friendsAsPeer.data || []).forEach((friendship) => {
+          nextState[friendship.user_id] = "friends";
+        });
+
+        setFriendActionByUserId(nextState);
+      } catch (error) {
+        console.error("Failed to load friend action states for lobby members:", error);
+      }
+    };
+
+    void loadFriendActionsForLobby();
+  }, [user?.id, lobbyPeerIds.join("|")]);
 
   const guardedAction = async (action: () => Promise<void>) => {
     if (requiresKyc && !isKycVerified) {
@@ -661,6 +794,76 @@ export function CustomLobbyView({
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to kick player.", "error");
+    }
+  };
+
+  const handleAddFriend = async (targetUserId: string) => {
+    if (!user?.id || targetUserId === user.id || addingFriendIds[targetUserId]) {
+      return;
+    }
+
+    setAddingFriendIds((current) => ({ ...current, [targetUserId]: true }));
+    try {
+      const existingFriendship = await supabase
+        .from("friends")
+        .select("user_id")
+        .or(
+          `and(user_id.eq.${user.id},friend_id.eq.${targetUserId}),and(user_id.eq.${targetUserId},friend_id.eq.${user.id})`
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (existingFriendship.error) {
+        throw existingFriendship.error;
+      }
+
+      if (existingFriendship.data) {
+        addToast("You are already friends with this player.", "info");
+        return;
+      }
+
+      const { error: requestError } = await supabase.from("friend_requests").upsert(
+        {
+          requester_id: user.id,
+          target_id: targetUserId,
+          status: "pending",
+        },
+        { onConflict: "requester_id,target_id" }
+      );
+
+      if (requestError) {
+        throw requestError;
+      }
+
+      const requesterName = user.username || user.email?.split("@")[0] || "A player";
+      const { error: notificationError } = await supabase.from("notifications").insert({
+        user_id: targetUserId,
+        notice_type: "friend_request",
+        title: "Friend Request",
+        body: `${requesterName} sent you a friend request`,
+        link_target: "/social",
+        is_read: false,
+        metadata: {},
+      });
+
+      if (notificationError) {
+        throw notificationError;
+      }
+
+      addToast("Friend request sent.", "success");
+      setFriendActionByUserId((current) => ({
+        ...current,
+        [targetUserId]: "requested",
+      }));
+    } catch (error: any) {
+      console.error(error);
+      addToast(error?.message || "Failed to send friend request.", "error");
+    } finally {
+      setAddingFriendIds((current) => {
+        const next = { ...current };
+        delete next[targetUserId];
+        return next;
+      });
     }
   };
 
@@ -858,11 +1061,11 @@ export function CustomLobbyView({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
-                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
+                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
+                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
               </div>
 
-              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} />
+              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
 
               <div className="flex flex-wrap gap-2">
                 <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
