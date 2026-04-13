@@ -85,7 +85,16 @@ const formatMode = (value: string | null | undefined) => {
 };
 
 const getActiveMembers = (lobby: MatchmakingLobby | null) =>
-  (lobby?.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at);
+  (lobby?.lobby_members || [])
+    .filter((member) => !member.left_at && !member.kicked_at)
+    .sort((a, b) => {
+      const aJoined = a.joined_at ? new Date(a.joined_at).getTime() : 0;
+      const bJoined = b.joined_at ? new Date(b.joined_at).getTime() : 0;
+      if (aJoined !== bJoined) {
+        return aJoined - bJoined;
+      }
+      return a.user_id.localeCompare(b.user_id);
+    });
 
 const getLobbyVoteSessions = (lobby: MatchmakingLobby | null) =>
   Array.isArray(lobby?.map_vote_sessions)

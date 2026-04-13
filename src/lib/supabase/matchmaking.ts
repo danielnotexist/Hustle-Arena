@@ -256,6 +256,7 @@ async function fetchPublicProfileBasics(userIds: string[]) {
         id: profile.id,
         username: profile.username,
         email: profile.email,
+        avatar_url: profile.avatar_url || null,
       },
     ])
   );

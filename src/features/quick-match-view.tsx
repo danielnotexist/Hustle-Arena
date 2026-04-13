@@ -49,6 +49,7 @@ export function BattlefieldView({
   const [readyCheckId, setReadyCheckId] = useState<string | null>(null);
   const [participantUserIds, setParticipantUserIds] = useState<string[]>([]);
   const [acceptedUserIds, setAcceptedUserIds] = useState<string[]>([]);
+  const [readyCheckDisplayOrder, setReadyCheckDisplayOrder] = useState<string[]>([]);
   const [readyCheckProfiles, setReadyCheckProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [partyInvites, setPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
@@ -132,6 +133,10 @@ export function BattlefieldView({
     queueMode === "party"
       ? Math.max(selectedTeamSize * 2 - effectivePlayersJoined, 0)
       : Math.max(playersNeeded, 0);
+  const orderedParticipantUserIds =
+    readyCheckDisplayOrder.filter((id) => participantUserIds.includes(id)).length === participantUserIds.length
+      ? readyCheckDisplayOrder.filter((id) => participantUserIds.includes(id))
+      : participantUserIds;
 
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) {
@@ -184,6 +189,7 @@ export function BattlefieldView({
         setReadyCheckId(savedState.readyCheckId || null);
         setParticipantUserIds(savedState.participantUserIds || []);
         setAcceptedUserIds(savedState.acceptedUserIds || []);
+        setReadyCheckDisplayOrder(savedState.participantUserIds || []);
       }
     } catch (error) {
       console.error("Failed to restore quick queue state:", error);
@@ -462,6 +468,19 @@ export function BattlefieldView({
   }, [participantUserIds]);
 
   useEffect(() => {
+    if (!participantUserIds.length) {
+      setReadyCheckDisplayOrder([]);
+      return;
+    }
+
+    setReadyCheckDisplayOrder((current) => {
+      const kept = current.filter((id) => participantUserIds.includes(id));
+      const additions = participantUserIds.filter((id) => !kept.includes(id));
+      return [...kept, ...additions];
+    });
+  }, [participantUserIds]);
+
+  useEffect(() => {
     if (matchState !== "searching") return;
     const interval = window.setInterval(() => {
       setSearchTime((prev) => prev + 1);
@@ -501,10 +520,10 @@ export function BattlefieldView({
       if (handledMatchedLobbyRef.current !== status.lobby_id) {
         handledMatchedLobbyRef.current = status.lobby_id;
         setMatchState("connecting");
-        addToast("All players accepted. Opening your new lobby...", "success");
+        addToast("REDIRECT TO THE LOBBY", "success");
         window.setTimeout(() => {
           onMatchReady?.();
-        }, 500);
+        }, 1400);
       }
       return;
     }
@@ -609,6 +628,7 @@ export function BattlefieldView({
     setReadyCheckId(null);
     setParticipantUserIds([]);
     setAcceptedUserIds([]);
+    setReadyCheckDisplayOrder([]);
     handledMatchedLobbyRef.current = null;
   };
 
@@ -1461,7 +1481,7 @@ export function BattlefieldView({
           <p className="text-esport-text-muted mb-8">Each player must press ACCEPT. Once all players accept, a new lobby opens with a random owner.</p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 w-full max-w-3xl">
-            {participantUserIds.map((participantId) => {
+            {orderedParticipantUserIds.map((participantId) => {
               const profile = readyCheckProfiles[participantId];
               const accepted = acceptedUserIds.includes(participantId);
               const isCurrentUser = participantId === user?.id;
@@ -1489,7 +1509,7 @@ export function BattlefieldView({
           </div>
 
           <div className="rounded-full border border-esport-accent/20 bg-esport-accent/10 px-6 py-3 text-xl font-mono font-bold text-esport-accent mb-8 shadow-[0_0_20px_rgba(59,130,246,0.12)]">
-            {acceptedUserIds.length} / {participantUserIds.length || selectedTeamSize * 2} Accepted
+            {acceptedUserIds.length} / {orderedParticipantUserIds.length || selectedTeamSize * 2} Accepted
           </div>
 
           <div className="flex w-full max-w-md flex-col sm:flex-row items-center justify-center gap-4">
