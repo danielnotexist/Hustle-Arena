@@ -383,7 +383,7 @@ export default function App() {
     <div className="min-h-screen bg-esport-bg text-white font-sans">
       {!authBootstrapComplete ? (
         <div className="min-h-screen" />
-      ) : shouldUseSupabase && (hasSupabaseSession === null || !canShowLanding) ? (
+      ) : shouldUseSupabase && hasSupabaseSession === null ? (
         <div className="min-h-screen" />
       ) : (
       view === "landing" ? (
