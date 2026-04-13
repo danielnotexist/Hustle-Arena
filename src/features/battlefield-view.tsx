@@ -1072,39 +1072,120 @@ export function CustomLobbyView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Name</div>
-                  <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
-                </label>
-                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Entry Stake</div>
-                  <select value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                    {STAKE_OPTIONS.map((amount) => (
-                      <option key={amount} value={amount}>
-                        {amount} USDT
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Team Format</div>
-                  <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                    <option value={2}>2v2</option>
-                    <option value={5}>5v5</option>
-                  </select>
-                </label>
-                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Game Mode</div>
-                  <select value={formState.gameMode} onChange={(e) => setFormState((current) => ({ ...current, gameMode: e.target.value as SupportedGameMode }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                    {getGameModeOptions(formState.teamSize).map((mode) => <option key={mode} value={mode}>{formatMode(mode)}</option>)}
-                  </select>
-                </label>
-              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                <div className="space-y-4">
+                  <label className="block rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Name</div>
+                    <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
+                  </label>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Access Control</div>
-                <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Format</div>
+                        <div className="mt-2 text-sm text-esport-text-muted">
+                          Pick the room size and the rule set before players join.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      {[2, 5].map((size) => {
+                        const isActive = formState.teamSize === size;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() =>
+                              setFormState((current) => ({
+                                ...current,
+                                teamSize: size as 2 | 5,
+                                gameMode: size === 2 ? "wingman" : "competitive",
+                              }))
+                            }
+                            className={`rounded-2xl border px-4 py-3 text-left transition ${isActive
+                              ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_24px_rgba(59,130,246,0.18)]"
+                              : "border-white/10 bg-white/[0.03] hover:border-esport-accent/35 hover:bg-esport-accent/[0.05]"
+                              }`}
+                          >
+                            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Teams</div>
+                            <div className={`mt-2 text-xl font-display font-bold ${isActive ? "text-esport-accent" : "text-white"}`}>
+                              {size}v{size}
+                            </div>
+                            <div className="mt-1 text-xs text-esport-text-muted">
+                              {size === 2 ? "Fast duels for pairs" : "Full roster competitive room"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {getGameModeOptions(formState.teamSize).map((mode) => {
+                        const isActive = formState.gameMode === mode;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setFormState((current) => ({ ...current, gameMode: mode }))}
+                            className={`rounded-2xl border px-4 py-3 text-left transition ${isActive
+                              ? "border-emerald-400/45 bg-emerald-400/10 shadow-[0_0_18px_rgba(16,185,129,0.15)]"
+                              : "border-white/10 bg-white/[0.03] hover:border-emerald-300/30 hover:bg-emerald-400/[0.05]"
+                              }`}
+                          >
+                            <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Mode</div>
+                            <div className={`mt-2 text-base font-bold ${isActive ? "text-emerald-300" : "text-white"}`}>
+                              {formatMode(mode)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Entry Stake</div>
+                        <div className="mt-2 text-sm text-esport-text-muted">
+                          Choose the pool your room will play for.
+                        </div>
+                      </div>
+                      <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-esport-accent">
+                        {formState.stakeAmount} USDT
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {STAKE_OPTIONS.map((amount) => {
+                        const isActive = formState.stakeAmount === amount;
+                        return (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => setFormState((current) => ({ ...current, stakeAmount: amount }))}
+                            className={`rounded-xl border px-3 py-3 text-left transition ${isActive
+                              ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_18px_rgba(59,130,246,0.18)]"
+                              : "border-white/10 bg-white/[0.03] hover:border-esport-accent/30 hover:bg-esport-accent/[0.05]"
+                              }`}
+                          >
+                            <div className="text-[9px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Stake</div>
+                            <div className={`mt-1 text-base font-bold ${isActive ? "text-esport-accent" : "text-white"}`}>{amount}</div>
+                            <div className="text-[11px] text-esport-text-muted">USDT</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Access Control</div>
+                    <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
+                    <div className="mt-3 text-xs text-esport-text-muted">
+                      Leave blank for an open lobby, or add a password for a private room.
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-center">
