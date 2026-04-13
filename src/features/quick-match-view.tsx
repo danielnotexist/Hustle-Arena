@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, Lock, Search, Server, ShieldAlert, Sword, Target, Users } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { quickQueueCancel, quickQueueJoinOrMatch } from "../lib/supabase/matchmaking";
+import { quickQueueAcceptMatch, quickQueueCancel, quickQueueJoinOrMatch, type QuickQueueStatus } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
@@ -22,9 +22,8 @@ export function BattlefieldView({
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
-  const [matchState, setMatchState] = useState<"idle" | "searching" | "found" | "accepted" | "connecting">("idle");
+  const [matchState, setMatchState] = useState<"idle" | "searching" | "ready_check" | "connecting">("idle");
   const [searchTime, setSearchTime] = useState(0);
-  const [acceptedCount, setAcceptedCount] = useState(0);
   const [matchType, setMatchType] = useState<"ranked_5v5" | "ranked_2v2">("ranked_5v5");
   const [queueMode, setQueueMode] = useState<"solo" | "party">("solo");
   const [playersJoined, setPlayersJoined] = useState(0);
@@ -32,10 +31,15 @@ export function BattlefieldView({
   const [estimatedWaitSeconds, setEstimatedWaitSeconds] = useState(75);
   const [onlineNow, setOnlineNow] = useState<Array<{ user_id: string; username: string; avatar_url?: string | null }>>([]);
   const [matchedLobbyId, setMatchedLobbyId] = useState<string | null>(null);
+  const [readyCheckId, setReadyCheckId] = useState<string | null>(null);
+  const [participantUserIds, setParticipantUserIds] = useState<string[]>([]);
+  const [acceptedUserIds, setAcceptedUserIds] = useState<string[]>([]);
+  const [readyCheckProfiles, setReadyCheckProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [selectedPartyMemberIds, setSelectedPartyMemberIds] = useState<string[]>([]);
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
+  const handledMatchedLobbyRef = useRef<string | null>(null);
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
   const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
@@ -93,6 +97,34 @@ export function BattlefieldView({
   }, [maxPartyMembers]);
 
   useEffect(() => {
+    if (!participantUserIds.length) {
+      setReadyCheckProfiles({});
+      return;
+    }
+
+    const loadReadyCheckProfiles = async () => {
+      try {
+        const profileMap = await fetchPublicProfileBasics(participantUserIds);
+        const next: Record<string, { username: string; avatarUrl: string | null }> = {};
+
+        participantUserIds.forEach((id) => {
+          const profile = profileMap.get(id);
+          next[id] = {
+            username: profile?.username?.trim() || profile?.email?.split("@")[0]?.trim() || `Player ${id.slice(0, 8)}`,
+            avatarUrl: profile?.avatar_url || null,
+          };
+        });
+
+        setReadyCheckProfiles(next);
+      } catch (error) {
+        console.error("Failed to load ready-check profiles:", error);
+      }
+    };
+
+    void loadReadyCheckProfiles();
+  }, [participantUserIds]);
+
+  useEffect(() => {
     if (matchState !== "searching") return;
     const interval = window.setInterval(() => {
       setSearchTime((prev) => prev + 1);
@@ -102,26 +134,32 @@ export function BattlefieldView({
     };
   }, [matchState]);
 
-  useEffect(() => {
-    let interval: number | undefined;
-    if (matchState === "accepted") {
-      interval = window.setInterval(() => {
-        setAcceptedCount((prev) => {
-          if (prev >= 10) {
-            window.setTimeout(() => {
-              setMatchState("connecting");
-              onMatchReady?.();
-            }, 800);
-            return 10;
-          }
-          return prev + 1;
-        });
-      }, 400);
+  const applyQueueStatus = (status: QuickQueueStatus | null) => {
+    if (!status) return;
+
+    setPlayersJoined(status.players_joined || 0);
+    setPlayersNeeded(status.players_needed || 0);
+    setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
+    setMatchedLobbyId(status.lobby_id || null);
+    setReadyCheckId(status.ready_check_id || null);
+    setParticipantUserIds(status.participant_user_ids || []);
+    setAcceptedUserIds(status.accepted_user_ids || []);
+
+    if (status.status === "matched" && status.lobby_id) {
+      if (handledMatchedLobbyRef.current !== status.lobby_id) {
+        handledMatchedLobbyRef.current = status.lobby_id;
+        setMatchState("connecting");
+        addToast("All players accepted. Opening your new lobby...", "success");
+        window.setTimeout(() => {
+          onMatchReady?.();
+        }, 500);
+      }
+      return;
     }
-    return () => {
-      if (interval) window.clearInterval(interval);
-    };
-  }, [matchState, onMatchReady]);
+
+    handledMatchedLobbyRef.current = null;
+    setMatchState(status.status === "ready_check" ? "ready_check" : "searching");
+  };
 
   useEffect(() => {
     if (!user?.id) return;
@@ -192,15 +230,7 @@ export function BattlefieldView({
       setSearchTime(0);
       setMatchState("searching");
       const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
-      if (status) {
-        setPlayersJoined(status.players_joined || 0);
-        setPlayersNeeded(status.players_needed || 0);
-        setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
-        setMatchedLobbyId(status.lobby_id || null);
-        if (status.status === "matched") {
-          setMatchState("found");
-        }
-      }
+      applyQueueStatus(status);
       addToast("Searching for real players in queue...", "info");
     } catch (error: any) {
       console.error(error);
@@ -224,9 +254,19 @@ export function BattlefieldView({
     });
   };
 
-  const acceptMatch = () => {
-    setMatchState("accepted");
-    setAcceptedCount(1);
+  const acceptMatch = async (accept: boolean) => {
+    if (!readyCheckId) return;
+
+    try {
+      const status = await quickQueueAcceptMatch(readyCheckId, accept);
+      if (!accept) {
+        addToast("You declined the ready check. Returning players to queue.", "info");
+      }
+      applyQueueStatus(status);
+    } catch (error: any) {
+      console.error("Failed to respond to ready check:", error);
+      addToast(error?.message || "Failed to respond to ready check.", "error");
+    }
   };
 
   const cancelSearch = async () => {
@@ -240,10 +280,14 @@ export function BattlefieldView({
     setPlayersJoined(0);
     setPlayersNeeded(0);
     setMatchedLobbyId(null);
+    setReadyCheckId(null);
+    setParticipantUserIds([]);
+    setAcceptedUserIds([]);
+    handledMatchedLobbyRef.current = null;
   };
 
   useEffect(() => {
-    if (matchState !== "searching") {
+    if (!["searching", "ready_check"].includes(matchState)) {
       if (pollingRef.current) {
         window.clearInterval(pollingRef.current);
         pollingRef.current = null;
@@ -254,14 +298,7 @@ export function BattlefieldView({
     const poll = async () => {
       try {
         const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
-        if (!status) return;
-        setPlayersJoined(status.players_joined || 0);
-        setPlayersNeeded(status.players_needed || 0);
-        setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
-        setMatchedLobbyId(status.lobby_id || null);
-        if (status.status === "matched") {
-          setMatchState("found");
-        }
+        applyQueueStatus(status);
       } catch (error) {
         console.error("Quick queue poll failed:", error);
       }
@@ -610,38 +647,54 @@ export function BattlefieldView({
         </div>
       )}
 
-      {matchState === "found" && (
+      {matchState === "ready_check" && (
         <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px] border-esport-success shadow-[0_0_50px_rgba(16,185,129,0.2)]">
           <div className="w-24 h-24 mx-auto bg-esport-success/20 rounded-full flex items-center justify-center border-2 border-esport-success mb-6 animate-bounce">
             <CheckCircle2 className="w-12 h-12 text-esport-success" />
           </div>
-          <h3 className="text-4xl font-bold font-display uppercase tracking-widest text-white mb-2">{queueMode === "solo" ? "Solo Match Found!" : "Party Match Found!"}</h3>
-          <p className="text-esport-text-muted mb-8">Please accept to join the quick-match lobby.</p>
+          <h3 className="text-4xl font-bold font-display uppercase tracking-widest text-white mb-2">MATCH FOUND</h3>
+          <p className="text-esport-text-muted mb-8">Each player must press ACCEPT. Once all players accept, a new lobby opens with a random owner.</p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 w-full max-w-3xl">
+            {participantUserIds.map((participantId) => {
+              const profile = readyCheckProfiles[participantId];
+              const accepted = acceptedUserIds.includes(participantId);
+              const isCurrentUser = participantId === user?.id;
+              const username = isCurrentUser
+                ? (user?.username || user?.email?.split("@")[0] || "You")
+                : (profile?.username || `Player ${participantId.slice(0, 8)}`);
+              const avatarUrl =
+                (isCurrentUser ? user?.avatarUrl : profile?.avatarUrl) ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=1f2937&color=ffffff&size=96`;
+
+              return (
+                <div key={participantId} className={`rounded-2xl border p-4 text-center ${accepted ? "border-emerald-400/40 bg-emerald-400/10" : "border-esport-border bg-black/30"}`}>
+                  <img
+                    src={avatarUrl}
+                    alt={username}
+                    className="mx-auto h-14 w-14 rounded-full border border-white/15 object-cover"
+                  />
+                  <div className="mt-3 text-sm font-bold text-white truncate">{username}</div>
+                  <div className={`mt-2 text-[10px] uppercase tracking-[0.2em] ${accepted ? "text-emerald-300" : "text-esport-text-muted"}`}>
+                    {accepted ? "Accepted" : isCurrentUser ? "Waiting For You" : "Waiting"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-xl font-mono font-bold text-esport-accent mb-8">
+            {acceptedUserIds.length} / {participantUserIds.length || selectedTeamSize * 2} Accepted
+          </div>
 
           <div className="flex gap-4">
-            <button onClick={acceptMatch} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+            <button onClick={() => void acceptMatch(true)} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
               ACCEPT
             </button>
-            <button onClick={() => void cancelSearch()} className="esport-btn-secondary py-4 px-8">
+            <button onClick={() => void acceptMatch(false)} className="esport-btn-secondary py-4 px-8">
               DECLINE
             </button>
           </div>
-        </div>
-      )}
-
-      {matchState === "accepted" && (
-        <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[400px]">
-          <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-white mb-8">Waiting for players...</h3>
-
-          <div className="flex gap-2 mb-8">
-            {Array.from({ length: selectedTeamSize * 2 }).map((_, i) => (
-              <div key={i} className={`w-12 h-16 rounded border-2 flex items-center justify-center transition-all duration-300 ${i < acceptedCount ? "bg-esport-success/20 border-esport-success text-esport-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-black/50 border-esport-border text-esport-border"}`}>
-                {i < acceptedCount ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-              </div>
-            ))}
-          </div>
-
-          <div className="text-xl font-mono font-bold text-esport-accent">{acceptedCount} / {selectedTeamSize * 2} Accepted</div>
         </div>
       )}
 

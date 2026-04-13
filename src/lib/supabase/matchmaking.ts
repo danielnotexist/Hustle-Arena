@@ -130,11 +130,15 @@ export interface MatchResultNotification {
 }
 
 export interface QuickQueueStatus {
-  status: "searching" | "matched";
+  status: "searching" | "ready_check" | "matched";
   lobby_id: string | null;
   players_joined: number;
   players_needed: number;
   estimated_wait_seconds: number;
+  ready_check_id?: string | null;
+  accepted_count?: number;
+  participant_user_ids?: string[];
+  accepted_user_ids?: string[];
 }
 
 export interface MatchServerBootstrap {
@@ -683,6 +687,24 @@ export async function quickQueueJoinOrMatch(mode: LobbyMode, teamSize: 2 | 5, qu
   if (!row) {
     return null;
   }
+  return row as QuickQueueStatus;
+}
+
+export async function quickQueueAcceptMatch(readyCheckId: string, accept = true) {
+  const { data, error } = await supabase.rpc("quick_queue_accept_match", {
+    p_ready_check_id: readyCheckId,
+    p_accept: accept,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return null;
+  }
+
   return row as QuickQueueStatus;
 }
 
