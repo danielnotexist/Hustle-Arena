@@ -66,6 +66,7 @@ const MAP_BACKGROUNDS: Record<string, string> = {
 };
 
 const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
+const SQUAD_HUB_CACHE_PREFIX = "hustle_arena_squad_hub";
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
@@ -107,6 +108,40 @@ const getCountdown = (turnEndsAt: string | null | undefined, nowMs = Date.now())
   if (!turnEndsAt) return "00:00";
   const seconds = Math.max(0, Math.ceil((new Date(turnEndsAt).getTime() - nowMs) / 1000));
   return `00:${seconds.toString().padStart(2, "0")}`;
+};
+
+const getSquadHubLobbyCacheKey = (userId?: string, accountMode?: AccountMode) =>
+  `${SQUAD_HUB_CACHE_PREFIX}:lobby:${accountMode || "demo"}:${userId || "guest"}`;
+
+const getSquadHubMatchCacheKey = (userId?: string, accountMode?: AccountMode) =>
+  `${SQUAD_HUB_CACHE_PREFIX}:match:${accountMode || "demo"}:${userId || "guest"}`;
+
+const readCachedSquadHubLobby = (userId?: string, accountMode?: AccountMode): MatchmakingLobby | null => {
+  if (typeof window === "undefined" || !userId) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getSquadHubLobbyCacheKey(userId, accountMode));
+    return raw ? (JSON.parse(raw) as MatchmakingLobby) : null;
+  } catch (error) {
+    console.error("Failed to read cached squad hub lobby:", error);
+    return null;
+  }
+};
+
+const readCachedSquadHubMatch = (userId?: string, accountMode?: AccountMode): ActiveMatch | null => {
+  if (typeof window === "undefined" || !userId) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getSquadHubMatchCacheKey(userId, accountMode));
+    return raw ? (JSON.parse(raw) as ActiveMatch) : null;
+  } catch (error) {
+    console.error("Failed to read cached squad hub match:", error);
+    return null;
+  }
 };
 
 const getMemberDisplayName = (member: MatchmakingLobbyMember) => {
@@ -384,11 +419,13 @@ export function CustomLobbyView({
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
-  const [loading, setLoading] = useState(false);
+  const initialCachedLobby = readCachedSquadHubLobby(user?.id, accountMode);
+  const initialCachedMatch = readCachedSquadHubMatch(user?.id, accountMode);
+  const [loading, setLoading] = useState(!initialCachedLobby);
   const [creating, setCreating] = useState(false);
   const [joiningLobbyId, setJoiningLobbyId] = useState<string | null>(null);
-  const [activeLobby, setActiveLobby] = useState<MatchmakingLobby | null>(null);
-  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(null);
+  const [activeLobby, setActiveLobby] = useState<MatchmakingLobby | null>(initialCachedLobby);
+  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(initialCachedMatch);
   const [openLobbies, setOpenLobbies] = useState<MatchmakingLobby[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatchSummary[]>([]);
   const [chatDraft, setChatDraft] = useState("");
@@ -404,7 +441,7 @@ export function CustomLobbyView({
   const [showJoiningLobbyState, setShowJoiningLobbyState] = useState(showJoinTransition);
   const [addingFriendIds, setAddingFriendIds] = useState<Record<string, boolean>>({});
   const [friendActionByUserId, setFriendActionByUserId] = useState<Record<string, "none" | "requested" | "friends">>({});
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(!!initialCachedLobby);
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
@@ -466,6 +503,48 @@ export function CustomLobbyView({
   useEffect(() => {
     setShowJoiningLobbyState(showJoinTransition);
   }, [showJoinTransition]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setActiveLobby(null);
+      setActiveMatch(null);
+      setLoading(false);
+      setLoadedOnce(false);
+      return;
+    }
+
+    const cachedLobby = readCachedSquadHubLobby(user.id, accountMode);
+    const cachedMatch = readCachedSquadHubMatch(user.id, accountMode);
+    setActiveLobby(cachedLobby);
+    setActiveMatch(cachedMatch);
+    setLoading(!cachedLobby);
+    setLoadedOnce(!!cachedLobby);
+  }, [user?.id, accountMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) {
+      return;
+    }
+
+    const lobbyKey = getSquadHubLobbyCacheKey(user.id, accountMode);
+    const matchKey = getSquadHubMatchCacheKey(user.id, accountMode);
+
+    try {
+      if (activeLobby) {
+        window.localStorage.setItem(lobbyKey, JSON.stringify(activeLobby));
+      } else {
+        window.localStorage.removeItem(lobbyKey);
+      }
+
+      if (activeMatch) {
+        window.localStorage.setItem(matchKey, JSON.stringify(activeMatch));
+      } else {
+        window.localStorage.removeItem(matchKey);
+      }
+    } catch (error) {
+      console.error("Failed to cache squad hub state:", error);
+    }
+  }, [activeLobby, activeMatch, accountMode, user?.id]);
 
   useEffect(() => {
     if (!showJoiningLobbyState) {
