@@ -42,6 +42,7 @@ export interface PublicProfileBasic {
   username: string | null;
   email: string | null;
   avatar_url?: string | null;
+  last_active_at?: string | null;
 }
 
 export interface PublicProfileDetails extends PublicProfileBasic {
@@ -53,6 +54,7 @@ export interface PublicProfileDetails extends PublicProfileBasic {
   kd_ratio?: number | null;
   headshot_pct?: string | null;
   level?: number | null;
+  last_active_at?: string | null;
 }
 
 export interface PublicApexLeaderboardEntry {
@@ -87,6 +89,7 @@ export async function fetchPublicProfileBasics(userIds: string[]) {
         username: profile.username,
         email: profile.email,
         avatar_url: profile.avatar_url || null,
+        last_active_at: profile.last_active_at || null,
       },
     ])
   );
@@ -137,6 +140,7 @@ export async function fetchPublicProfileDetails(userId: string) {
       kd_ratio: null,
       headshot_pct: null,
       level: null,
+      last_active_at: basicProfile.last_active_at || null,
     } satisfies PublicProfileDetails;
   }
 

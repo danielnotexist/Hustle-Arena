@@ -474,6 +474,10 @@ export default function App() {
 
     const trackPresence = async (channel: any) => {
       try {
+        await supabase
+          .from("profiles")
+          .update({ last_active_at: new Date().toISOString() })
+          .eq("id", user.id);
         await channel.track({
           user_id: user.id,
           username: user.username || user.email?.split("@")[0] || "Player",

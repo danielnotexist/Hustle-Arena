@@ -727,7 +727,7 @@ export function PublicProfileView({
 
 export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [] }: any) {
   const [loading, setLoading] = useState(true);
-  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
+  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null; lastActiveAt: string | null }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
   const [pendingLobbyInvites, setPendingLobbyInvites] = useState<Array<{ id: number; lobby_id: string; lobby_name: string; from_user_id: string; from_username: string; password_required: boolean }>>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -741,12 +741,21 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
   const playedIncomingMessageIdsRef = useRef<Set<number>>(new Set());
+  const [presenceNow, setPresenceNow] = useState(() => Date.now());
 
   const getAvatarUrl = (friend: { username: string; avatarUrl: string | null }) =>
     friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username || "Player")}&background=1f2937&color=ffffff&size=96`;
+  const isWithinOnlineWindow = (lastActiveAt?: string | null) => {
+    if (!lastActiveAt) return false;
+    const diffMs = presenceNow - new Date(lastActiveAt).getTime();
+    return diffMs <= 10 * 60 * 1000;
+  };
   const onlineFriendIds = useMemo(
-    () => friendsList.filter((friend) => onlineUserIds.includes(friend.id)).map((friend) => friend.id),
-    [friendsList, onlineUserIds]
+    () =>
+      friendsList
+        .filter((friend) => onlineUserIds.includes(friend.id) || isWithinOnlineWindow(friend.lastActiveAt))
+        .map((friend) => friend.id),
+    [friendsList, onlineUserIds, presenceNow]
   );
   const isFriendOnline = (friendId: string) => onlineFriendIds.includes(friendId);
 
@@ -785,32 +794,33 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       }, {}),
     [friendsList]
   );
-  const selectedFriendLastMessageAt = useMemo(() => {
-    if (!selectedFriendId) return null;
-    const fromSelectedFriend = threadMessages
-      .filter((message) => message.sender_id === selectedFriendId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return fromSelectedFriend[0]?.created_at || null;
-  }, [threadMessages, selectedFriendId]);
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setPresenceNow(Date.now());
+    }, 30000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const selectedFriendLastSeen = useMemo(() => {
     if (isSelectedFriendTyping) {
       return "Typing...";
     }
-    if (selectedFriendId && isFriendOnline(selectedFriendId)) {
+    if (selectedFriend && isFriendOnline(selectedFriend.id)) {
       return "Online now";
     }
-    if (!selectedFriendLastMessageAt) {
-      return "Last seen unknown";
+    if (!selectedFriend?.lastActiveAt) {
+      return "Away";
     }
-    const diffMs = Date.now() - new Date(selectedFriendLastMessageAt).getTime();
+    const diffMs = presenceNow - new Date(selectedFriend.lastActiveAt).getTime();
     const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
-    if (diffMinutes < 1) return "Last seen just now";
-    if (diffMinutes < 60) return `Last seen ${diffMinutes}m ago`;
+    if (diffMinutes < 60) return `Away for ${diffMinutes || 1}m`;
     const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+    if (diffHours < 24) return `Away for ${diffHours}h`;
     const diffDays = Math.floor(diffHours / 24);
-    return `Last seen ${diffDays}d ago`;
-  }, [isSelectedFriendTyping, selectedFriendLastMessageAt, selectedFriendId, onlineFriendIds]);
+    return `Away for ${diffDays}d`;
+  }, [isSelectedFriendTyping, selectedFriend, onlineFriendIds, presenceNow]);
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -836,7 +846,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
         const profile = profileMap.get(id);
         const username = profile?.username?.trim() || profile?.email?.split('@')[0]?.trim() || `Player ${id.slice(0, 8)}`;
         const avatarUrl = profile?.avatar_url || null;
-        return { id, username, avatarUrl };
+        return { id, username, avatarUrl, lastActiveAt: profile?.last_active_at || null };
       })
       .sort((a, b) => a.username.localeCompare(b.username));
     setFriendsList(mapped);
