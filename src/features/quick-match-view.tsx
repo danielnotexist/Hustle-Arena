@@ -509,6 +509,16 @@ export function BattlefieldView({
   const applyQueueStatus = (status: QuickQueueStatus | null) => {
     if (!status) return;
 
+    const shouldKeepCurrentReadyCheck =
+      status.status === "searching" &&
+      matchState === "ready_check" &&
+      !!readyCheckId &&
+      !status.ready_check_id;
+
+    if (shouldKeepCurrentReadyCheck) {
+      return;
+    }
+
     setPlayersJoined(status.players_joined || 0);
     setPlayersNeeded(status.players_needed || 0);
     setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
