@@ -51,6 +51,7 @@ export function BattlefieldView({
   const maxPartyMembers = selectedTeamSize - 1;
   const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
   const selectedPartyMembers = friendsList.filter((friend) => selectedPartyMemberIds.includes(friend.id));
+  const hasCurrentUserAccepted = !!user?.id && acceptedUserIds.includes(user.id);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) {
@@ -933,8 +934,15 @@ export function BattlefieldView({
           </div>
 
           <div className="flex w-full max-w-md flex-col sm:flex-row items-center justify-center gap-4">
-            <button onClick={() => void acceptMatch(true)} className="w-full sm:flex-1 bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-              ACCEPT
+            <button
+              onClick={() => void acceptMatch(!hasCurrentUserAccepted)}
+              className={`w-full sm:flex-1 font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 ${
+                hasCurrentUserAccepted
+                  ? "bg-esport-danger hover:bg-rose-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.35)]"
+                  : "bg-esport-success hover:bg-emerald-400 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+              }`}
+            >
+              {hasCurrentUserAccepted ? "UNACCEPT" : "ACCEPT"}
             </button>
             <button onClick={() => void acceptMatch(false)} className="w-full sm:flex-1 esport-btn-secondary py-4 px-8">
               DECLINE
