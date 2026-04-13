@@ -3,6 +3,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, LineChart, R
 import { Activity, CheckCircle2, ChevronDown, Clock, Crown, Download, FileVideo, Map, MessageSquare, MoreVertical, PlayCircle, Server, Settings, Shield, ShieldAlert, ShoppingBag, Star, Sword, Target, Trophy, Upload, User, Users, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { collection, db, getDocs, limit, orderBy, query } from "../firebase";
+import { isSupabaseConfigured } from "../lib/env";
 import type { Mission, UserStats } from "./types";
 import { DynamicImage } from "./landing-auth";
 
@@ -12,6 +13,12 @@ export function ApexListView() {
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      if (isSupabaseConfigured()) {
+        setPlayers([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         const q = query(
           collection(db, "users"),
