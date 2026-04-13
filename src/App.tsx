@@ -36,7 +36,7 @@ import { isSupabaseConfigured } from "./lib/env";
 import { supabase } from "./lib/supabase";
 import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
 import { fetchMyNotifications, fetchPublicProfileDetails, type AppNotification, type PublicProfileDetails } from "./lib/supabase/social";
-import { playNotificationSound } from "./lib/sound";
+import { playChatMessageSound, playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
@@ -119,6 +119,7 @@ export default function App() {
   const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
@@ -139,6 +140,7 @@ export default function App() {
   } = usePlatformSession();
   const previousUserIdRef = useRef<string | null>(null);
   const previousUnreadNotificationCountRef = useRef(0);
+  const seenNotificationIdsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     if (!shouldUseSupabase) {
@@ -327,6 +329,7 @@ export default function App() {
     if (!user?.id || !isSupabaseConfigured()) {
       setNotifications([]);
       previousUnreadNotificationCountRef.current = 0;
+      seenNotificationIdsRef.current = new Set();
       return;
     }
 
@@ -337,9 +340,22 @@ export default function App() {
         const rows = await fetchMyNotifications(20);
         if (!cancelled) {
           const unreadCount = rows.filter((notice) => !notice.is_read).length;
-          if (previousUnreadNotificationCountRef.current > 0 && unreadCount > previousUnreadNotificationCountRef.current) {
-            playNotificationSound();
+          const currentIds = new Set(rows.map((notice) => notice.id));
+          const newUnreadNotices = rows.filter(
+            (notice) => !notice.is_read && !seenNotificationIdsRef.current.has(notice.id)
+          );
+
+          if (previousUnreadNotificationCountRef.current > 0) {
+            newUnreadNotices.forEach((notice) => {
+              if (notice.notice_type === "direct_message") {
+                playChatMessageSound();
+              } else {
+                playNotificationSound();
+              }
+            });
           }
+
+          seenNotificationIdsRef.current = currentIds;
           previousUnreadNotificationCountRef.current = unreadCount;
           setNotifications(rows);
         }
@@ -414,7 +430,9 @@ export default function App() {
     }
 
     if (notice.link_target === "/social" || notice.notice_type === "friend_request" || notice.notice_type === "direct_message") {
+      setPublicProfileState(null);
       setActiveTab("Social");
+      setSocialRefreshNonce((current) => current + 1);
     } else if (notice.link_target === "/squad-hub") {
       setActiveTab("Squad Hub");
     }
@@ -771,7 +789,7 @@ export default function App() {
                     )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
-                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} />}
                     {activeTab === "Apex List" && <ApexListView onOpenPublicProfile={openPublicProfilePage} />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}

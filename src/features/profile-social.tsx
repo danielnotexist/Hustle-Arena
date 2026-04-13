@@ -725,7 +725,7 @@ export function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0 }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [onlineFriendIds, setOnlineFriendIds] = useState<string[]>([]);
@@ -1065,7 +1065,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     return () => {
       isCancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   useEffect(() => {
     void loadThread(selectedFriendId);
@@ -1181,6 +1181,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             created_at: string;
           };
 
+          if (row.sender_id !== user.id && !playedIncomingMessageIdsRef.current.has(row.id)) {
+            playedIncomingMessageIdsRef.current.add(row.id);
+            playChatMessageSound();
+          }
+
           if (
             selectedFriendId &&
             ((row.sender_id === user.id && row.receiver_id === selectedFriendId) ||
@@ -1192,6 +1197,19 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
           }
 
           void loadUnreadCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'friend_requests',
+          filter: `target_id=eq.${user.id}`,
+        },
+        (_payload) => {
+          playChatMessageSound();
+          void loadPendingRequests();
         }
       )
       .subscribe();
