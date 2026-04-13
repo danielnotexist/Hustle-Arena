@@ -357,25 +357,38 @@ export function VaultView({ addToast }: any) {
   );
 }
 
-export function PulseView() {
+export function PulseView({ isAdmin = false, user }: { isAdmin?: boolean; user?: any }) {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <div className="esport-card p-6">
-        <div className="flex gap-4">
-          <img src="https://ui-avatars.com/api/?name=Me&background=random" className="w-10 h-10 rounded-full border border-esport-border" />
-          <div className="flex-1 space-y-4">
-            <textarea placeholder="Share your latest victory..." className="w-full bg-white/5 border border-esport-border rounded-xl p-4 text-sm focus:outline-none focus:border-esport-accent/50 min-h-[100px] resize-none transition-all" />
-            <div className="flex justify-between items-center">
-              <div className="flex gap-4 text-esport-text-muted">
-                <button className="hover:text-white transition-colors"><PlayCircle size={18} /></button>
-                <button className="hover:text-white transition-colors"><Users size={18} /></button>
-                <button className="hover:text-white transition-colors"><Target size={18} /></button>
+      {isAdmin ? (
+        <div className="esport-card p-6">
+          <div className="flex gap-4">
+            <img
+              src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Admin")}&background=random`}
+              className="w-10 h-10 rounded-full border border-esport-border"
+            />
+            <div className="flex-1 space-y-4">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Admin Broadcast</div>
+              <textarea placeholder="Share the latest Arena TV update..." className="w-full bg-white/5 border border-esport-border rounded-xl p-4 text-sm focus:outline-none focus:border-esport-accent/50 min-h-[100px] resize-none transition-all" />
+              <div className="flex justify-between items-center">
+                <div className="flex gap-4 text-esport-text-muted">
+                  <button className="hover:text-white transition-colors"><PlayCircle size={18} /></button>
+                  <button className="hover:text-white transition-colors"><Users size={18} /></button>
+                  <button className="hover:text-white transition-colors"><Target size={18} /></button>
+                </div>
+                <button className="esport-btn-primary px-8 py-2 text-xs">Post</button>
               </div>
-              <button className="esport-btn-primary px-8 py-2 text-xs">Post</button>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="esport-card p-5 border border-esport-border">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Arena TV Feed</div>
+          <div className="mt-2 text-sm text-esport-text-muted">
+            Only Arena admins can publish updates here. Players can watch official highlights and announcements.
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         {[1, 2, 3].map(i => (

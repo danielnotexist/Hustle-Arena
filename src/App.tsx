@@ -708,7 +708,7 @@ export default function App() {
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
                     {activeTab === "Vault" && <VaultView addToast={addToast} />}
                     {activeTab === "Pulse" && <PulseView />}
-                    {activeTab === "Arena TV" && <PulseView />}
+                    {activeTab === "Arena TV" && <PulseView isAdmin={isAdmin} user={user} />}
                     {activeTab === "Arena Guard" && <SyndicatesView addToast={addToast} />}
                     {activeTab === "Hustle Prime" && <HustlePrimeView />}
                     {activeTab === "Dashboard" && <DashboardView stats={stats} />}
