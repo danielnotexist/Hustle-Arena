@@ -162,6 +162,7 @@ export default function App() {
   const previousUnreadNotificationCountRef = useRef(0);
   const seenNotificationIdsRef = useRef<Set<number>>(new Set());
   const globalPresenceChannelRef = useRef<any>(null);
+  const disableLastActiveHeartbeatRef = useRef(false);
 
   useEffect(() => {
     if (!shouldUseSupabase) {
@@ -480,10 +481,17 @@ export default function App() {
 
     const trackPresence = async (channel: any) => {
       try {
-        await supabase
-          .from("profiles")
-          .update({ last_active_at: new Date().toISOString() })
-          .eq("id", user.id);
+        if (!disableLastActiveHeartbeatRef.current) {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ last_active_at: new Date().toISOString() })
+            .eq("id", user.id);
+
+          if (error) {
+            disableLastActiveHeartbeatRef.current = true;
+            console.error("Failed to update last_active_at heartbeat:", error);
+          }
+        }
         await channel.track({
           user_id: user.id,
           username: user.username || user.email?.split("@")[0] || "Player",

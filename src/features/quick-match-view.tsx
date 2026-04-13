@@ -837,7 +837,7 @@ export function BattlefieldView({
   };
 
   useEffect(() => {
-    if (!["searching", "ready_check"].includes(matchState)) {
+    if (matchState !== "searching") {
       if (pollingRef.current) {
         window.clearInterval(pollingRef.current);
         pollingRef.current = null;
