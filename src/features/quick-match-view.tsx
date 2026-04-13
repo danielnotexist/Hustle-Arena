@@ -54,6 +54,7 @@ export function BattlefieldView({
   const [partyInviteProfiles, setPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [partyInviteActionUserId, setPartyInviteActionUserId] = useState<string | null>(null);
   const [incomingInviteActionId, setIncomingInviteActionId] = useState<number | null>(null);
+  const [partyInviteBackendMissing, setPartyInviteBackendMissing] = useState(false);
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
@@ -229,7 +230,6 @@ export function BattlefieldView({
           .sort((a, b) => a.username.localeCompare(b.username));
 
         setFriendsList(mapped);
-        setSelectedPartyMemberIds((current) => current.filter((friendId) => mapped.some((friend) => friend.id === friendId)).slice(0, maxPartyMembers));
       } catch (error) {
         console.error("Failed to load party friends:", error);
       }
@@ -250,10 +250,14 @@ export function BattlefieldView({
       try {
         const rows = await fetchQuickQueuePartyInvites(user.id);
         if (!cancelled) {
+          setPartyInviteBackendMissing(false);
           setPartyInvites(rows);
         }
       } catch (error) {
         console.error("Failed to load party invites:", error);
+        if (!cancelled && isPartyInviteBackendError(error)) {
+          setPartyInviteBackendMissing(true);
+        }
       }
     };
 
@@ -439,6 +443,32 @@ export function BattlefieldView({
   const formatStakeLabel = (amount: number | null | undefined) =>
     amount ? `${Number(amount).toFixed(Number(amount) >= 100 ? 0 : 0)} USDT` : "No stake";
 
+  const isPartyInviteBackendError = (error: any) => {
+    const message = String(error?.message || "");
+    return (
+      error?.code === "PGRST205" ||
+      error?.code === "PGRST202" ||
+      message.includes("quick_queue_party_invites") ||
+      message.includes("send_quick_queue_party_invite") ||
+      message.includes("respond_quick_queue_party_invite")
+    );
+  };
+
+  const getPartyInviteStatusText = (status: string) => {
+    if (status === "accepted") return "Accepted";
+    if (status === "declined") return "Declined";
+    if (status === "pending") return "Waiting for approval";
+    if (status === "cancelled") return "Invite cancelled";
+    return "Ready to invite";
+  };
+
+  const getPartyInviteStatusClasses = (status: string) => {
+    if (status === "accepted") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-300";
+    if (status === "declined") return "border-rose-300/30 bg-rose-400/10 text-rose-300";
+    if (status === "pending") return "border-esport-accent/30 bg-esport-accent/10 text-esport-accent";
+    return "border-white/10 bg-white/5 text-esport-text-muted";
+  };
+
   const resetQuickQueueState = (nextState: "idle" | "searching" = "idle") => {
     setMatchState(nextState);
     setSearchTime(0);
@@ -519,6 +549,7 @@ export function BattlefieldView({
     setPartyInviteActionUserId(friendId);
     try {
       await sendQuickQueuePartyInvite(friendId, accountMode, selectedTeamSize, selectedStakeAmount);
+      setPartyInviteBackendMissing(false);
       setPartyInvites((current) => {
         const existingIndex = current.findIndex((invite) => invite.host_user_id === user?.id && invite.invitee_user_id === friendId);
         const nextInvite: QuickQueuePartyInvite = {
@@ -545,7 +576,12 @@ export function BattlefieldView({
       addToast("Party invite sent. Waiting for your friend to accept.", "success");
     } catch (error: any) {
       console.error("Failed to send party invite:", error);
-      addToast(error?.message || "Failed to send party invite.", "error");
+      if (isPartyInviteBackendError(error)) {
+        setPartyInviteBackendMissing(true);
+        addToast("Party invites are not active in Supabase yet. Run migration 20260413_0038 first.", "error");
+      } else {
+        addToast(error?.message || "Failed to send party invite.", "error");
+      }
     } finally {
       setPartyInviteActionUserId(null);
     }
@@ -555,6 +591,7 @@ export function BattlefieldView({
     setIncomingInviteActionId(inviteId);
     try {
       await respondQuickQueuePartyInvite(inviteId, action);
+      setPartyInviteBackendMissing(false);
       const nextStatus = action === "accept" ? "accepted" : "declined";
       setPartyInvites((current) =>
         current.map((invite) =>
@@ -566,7 +603,12 @@ export function BattlefieldView({
       addToast(action === "accept" ? "Party invite accepted." : "Party invite declined.", action === "accept" ? "success" : "info");
     } catch (error: any) {
       console.error("Failed to respond to party invite:", error);
-      addToast(error?.message || "Failed to respond to the party invite.", "error");
+      if (isPartyInviteBackendError(error)) {
+        setPartyInviteBackendMissing(true);
+        addToast("Party invites are not active in Supabase yet. Run migration 20260413_0038 first.", "error");
+      } else {
+        addToast(error?.message || "Failed to respond to the party invite.", "error");
+      }
     } finally {
       setIncomingInviteActionId(null);
     }
@@ -814,6 +856,12 @@ export function BattlefieldView({
                   </div>
                 </div>
 
+                {partyInviteBackendMissing && (
+                  <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                    Party invites are not active in the database yet. Run `20260413_0038_quick_queue_party_invites.sql` in Supabase, then refresh this page.
+                  </div>
+                )}
+
                 <div className="mb-5 overflow-x-auto custom-scrollbar pb-2">
                   <div className="flex min-w-max gap-4">
                     {Array.from({ length: maxPartyMembers }).map((_, index) => {
@@ -880,62 +928,72 @@ export function BattlefieldView({
                         partyInviteActionUserId === friend.id
                           ? "Updating..."
                           : inviteStatus === "accepted"
-                            ? "Accepted"
+                            ? "Remove Friend"
                             : inviteStatus === "declined"
                               ? "Reinvite"
                               : inviteStatus === "pending"
-                                ? "Pending Invite"
+                                ? "Cancel Invite"
                                 : "Send Invite";
 
                       return (
-                        <button
+                        <div
                           key={friend.id}
-                          type="button"
-                          onClick={() => void togglePartyMember(friend.id)}
-                          className={`rounded-xl border p-4 text-left transition-colors ${
+                          className={`rounded-2xl border p-4 transition-colors ${
                             isSelected
-                              ? "border-esport-accent bg-esport-accent/10"
+                              ? "border-esport-accent bg-esport-accent/10 shadow-[0_0_24px_rgba(59,130,246,0.12)]"
                               : "border-esport-border bg-black/20 hover:border-white/20"
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-3">
                             <img
                               src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=96`}
                               alt={friend.username}
-                              className="w-11 h-11 rounded-xl border border-white/15 object-cover"
+                              className="h-12 w-12 rounded-xl border border-white/15 object-cover"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-bold text-white truncate">{friend.username}</div>
-                              <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="max-w-full truncate text-sm font-bold text-white">{friend.username}</div>
+                                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
+                                  isOnline
+                                    ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
+                                    : "border-white/10 bg-white/5 text-esport-text-muted"
+                                }`}>
+                                  {isOnline ? "Online" : "Offline"}
+                                </span>
+                              </div>
+                              <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">
+                                Friend
+                              </div>
+                              <div className="mt-1 text-xs leading-5 text-esport-text-muted">
                                 {inviteStatus === "accepted"
-                                  ? "Friend accepted the invite"
+                                  ? "This friend already accepted your party invite."
                                   : inviteStatus === "pending"
-                                    ? "Invite sent - waiting approval"
+                                    ? "Invite sent. Waiting for your friend to approve it."
                                     : inviteStatus === "declined"
-                                      ? "Invite was declined"
-                                      : "Tap to send invite"}
+                                      ? "Your friend declined the last invite. You can send a new one."
+                                      : "Send a party invite so this friend can approve and join your queue."}
                               </div>
                             </div>
-                            <div className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                              inviteStatus === "accepted"
-                                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
-                                : inviteStatus === "pending"
-                                  ? "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
-                                  : inviteStatus === "declined"
-                                    ? "border-rose-300/30 bg-rose-400/10 text-rose-300"
-                                    : "border-white/10 bg-white/5 text-esport-text-muted"
-                            }`}>
-                              {actionLabel}
-                            </div>
-                            <div className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
-                              isOnline
-                                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
-                                : "border-white/10 bg-white/5 text-esport-text-muted"
-                            }`}>
-                              {isOnline ? "Online" : "Offline"}
-                            </div>
                           </div>
-                        </button>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${getPartyInviteStatusClasses(inviteStatus)}`}>
+                              {getPartyInviteStatusText(inviteStatus)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void togglePartyMember(friend.id)}
+                              disabled={partyInviteActionUserId === friend.id || partyInviteBackendMissing}
+                              className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors disabled:opacity-50 ${
+                                inviteStatus === "accepted" || inviteStatus === "pending"
+                                  ? "border-rose-300/30 bg-rose-400/10 text-rose-200 hover:border-rose-300/50"
+                                  : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent hover:border-esport-accent/60"
+                              }`}
+                            >
+                              {actionLabel}
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
