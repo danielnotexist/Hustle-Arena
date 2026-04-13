@@ -8,6 +8,7 @@ import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
+const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
 
 export function BattlefieldView({
   addToast,
@@ -50,6 +51,109 @@ export function BattlefieldView({
   const maxPartyMembers = selectedTeamSize - 1;
   const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
   const selectedPartyMembers = friendsList.filter((friend) => selectedPartyMemberIds.includes(friend.id));
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) {
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(QUICK_QUEUE_STATE_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const savedState = JSON.parse(raw) as {
+        userId?: string;
+        accountMode?: AccountMode;
+        matchType?: "ranked_5v5" | "ranked_2v2";
+        queueMode?: "solo" | "party";
+        selectedStakeAmount?: number | null;
+        matchState?: "idle" | "searching" | "ready_check" | "connecting";
+        searchTime?: number;
+        playersJoined?: number;
+        playersNeeded?: number;
+        estimatedWaitSeconds?: number;
+        matchedLobbyId?: string | null;
+        readyCheckId?: string | null;
+        participantUserIds?: string[];
+        acceptedUserIds?: string[];
+      };
+
+      if (savedState.userId !== user.id || savedState.accountMode !== accountMode) {
+        return;
+      }
+
+      if (savedState.matchType) {
+        setMatchType(savedState.matchType);
+      }
+      if (savedState.queueMode) {
+        setQueueMode(savedState.queueMode);
+      }
+      if (typeof savedState.selectedStakeAmount !== "undefined") {
+        setSelectedStakeAmount(savedState.selectedStakeAmount);
+      }
+      if (savedState.matchState && savedState.matchState !== "idle") {
+        setMatchState(savedState.matchState);
+        setSearchTime(savedState.searchTime || 0);
+        setPlayersJoined(savedState.playersJoined || 0);
+        setPlayersNeeded(savedState.playersNeeded || 0);
+        setEstimatedWaitSeconds(savedState.estimatedWaitSeconds || 75);
+        setMatchedLobbyId(savedState.matchedLobbyId || null);
+        setReadyCheckId(savedState.readyCheckId || null);
+        setParticipantUserIds(savedState.participantUserIds || []);
+        setAcceptedUserIds(savedState.acceptedUserIds || []);
+      }
+    } catch (error) {
+      console.error("Failed to restore quick queue state:", error);
+    }
+  }, [user?.id, accountMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) {
+      return;
+    }
+
+    if (matchState === "idle") {
+      window.localStorage.removeItem(QUICK_QUEUE_STATE_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      QUICK_QUEUE_STATE_STORAGE_KEY,
+      JSON.stringify({
+        userId: user.id,
+        accountMode,
+        matchType,
+        queueMode,
+        selectedStakeAmount,
+        matchState,
+        searchTime,
+        playersJoined,
+        playersNeeded,
+        estimatedWaitSeconds,
+        matchedLobbyId,
+        readyCheckId,
+        participantUserIds,
+        acceptedUserIds,
+      })
+    );
+  }, [
+    user?.id,
+    accountMode,
+    matchType,
+    queueMode,
+    selectedStakeAmount,
+    matchState,
+    searchTime,
+    playersJoined,
+    playersNeeded,
+    estimatedWaitSeconds,
+    matchedLobbyId,
+    readyCheckId,
+    participantUserIds,
+    acceptedUserIds,
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
