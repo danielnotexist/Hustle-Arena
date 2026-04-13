@@ -60,6 +60,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_user_id uuid := auth.uid();
   v_queue_mode text := coalesce(nullif(trim(lower(p_queue_mode)), ''), 'solo');
@@ -343,6 +344,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_user_id uuid := auth.uid();
   v_ready_check public.quick_queue_ready_checks%rowtype;
