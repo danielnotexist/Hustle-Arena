@@ -12,7 +12,7 @@ import {
   type QuickQueueStatus,
 } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
-import { playMatchFoundSound } from "../lib/sound";
+import { playMatchFoundSound, playNotificationSound } from "../lib/sound";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -59,6 +59,7 @@ export function BattlefieldView({
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
+  const seenPartyInviteStatusesRef = useRef<Record<number, string>>({});
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
   const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
@@ -108,6 +109,14 @@ export function BattlefieldView({
     : null;
   const visiblePartyMembers =
     selectedPartyMembers.length > 0 ? selectedPartyMembers : incomingPartyHost ? [incomingPartyHost] : [];
+  const selfPartyMember = {
+    id: user?.id || "self",
+    username: user?.username || "You",
+    avatarUrl: user?.avatarUrl || null,
+    status: "accepted",
+    isSelf: true,
+  };
+  const displayedPartyMembers = [selfPartyMember, ...visiblePartyMembers];
   const isPartyInviteGuest = !!incomingPartyHost && selectedPartyMembers.length === 0;
   const availablePartyFriends = friendsList.filter((friend) => !visiblePartyMembers.some((member) => member.id === friend.id));
   const pendingIncomingPartyInvites = partyInvites.filter(
@@ -337,6 +346,68 @@ export function BattlefieldView({
     setSelectedStakeAmount(Number(acceptedIncomingPartyInvite.stake_amount));
     setMatchType(acceptedIncomingPartyInvite.team_size === 2 ? "ranked_2v2" : "ranked_5v5");
   }, [acceptedIncomingPartyInvite]);
+
+  useEffect(() => {
+    const hostOwnedInvites = partyInvites.filter((invite) => invite.host_user_id === user?.id);
+    const previous = seenPartyInviteStatusesRef.current;
+
+    hostOwnedInvites.forEach((invite) => {
+      const lastStatus = previous[invite.id];
+      if (lastStatus && lastStatus !== "accepted" && invite.status === "accepted") {
+        const profile = partyInviteProfiles[invite.invitee_user_id];
+        playNotificationSound();
+        addToast(`${profile?.username || "Your teammate"} accepted your party invite.`, "success");
+      }
+      previous[invite.id] = invite.status;
+    });
+  }, [addToast, partyInviteProfiles, partyInvites, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !isPartyInviteGuest || !acceptedIncomingPartyInvite || matchState !== "idle" || !selectedStakeAmount) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncGuestPartyQueue = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("quick_queue_entries")
+          .select("status")
+          .eq("user_id", user.id)
+          .eq("mode", accountMode)
+          .eq("team_size", selectedTeamSize)
+          .eq("queue_mode", "party")
+          .eq("selected_stake_amount", selectedStakeAmount)
+          .in("status", ["searching", "ready_check", "matched"])
+          .maybeSingle();
+
+        if (error || !data) {
+          if (error) {
+            console.error("Failed to sync guest party queue state:", error);
+          }
+          return;
+        }
+
+        const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, "party", selectedStakeAmount);
+        if (!cancelled) {
+          applyQueueStatus(nextStatus);
+        }
+      } catch (error) {
+        console.error("Failed to hydrate guest party queue state:", error);
+      }
+    };
+
+    void syncGuestPartyQueue();
+    const interval = window.setInterval(() => {
+      void syncGuestPartyQueue();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [acceptedIncomingPartyInvite, accountMode, isPartyInviteGuest, matchState, selectedStakeAmount, selectedTeamSize, user?.id]);
 
   useEffect(() => {
     if (queueMode !== "party" || isPartyInviteGuest) {
@@ -904,20 +975,24 @@ export function BattlefieldView({
 
                 <div className="mb-4 overflow-x-auto custom-scrollbar pb-2">
                   <div className="flex min-w-max gap-3">
-                    {Array.from({ length: maxPartyMembers }).map((_, index) => {
-                      const friend = visiblePartyMembers[index];
+                    {Array.from({ length: selectedTeamSize }).map((_, index) => {
+                      const friend = displayedPartyMembers[index];
 
                       if (friend) {
                         return (
                           <button
-                            key={friend.id}
+                            key={`${friend.id}-${index}`}
                             type="button"
                             onClick={() => {
-                              if (!isPartyInviteGuest) {
+                              if (!isPartyInviteGuest && !("isSelf" in friend && friend.isSelf)) {
                                 void togglePartyMember(friend.id);
                               }
                             }}
-                            className="w-[150px] rounded-2xl border border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 p-4 text-center transition-colors hover:border-esport-accent"
+                            className={`w-[150px] rounded-2xl border p-4 text-center transition-colors ${
+                              "isSelf" in friend && friend.isSelf
+                                ? "border-white/20 bg-gradient-to-b from-white/[0.08] to-black/40"
+                                : "border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 hover:border-esport-accent"
+                            }`}
                           >
                             <img
                               src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
@@ -932,7 +1007,13 @@ export function BattlefieldView({
                                   ? "text-rose-300"
                                   : "text-esport-accent"
                             }`}>
-                              {friend.status === "accepted" ? "Accepted" : friend.status === "declined" ? "Declined" : "Pending"}
+                              {"isSelf" in friend && friend.isSelf
+                                ? "You"
+                                : friend.status === "accepted"
+                                  ? "Accepted"
+                                  : friend.status === "declined"
+                                    ? "Declined"
+                                    : "Pending"}
                             </div>
                           </button>
                         );
