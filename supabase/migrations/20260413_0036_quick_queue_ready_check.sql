@@ -88,10 +88,10 @@ begin
 
   perform public.assert_user_can_access_mode(v_user_id, p_mode);
 
-  update public.quick_queue_ready_checks
+  update public.quick_queue_ready_checks rc
   set status = 'expired'
-  where status = 'pending'
-    and expires_at <= now();
+  where rc.status = 'pending'
+    and rc.expires_at <= now();
 
   update public.quick_queue_entries q
   set status = 'searching',
@@ -600,11 +600,11 @@ begin
   limit 1;
 
   if v_ready_check_id is not null then
-    update public.quick_queue_ready_checks
+    update public.quick_queue_ready_checks rc
     set status = 'cancelled',
         completed_at = now()
-    where id = v_ready_check_id
-      and status = 'pending';
+    where rc.id = v_ready_check_id
+      and rc.status = 'pending';
 
     update public.quick_queue_entries
     set status = 'searching',

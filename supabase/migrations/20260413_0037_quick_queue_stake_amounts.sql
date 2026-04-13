@@ -108,10 +108,10 @@ begin
 
   perform public.assert_user_can_access_mode(v_user_id, p_mode);
 
-  update public.quick_queue_ready_checks
+  update public.quick_queue_ready_checks rc
   set status = 'expired'
-  where status = 'pending'
-    and expires_at <= now();
+  where rc.status = 'pending'
+    and rc.expires_at <= now();
 
   update public.quick_queue_entries q
   set status = 'searching',
