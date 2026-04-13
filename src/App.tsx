@@ -99,7 +99,9 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
-  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
+    shouldUseSupabase ? null : false
+  );
   const {
     isLoggedIn,
     isAdmin,
@@ -195,7 +197,7 @@ export default function App() {
       return;
     }
 
-    if (shouldUseSupabase && hasSupabaseSession) {
+    if (shouldUseSupabase && hasSupabaseSession !== false) {
       return;
     }
 
@@ -346,6 +348,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-esport-bg text-white font-sans">
       {!authBootstrapComplete ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
+            Restoring Session...
+          </div>
+        </div>
+      ) : shouldUseSupabase && hasSupabaseSession === null ? (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
             Restoring Session...

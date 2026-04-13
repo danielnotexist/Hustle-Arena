@@ -466,6 +466,37 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
     [friendsList, selectedFriendId]
   );
+  const friendNameById = useMemo(
+    () =>
+      friendsList.reduce<Record<string, string>>((acc, friend) => {
+        acc[friend.id] = friend.username;
+        return acc;
+      }, {}),
+    [friendsList]
+  );
+  const selectedFriendLastMessageAt = useMemo(() => {
+    if (!selectedFriendId) return null;
+    const fromSelectedFriend = threadMessages
+      .filter((message) => message.sender_id === selectedFriendId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return fromSelectedFriend[0]?.created_at || null;
+  }, [threadMessages, selectedFriendId]);
+  const selectedFriendLastSeen = useMemo(() => {
+    if (isSelectedFriendTyping) {
+      return "Typing...";
+    }
+    if (!selectedFriendLastMessageAt) {
+      return "Last seen unknown";
+    }
+    const diffMs = Date.now() - new Date(selectedFriendLastMessageAt).getTime();
+    const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+    if (diffMinutes < 1) return "Last seen just now";
+    if (diffMinutes < 60) return `Last seen ${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Last seen ${diffDays}d ago`;
+  }, [isSelectedFriendTyping, selectedFriendLastMessageAt]);
   const loadFriends = async () => {
     if (!user?.id) return;
 
@@ -1038,6 +1069,9 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
               <div>
                 <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>
                 <div className="text-sm font-bold text-white">{selectedFriend?.username ?? 'Select a friend'}</div>
+                {selectedFriend && (
+                  <div className="text-[10px] text-esport-text-muted mt-1">{selectedFriendLastSeen}</div>
+                )}
               </div>
             </div>
 
@@ -1050,17 +1084,28 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                 threadMessages.map((msg) => {
                   const mine = msg.sender_id === user?.id;
                   const isInvite = msg.message_type === 'game_invite';
+                  const senderName = mine
+                    ? (user?.username || user?.email?.split('@')[0] || 'You')
+                    : (friendNameById[msg.sender_id] || selectedFriend?.username || `Player ${msg.sender_id.slice(0, 8)}`);
+                  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=1f2937&color=ffffff&size=64`;
                   return (
                     <div key={msg.id} className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
-                      <div className={'max-w-[75%] px-3 py-2 rounded-xl text-sm ' + (mine ? 'bg-esport-accent text-white' : 'bg-white/10 text-white border border-esport-border')}>
-                        <div>{msg.message}</div>
-                        {isInvite ? (
-                          <div className="mt-2">
-                            <button className="esport-btn-primary" onClick={() => addToast('Lobby invite flow will open here', 'info')}>Join</button>
+                      <div className={'flex items-end gap-2 max-w-[75%] ' + (mine ? 'flex-row-reverse' : 'flex-row')}>
+                        <img
+                          src={avatarUrl}
+                          alt={senderName}
+                          className="w-7 h-7 rounded-full border border-white/15 object-cover shrink-0"
+                        />
+                        <div className={'px-3 py-2 rounded-xl text-sm ' + (mine ? 'bg-esport-accent text-white' : 'bg-white/10 text-white border border-esport-border')}>
+                          <div>{msg.message}</div>
+                          {isInvite ? (
+                            <div className="mt-2">
+                              <button className="esport-btn-primary" onClick={() => addToast('Lobby invite flow will open here', 'info')}>Join</button>
+                            </div>
+                          ) : null}
+                          <div className={'text-[10px] mt-1 ' + (mine ? 'text-white/70' : 'text-esport-text-muted')}>
+                            {new Date(msg.created_at).toLocaleTimeString()}
                           </div>
-                        ) : null}
-                        <div className={'text-[10px] mt-1 ' + (mine ? 'text-white/70' : 'text-esport-text-muted')}>
-                          {new Date(msg.created_at).toLocaleTimeString()}
                         </div>
                       </div>
                     </div>
