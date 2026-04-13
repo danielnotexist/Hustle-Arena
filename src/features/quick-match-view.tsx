@@ -77,6 +77,7 @@ export function BattlefieldView({
       invite.mode === accountMode &&
       invite.team_size === selectedTeamSize &&
       Number(invite.stake_amount) === Number(selectedStakeAmount || 0) &&
+      invite.status !== "declined" &&
       invite.status !== "cancelled" &&
       invite.status !== "expired"
   );
