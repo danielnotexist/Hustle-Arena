@@ -163,9 +163,6 @@ export default function App() {
       setCanShowLanding(false);
       return;
     }
-    if (hasSupabaseSession !== false) {
-      return;
-    }
 
     const timer = window.setTimeout(() => {
       setCanShowLanding(true);
@@ -174,7 +171,7 @@ export default function App() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [shouldUseSupabase, authBootstrapComplete, hasSupabaseSession, user]);
+  }, [shouldUseSupabase, authBootstrapComplete, user]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -228,7 +225,7 @@ export default function App() {
       return;
     }
 
-    if (shouldUseSupabase && (!canShowLanding || hasSupabaseSession !== false)) {
+    if (shouldUseSupabase && !canShowLanding && hasSupabaseSession !== false) {
       return;
     }
 
@@ -385,17 +382,9 @@ export default function App() {
   return (
     <div className="min-h-screen bg-esport-bg text-white font-sans">
       {!authBootstrapComplete ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
-            Restoring Session...
-          </div>
-        </div>
+        <div className="min-h-screen" />
       ) : shouldUseSupabase && (hasSupabaseSession === null || !canShowLanding) ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
-            Restoring Session...
-          </div>
-        </div>
+        <div className="min-h-screen" />
       ) : (
       view === "landing" ? (
         <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
