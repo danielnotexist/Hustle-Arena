@@ -93,15 +93,11 @@ begin
 
     return query
     select
-      case when v_ready_check.status = 'completed' and v_ready_check.lobby_id is not null then 'matched' else 'ready_check' end,
-      v_ready_check.lobby_id,
+      'ready_check'::text,
+      null::uuid,
       v_accepted_count,
       greatest(v_ready_check.team_size * 2 - v_accepted_count, 0),
-      case
-        when v_ready_check.status = 'pending'
-          then greatest(0, floor(extract(epoch from (v_ready_check.expires_at - now())))::integer)
-        else 0
-      end,
+      greatest(0, floor(extract(epoch from (v_ready_check.expires_at - now())))::integer),
       v_ready_check.id,
       v_accepted_count,
       v_participant_ids,
