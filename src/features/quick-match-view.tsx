@@ -35,7 +35,7 @@ export function BattlefieldView({
   const presenceChannelRef = useRef<any>(null);
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
-  const selectedQueueLabel = matchType === "ranked_2v2" ? "Ranked 2v2" : "Ranked 5v5";
+  const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETETIVE 5V5";
 
   useEffect(() => {
     if (matchState !== "searching") return;
@@ -242,7 +242,7 @@ export function BattlefieldView({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" />
             <span className="text-sm font-bold">
-              {accountMode === "demo" ? `Quick Queue Online · ${onlineNow.length}` : "Live Queue Locked"}
+              {accountMode === "demo" ? `Quick Queue Online - ${onlineNow.length}` : "Live Queue Locked"}
             </span>
           </div>
         </div>
@@ -300,7 +300,7 @@ export function BattlefieldView({
               <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_5v5" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
               <div className="flex items-center justify-between relative z-10">
                 <div>
-                  <h3 className="text-2xl font-bold font-display uppercase mb-1">Ranked 5v5</h3>
+                  <h3 className="text-2xl font-bold font-display uppercase mb-1">COMPETETIVE 5V5</h3>
                   <p className="text-sm text-esport-text-muted">Quick competitive matchmaking. Affects your ELO.</p>
                 </div>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_5v5" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
@@ -316,7 +316,7 @@ export function BattlefieldView({
               <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_2v2" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
               <div className="flex items-center justify-between relative z-10">
                 <div>
-                  <h3 className="text-xl font-bold font-display uppercase mb-1">Ranked 2v2</h3>
+                  <h3 className="text-xl font-bold font-display uppercase mb-1">WINGMAN 2V2</h3>
                   <p className="text-sm text-esport-text-muted">Wingman quick queue. Competitive and fast.</p>
                 </div>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_2v2" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
@@ -337,7 +337,7 @@ export function BattlefieldView({
               <div className="text-2xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
               {matchState === "searching" && (
                 <div className="mt-2 text-xs text-esport-text-muted">
-                  {playersJoined} joined · {playersNeeded} needed
+                  {playersJoined} joined - {playersNeeded} needed
                 </div>
               )}
             </div>
