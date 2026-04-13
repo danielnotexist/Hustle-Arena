@@ -1005,7 +1005,13 @@ export function CustomLobbyView({
             </div>
           )}
 
-          {!activeLobby && !showJoiningLobbyState && (
+          {!activeLobby && !showJoiningLobbyState && (!loadedOnce || loading) && (
+            <div className="esport-card p-6">
+              <div className="text-sm text-esport-text-muted">Loading lobby...</div>
+            </div>
+          )}
+
+          {!activeLobby && !showJoiningLobbyState && loadedOnce && !loading && (
             <div className="esport-card p-5 space-y-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
               <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
