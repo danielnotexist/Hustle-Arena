@@ -37,6 +37,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   fetchPublicProfileBasics,
+  fetchPublicProfileDetails,
   findPublicProfileByUsername,
   respondFriendRequest as respondFriendRequestRpc,
   sendFriendRequest as sendFriendRequestRpc,
@@ -599,6 +600,77 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
   const playedIncomingMessageIdsRef = useRef<Set<number>>(new Set());
+
+  const getAvatarUrl = (friend: { username: string; avatarUrl: string | null }) =>
+    friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username || "Player")}&background=1f2937&color=ffffff&size=96`;
+
+  const openFriendProfile = async (friendId: string) => {
+    try {
+      const profile = await fetchPublicProfileDetails(friendId);
+      if (!profile) {
+        addToast('Profile not found.', 'error');
+        return;
+      }
+
+      const displayName =
+        profile.username?.trim() ||
+        profile.email?.split('@')[0]?.trim() ||
+        `Player ${profile.id.slice(0, 8)}`;
+      const avatarUrl =
+        profile.avatar_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=160`;
+      const coverUrl =
+        profile.cover_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=111827&color=ffffff&size=1200`;
+
+      openModal(
+        `${displayName} Profile`,
+        <div className="space-y-5">
+          <div className="relative overflow-hidden rounded-2xl border border-esport-border bg-esport-card">
+            <img src={coverUrl} alt={`${displayName} cover`} className="h-40 w-full object-cover opacity-50" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/55 to-transparent" />
+            <div className="absolute bottom-0 left-0 flex w-full items-end gap-4 p-5">
+              <img src={avatarUrl} alt={displayName} className="h-20 w-20 rounded-2xl border-4 border-[#0a0b0d] object-cover" />
+              <div className="pb-1">
+                <div className="text-2xl font-display font-bold text-white">{displayName}</div>
+                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-esport-text-muted">
+                  {profile.country || 'Unknown Region'} - Level {profile.level ?? 1}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Rank</div>
+              <div className="mt-2 text-sm font-bold text-white">{profile.rank || 'Unranked'}</div>
+            </div>
+            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Win Rate</div>
+              <div className="mt-2 text-sm font-bold text-white">{profile.win_rate || '0%'}</div>
+            </div>
+            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">K/D Ratio</div>
+              <div className="mt-2 text-sm font-bold text-white">{Number(profile.kd_ratio ?? 0).toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">About</div>
+            <div className="mt-2 text-sm leading-relaxed text-white">
+              {profile.bio || 'No bio added yet.'}
+            </div>
+            <div className="mt-4 text-xs text-esport-text-muted">
+              Headshot rate: {profile.headshot_pct || '0%'}
+            </div>
+          </div>
+        </div>
+      );
+    } catch (error) {
+      console.error('Failed to open public profile:', error);
+      addToast('Failed to open profile.', 'error');
+    }
+  };
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
@@ -1200,7 +1272,44 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                       className={'w-full text-left p-3 rounded-lg border transition-all ' + (active ? 'border-esport-accent bg-esport-accent/10' : 'border-esport-border hover:border-white/30 hover:bg-white/5')}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-bold text-sm truncate">{friend.username}</div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <img
+                            src={getAvatarUrl(friend)}
+                            alt={friend.username}
+                            className="h-10 w-10 rounded-full border border-white/15 object-cover"
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void openFriendProfile(friend.id);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void openFriendProfile(friend.id);
+                              }
+                            }}
+                          />
+                          <div
+                            className="min-w-0 cursor-pointer font-bold text-sm truncate hover:text-esport-accent"
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void openFriendProfile(friend.id);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void openFriendProfile(friend.id);
+                              }
+                            }}
+                          >
+                            {friend.username}
+                          </div>
+                        </div>
                         {unread > 0 ? (
                           <span className="min-w-[20px] h-5 px-1 bg-esport-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                             {unread > 99 ? '99+' : unread}
@@ -1216,12 +1325,34 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
           <div className="esport-card p-0 overflow-hidden flex flex-col h-[560px] max-h-[70vh]">
             <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>
-                <div className="text-sm font-bold text-white">{selectedFriend?.username ?? 'Select a friend'}</div>
+              <div className="flex items-center gap-3">
                 {selectedFriend && (
-                  <div className="text-[10px] text-esport-text-muted mt-1">{selectedFriendLastSeen}</div>
+                  <img
+                    src={getAvatarUrl(selectedFriend)}
+                    alt={selectedFriend.username}
+                    className="h-11 w-11 cursor-pointer rounded-full border border-white/15 object-cover transition-transform hover:scale-105"
+                    onClick={() => void openFriendProfile(selectedFriend.id)}
+                  />
                 )}
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>
+                  <div
+                    className={cn(
+                      "text-sm font-bold",
+                      selectedFriend ? "cursor-pointer text-white hover:text-esport-accent" : "text-white"
+                    )}
+                    onClick={() => {
+                      if (selectedFriend) {
+                        void openFriendProfile(selectedFriend.id);
+                      }
+                    }}
+                  >
+                    {selectedFriend?.username ?? 'Select a friend'}
+                  </div>
+                  {selectedFriend && (
+                    <div className="text-[10px] text-esport-text-muted mt-1">{selectedFriendLastSeen}</div>
+                  )}
+                </div>
               </div>
             </div>
 

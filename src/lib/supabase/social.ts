@@ -44,6 +44,17 @@ export interface PublicProfileBasic {
   avatar_url?: string | null;
 }
 
+export interface PublicProfileDetails extends PublicProfileBasic {
+  cover_url?: string | null;
+  bio?: string | null;
+  country?: string | null;
+  rank?: string | null;
+  win_rate?: string | null;
+  kd_ratio?: number | null;
+  headshot_pct?: string | null;
+  level?: number | null;
+}
+
 export async function fetchPublicProfileBasics(userIds: string[]) {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
   if (!uniqueUserIds.length) {
@@ -82,6 +93,19 @@ export async function findPublicProfileByUsername(username: string) {
 
   const row = Array.isArray(data) ? data[0] : null;
   return (row as PublicProfileBasic | null) || null;
+}
+
+export async function fetchPublicProfileDetails(userId: string) {
+  const { data, error } = await supabase.rpc("get_public_profile_details", {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as PublicProfileDetails | null) || null;
 }
 
 export interface AppNotification {
