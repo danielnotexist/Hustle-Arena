@@ -725,7 +725,7 @@ export function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [] }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [], focusFriendId = null }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null; lastActiveAt: string | null }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
@@ -1032,6 +1032,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       isCancelled = true;
     };
   }, [user?.id, refreshKey]);
+
+  useEffect(() => {
+    if (!focusFriendId) {
+      return;
+    }
+
+    if (friendsList.some((friend) => friend.id === focusFriendId) && selectedFriendId !== focusFriendId) {
+      setSelectedFriendId(focusFriendId);
+    }
+  }, [focusFriendId, friendsList, selectedFriendId]);
 
   useEffect(() => {
     void loadThread(selectedFriendId);

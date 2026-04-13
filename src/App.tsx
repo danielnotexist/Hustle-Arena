@@ -139,6 +139,7 @@ export default function App() {
   const [globalPartyInviteActionId, setGlobalPartyInviteActionId] = useState<number | null>(null);
   const [globalOnlineUserIds, setGlobalOnlineUserIds] = useState<string[]>([]);
   const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
+  const [socialFocusFriendId, setSocialFocusFriendId] = useState<string | null>(null);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
@@ -582,6 +583,56 @@ export default function App() {
   const generalNotifications = notifications.filter((notice) => notice.notice_type !== "direct_message");
   const primaryGlobalPartyInvite = globalPartyInvites[0] || null;
 
+  const openMessagesInbox = async () => {
+    const directMessageNotifications = notifications.filter((notice) => notice.notice_type === "direct_message");
+    const unreadDirectMessageIds = directMessageNotifications.filter((notice) => !notice.is_read).map((notice) => notice.id);
+    const latestDirectMessage = directMessageNotifications[0] || null;
+    const senderId =
+      (latestDirectMessage?.metadata?.sender_id as string | undefined) ||
+      (typeof latestDirectMessage?.link_target === "string" && latestDirectMessage.link_target.includes("friend=")
+        ? latestDirectMessage.link_target.split("friend=")[1]?.split("&")[0] || null
+        : null);
+
+    if (unreadDirectMessageIds.length) {
+      try {
+        await Promise.all(unreadDirectMessageIds.map((id) => markNotificationRead(id)));
+        setNotifications((current) =>
+          current.map((notice) =>
+            unreadDirectMessageIds.includes(notice.id) ? { ...notice, is_read: true } : notice
+          )
+        );
+      } catch (error) {
+        console.error("Failed to mark direct-message notifications as read:", error);
+      }
+    }
+
+    setNotificationsOpen(false);
+    setPublicProfileState(null);
+    setSocialFocusFriendId(senderId || null);
+    setActiveTab("Social");
+    setSocialRefreshNonce((current) => current + 1);
+  };
+
+  const clearGeneralNotifications = async () => {
+    const unreadGeneralIds = generalNotifications.filter((notice) => !notice.is_read).map((notice) => notice.id);
+    if (!unreadGeneralIds.length) {
+      return;
+    }
+
+    try {
+      await Promise.all(unreadGeneralIds.map((id) => markNotificationRead(id)));
+      setNotifications((current) =>
+        current.map((notice) =>
+          unreadGeneralIds.includes(notice.id) ? { ...notice, is_read: true } : notice
+        )
+      );
+      addToast("All notifications cleared.", "success");
+    } catch (error) {
+      console.error("Failed to clear notifications:", error);
+      addToast("Failed to clear notifications.", "error");
+    }
+  };
+
   const respondToGlobalPartyInvite = async (inviteId: number, action: "accept" | "decline") => {
     setGlobalPartyInviteActionId(inviteId);
     try {
@@ -615,6 +666,7 @@ export default function App() {
 
     if (notice.link_target === "/social" || notice.notice_type === "friend_request" || notice.notice_type === "direct_message") {
       setPublicProfileState(null);
+      setSocialFocusFriendId((notice.metadata?.sender_id as string | undefined) || null);
       setActiveTab("Social");
       setSocialRefreshNonce((current) => current + 1);
     } else if (
@@ -866,12 +918,22 @@ export default function App() {
                     <div className="absolute right-0 mt-2 w-[360px] max-h-[420px] overflow-y-auto custom-scrollbar rounded-xl border border-esport-border bg-[#12151e]/95 backdrop-blur-md shadow-2xl z-50">
                       <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
                         <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Notifications</div>
-                        <button
-                          onClick={() => setNotificationsOpen(false)}
-                          className="p-1 text-esport-text-muted hover:text-white"
-                        >
-                          <X size={14} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {unreadNotificationsCount > 0 && (
+                            <button
+                              onClick={() => void clearGeneralNotifications()}
+                              className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-accent hover:bg-esport-accent/15"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNotificationsOpen(false)}
+                            className="p-1 text-esport-text-muted hover:text-white"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                       </div>
                       <div className="divide-y divide-white/5">
                         {generalNotifications.length === 0 && (
@@ -901,12 +963,7 @@ export default function App() {
                 </div>
                 
                 <button
-                  onClick={() => {
-                    setNotificationsOpen(false);
-                    setPublicProfileState(null);
-                    setActiveTab("Social");
-                    setSocialRefreshNonce((current) => current + 1);
-                  }}
+                  onClick={() => void openMessagesInbox()}
                   className="relative p-2 text-esport-text-muted hover:text-white transition-colors"
                 >
                   <MessageSquare size={20} />
@@ -995,7 +1052,7 @@ export default function App() {
                     )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
-                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} onlineUserIds={globalOnlineUserIds} />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} onlineUserIds={globalOnlineUserIds} focusFriendId={socialFocusFriendId} />}
                     {activeTab === "Apex List" && <ApexListView onOpenPublicProfile={openPublicProfilePage} />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
