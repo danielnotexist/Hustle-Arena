@@ -57,3 +57,19 @@ export function playMatchFoundSound() {
     { freq: 1046.5, duration: 0.5, delay: 0.5, gain: 0.05 },
   ]);
 }
+
+export function playReadyCheckAcceptSound() {
+  playToneSequence([
+    { freq: 698.46, duration: 0.1, delay: 0, gain: 0.04 },
+    { freq: 880, duration: 0.12, delay: 0.08, gain: 0.035 },
+  ]);
+}
+
+export function playReadyCheckCompleteSound() {
+  playToneSequence([
+    { freq: 659.25, duration: 0.16, delay: 0, gain: 0.05 },
+    { freq: 783.99, duration: 0.18, delay: 0.12, gain: 0.05 },
+    { freq: 987.77, duration: 0.22, delay: 0.24, gain: 0.05 },
+    { freq: 1318.51, duration: 0.34, delay: 0.4, gain: 0.055 },
+  ]);
+}

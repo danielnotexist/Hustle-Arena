@@ -13,7 +13,12 @@ import {
   type QuickQueueStatus,
 } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
-import { playMatchFoundSound, playNotificationSound } from "../lib/sound";
+import {
+  playMatchFoundSound,
+  playNotificationSound,
+  playReadyCheckAcceptSound,
+  playReadyCheckCompleteSound,
+} from "../lib/sound";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -65,6 +70,8 @@ export function BattlefieldView({
   const queueRequestVersionRef = useRef(0);
   const cancelInFlightRef = useRef(false);
   const suppressAutoQueueUntilRef = useRef(0);
+  const readyCheckAcceptedCountRef = useRef(0);
+  const readyCheckCompletionSoundRef = useRef<string | null>(null);
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
   const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
@@ -493,6 +500,8 @@ export function BattlefieldView({
 
   useEffect(() => {
     if (matchState !== "ready_check") {
+      readyCheckAcceptedCountRef.current = 0;
+      readyCheckCompletionSoundRef.current = null;
       return;
     }
 
@@ -505,6 +514,31 @@ export function BattlefieldView({
       window.clearInterval(interval);
     };
   }, [matchState]);
+
+  useEffect(() => {
+    if (matchState !== "ready_check" || !readyCheckId) {
+      return;
+    }
+
+    const previousAcceptedCount = readyCheckAcceptedCountRef.current;
+    const nextAcceptedCount = acceptedUserIds.length;
+    const participantCount = orderedParticipantUserIds.length || participantUserIds.length;
+
+    if (nextAcceptedCount > previousAcceptedCount) {
+      playReadyCheckAcceptSound();
+    }
+
+    if (
+      participantCount > 0 &&
+      nextAcceptedCount === participantCount &&
+      readyCheckCompletionSoundRef.current !== readyCheckId
+    ) {
+      readyCheckCompletionSoundRef.current = readyCheckId;
+      playReadyCheckCompleteSound();
+    }
+
+    readyCheckAcceptedCountRef.current = nextAcceptedCount;
+  }, [acceptedUserIds, matchState, orderedParticipantUserIds.length, participantUserIds.length, readyCheckId]);
 
   const applyQueueStatus = (status: QuickQueueStatus | null) => {
     if (!status) return;
