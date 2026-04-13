@@ -105,7 +105,6 @@ export default function App() {
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
   );
-  const [canShowLanding, setCanShowLanding] = useState(!shouldUseSupabase);
   const {
     isLoggedIn,
     isAdmin,
@@ -127,7 +126,6 @@ export default function App() {
     if (!shouldUseSupabase) {
       setAuthBootstrapComplete(true);
       setHasSupabaseSession(false);
-      setCanShowLanding(true);
       return;
     }
 
@@ -142,11 +140,6 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isCancelled) {
         setHasSupabaseSession(!!session?.user);
-        if (session?.user) {
-          setCanShowLanding(false);
-        } else if (_event === "SIGNED_OUT") {
-          setCanShowLanding(true);
-        }
       }
     });
 
@@ -155,23 +148,6 @@ export default function App() {
       authListener.subscription.unsubscribe();
     };
   }, [shouldUseSupabase]);
-
-  useEffect(() => {
-    if (!shouldUseSupabase) return;
-    if (!authBootstrapComplete) return;
-    if (user) {
-      setCanShowLanding(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setCanShowLanding(true);
-    }, 1200);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [shouldUseSupabase, authBootstrapComplete, user]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -225,13 +201,19 @@ export default function App() {
       return;
     }
 
-    if (shouldUseSupabase && !canShowLanding && hasSupabaseSession !== false) {
+    if (shouldUseSupabase) {
+      if (hasSupabaseSession === false && !user) {
+        previousUserIdRef.current = null;
+        setView("landing");
+      } else if (hasSupabaseSession === true || user) {
+        setView("dashboard");
+      }
       return;
     }
 
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession, canShowLanding]);
+  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
