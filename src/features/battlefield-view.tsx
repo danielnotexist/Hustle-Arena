@@ -67,6 +67,7 @@ const MAP_BACKGROUNDS: Record<string, string> = {
 
 const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
 const SQUAD_HUB_CACHE_PREFIX = "hustle_arena_squad_hub";
+const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
@@ -1004,6 +1005,9 @@ export function CustomLobbyView({
     if (!activeLobby) return;
     try {
       await leaveMatchmakingLobby(activeLobby.id);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(QUICK_QUEUE_STATE_STORAGE_KEY);
+      }
       await loadState();
     } catch (error: any) {
       console.error(error);

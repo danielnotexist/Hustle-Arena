@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, Lock, Search, Server, ShieldAlert, Sword, Target, 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
+  fetchMyActiveLobby,
   fetchMyQuickQueueStatus,
   fetchQuickQueuePartyInvites,
   quickQueueAcceptMatch,
@@ -440,6 +441,40 @@ export function BattlefieldView({
       window.clearInterval(interval);
     };
   }, [accountMode, matchState, matchType, queueMode, selectedStakeAmount, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || matchState !== "connecting") {
+      return;
+    }
+
+    let cancelled = false;
+
+    const validateConnectedLobby = async () => {
+      try {
+        const activeLobby = await fetchMyActiveLobby(user.id, accountMode);
+        if (cancelled) {
+          return;
+        }
+
+        if (!activeLobby || (matchedLobbyId && activeLobby.id !== matchedLobbyId)) {
+          resetQuickQueueState("idle");
+          addToast("You are no longer in this lobby. You can return to matchmaking or start a new game.", "info");
+        }
+      } catch (error) {
+        console.error("Failed to validate connected lobby:", error);
+      }
+    };
+
+    void validateConnectedLobby();
+    const interval = window.setInterval(() => {
+      void validateConnectedLobby();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [accountMode, addToast, matchedLobbyId, matchState, user?.id]);
 
   useEffect(() => {
     if (queueMode !== "party" || isPartyInviteGuest) {
@@ -1589,9 +1624,17 @@ export function BattlefieldView({
             IP: 192.168.1.{Math.floor(Math.random() * 255)}:27015
           </p>
           <div className="text-xs text-esport-text-muted mt-2">Lobby: {matchedLobbyId || "pending"}</div>
-          <button onClick={() => void cancelSearch()} className="mt-8 esport-btn-secondary text-sm">
-            Disconnect
-          </button>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button
+              onClick={() => onMatchReady?.()}
+              className="esport-btn-primary text-sm"
+            >
+              Return to Lobby
+            </button>
+            <button onClick={() => void cancelSearch()} className="esport-btn-secondary text-sm">
+              Start New Match
+            </button>
+          </div>
         </div>
       )}
     </div>
