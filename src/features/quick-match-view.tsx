@@ -108,7 +108,7 @@ export function BattlefieldView({
           partyInviteProfiles[acceptedIncomingPartyInvite.host_user_id]?.username ||
           `Player ${acceptedIncomingPartyInvite.host_user_id.slice(0, 8)}`,
         avatarUrl: partyInviteProfiles[acceptedIncomingPartyInvite.host_user_id]?.avatarUrl || null,
-        status: "accepted",
+        status: "owner",
       }
     : null;
   const visiblePartyMembers =
@@ -582,6 +582,7 @@ export function BattlefieldView({
   };
 
   const getPartyInviteStatusText = (status: string) => {
+    if (status === "owner") return "Party Owner";
     if (status === "accepted") return "Accepted";
     if (status === "declined") return "Declined";
     if (status === "pending") return "Waiting for approval";
@@ -590,6 +591,7 @@ export function BattlefieldView({
   };
 
   const getPartyInviteStatusClasses = (status: string) => {
+    if (status === "owner") return "border-white/15 bg-white/10 text-white";
     if (status === "accepted") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-300";
     if (status === "declined") return "border-rose-300/30 bg-rose-400/10 text-rose-300";
     if (status === "pending") return "border-esport-accent/30 bg-esport-accent/10 text-esport-accent";
@@ -608,6 +610,36 @@ export function BattlefieldView({
     setParticipantUserIds([]);
     setAcceptedUserIds([]);
     handledMatchedLobbyRef.current = null;
+  };
+
+  const leaveJoinedParty = async () => {
+    if (!acceptedIncomingPartyInvite) {
+      return;
+    }
+
+    setIncomingInviteActionId(acceptedIncomingPartyInvite.id);
+    try {
+      if (matchState === "searching" || matchState === "ready_check") {
+        await quickQueueCancel(accountMode);
+      }
+
+      await respondQuickQueuePartyInvite(acceptedIncomingPartyInvite.id, "decline");
+      setPartyInvites((current) =>
+        current.map((invite) =>
+          invite.id === acceptedIncomingPartyInvite.id
+            ? { ...invite, status: "declined", responded_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+            : invite
+        )
+      );
+      resetQuickQueueState("idle");
+      setQueueMode("solo");
+      addToast("You left the party.", "info");
+    } catch (error: any) {
+      console.error("Failed to leave joined party:", error);
+      addToast(error?.message || "Failed to leave the party.", "error");
+    } finally {
+      setIncomingInviteActionId(null);
+    }
   };
 
   const startSearch = async () => {
@@ -1038,7 +1070,9 @@ export function BattlefieldView({
                             />
                             <div className="mt-3 text-sm font-bold text-white truncate">{friend.username}</div>
                             <div className={`mt-2 text-[10px] uppercase tracking-[0.2em] ${
-                              friend.status === "accepted"
+                              friend.status === "owner"
+                                ? "text-white"
+                                : friend.status === "accepted"
                                 ? "text-emerald-300"
                                 : friend.status === "declined"
                                   ? "text-rose-300"
@@ -1046,6 +1080,8 @@ export function BattlefieldView({
                             }`}>
                               {"isSelf" in friend && friend.isSelf
                                 ? "You"
+                                : friend.status === "owner"
+                                  ? "Owner"
                                 : friend.status === "accepted"
                                   ? "Accepted"
                                   : friend.status === "declined"
@@ -1085,6 +1121,23 @@ export function BattlefieldView({
                       className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent"
                     >
                       {partyPickerOpen ? "Hide Friends" : "Open Friends"}
+                    </button>
+                  </div>
+                )}
+
+                {isPartyInviteGuest && incomingPartyHost && (
+                  <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Joined Party</div>
+                      <div className="mt-1 text-sm font-bold text-white">{incomingPartyHost.username} is the party owner.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void leaveJoinedParty()}
+                      disabled={incomingInviteActionId === acceptedIncomingPartyInvite?.id}
+                      className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-200 transition-colors hover:border-rose-300/50 disabled:opacity-50"
+                    >
+                      {incomingInviteActionId === acceptedIncomingPartyInvite?.id ? "Leaving..." : "Leave Party"}
                     </button>
                   </div>
                 )}
@@ -1233,13 +1286,15 @@ export function BattlefieldView({
                       />
                       <span className="text-xs text-white truncate">{friend.username}</span>
                       <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
-                        friend.status === "accepted"
+                        friend.status === "owner"
+                          ? "border-white/15 bg-white/10 text-white"
+                          : friend.status === "accepted"
                           ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
                           : friend.status === "declined"
                             ? "border-rose-300/30 bg-rose-400/10 text-rose-300"
                             : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
                       }`}>
-                        {friend.status}
+                        {friend.status === "owner" ? "owner" : friend.status}
                       </span>
                     </div>
                   ))}
