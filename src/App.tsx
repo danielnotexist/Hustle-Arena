@@ -34,8 +34,23 @@ import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { supabase } from "./lib/supabase";
-import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
-import { fetchMyNotifications, fetchPublicProfileDetails, type AppNotification, type PublicProfileDetails } from "./lib/supabase/social";
+import {
+  fetchMyActiveLobby,
+  fetchMyReconnectableMatch,
+  fetchQuickQueuePartyInvites,
+  launchMatchServer,
+  markNotificationRead,
+  respondQuickQueuePartyInvite,
+  type QuickQueuePartyInvite,
+  type ReconnectableMatch,
+} from "./lib/supabase/matchmaking";
+import {
+  fetchMyNotifications,
+  fetchPublicProfileBasics,
+  fetchPublicProfileDetails,
+  type AppNotification,
+  type PublicProfileDetails,
+} from "./lib/supabase/social";
 import { playChatMessageSound, playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import {
@@ -119,6 +134,9 @@ export default function App() {
   const [reconnectMatch, setReconnectMatch] = useState<ReconnectableMatch | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [globalPartyInvites, setGlobalPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
+  const [globalPartyInviteProfiles, setGlobalPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
+  const [globalPartyInviteActionId, setGlobalPartyInviteActionId] = useState<number | null>(null);
   const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
@@ -328,6 +346,8 @@ export default function App() {
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured()) {
       setNotifications([]);
+      setGlobalPartyInvites([]);
+      setGlobalPartyInviteProfiles({});
       previousUnreadNotificationCountRef.current = 0;
       seenNotificationIdsRef.current = new Set();
       return;
@@ -375,6 +395,63 @@ export default function App() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) {
+      setGlobalPartyInvites([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadGlobalPartyInvites = async () => {
+      try {
+        const rows = await fetchQuickQueuePartyInvites(user.id);
+        if (!cancelled) {
+          setGlobalPartyInvites(rows.filter((invite) => invite.invitee_user_id === user.id && invite.status === "pending"));
+        }
+      } catch (error) {
+        console.error("Failed to load global party invites:", error);
+      }
+    };
+
+    void loadGlobalPartyInvites();
+    const interval = window.setInterval(() => {
+      void loadGlobalPartyInvites();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const hostIds = Array.from(new Set(globalPartyInvites.map((invite) => invite.host_user_id)));
+    if (!hostIds.length) {
+      setGlobalPartyInviteProfiles({});
+      return;
+    }
+
+    const loadProfiles = async () => {
+      try {
+        const profileMap = await fetchPublicProfileBasics(hostIds);
+        const next: Record<string, { username: string; avatarUrl: string | null }> = {};
+        hostIds.forEach((id) => {
+          const profile = profileMap.get(id);
+          next[id] = {
+            username: profile?.username?.trim() || profile?.email?.split("@")[0]?.trim() || `Player ${id.slice(0, 8)}`,
+            avatarUrl: profile?.avatar_url || null,
+          };
+        });
+        setGlobalPartyInviteProfiles(next);
+      } catch (error) {
+        console.error("Failed to load global party invite profiles:", error);
+      }
+    };
+
+    void loadProfiles();
+  }, [globalPartyInvites]);
+
   const handleLogout = async () => {
     await signOut(auth);
     addToast("Logged out successfully", "info");
@@ -414,6 +491,24 @@ export default function App() {
   };
 
   const unreadNotificationsCount = notifications.filter((notice) => !notice.is_read).length;
+  const primaryGlobalPartyInvite = globalPartyInvites[0] || null;
+
+  const respondToGlobalPartyInvite = async (inviteId: number, action: "accept" | "decline") => {
+    setGlobalPartyInviteActionId(inviteId);
+    try {
+      await respondQuickQueuePartyInvite(inviteId, action);
+      setGlobalPartyInvites((current) => current.filter((invite) => invite.id !== inviteId));
+      setPublicProfileState(null);
+      setBattlefieldMenuOpen(true);
+      setActiveTab("Battlefield Matchmaking");
+      addToast(action === "accept" ? "Party invite accepted." : "Party invite declined.", action === "accept" ? "success" : "info");
+    } catch (error: any) {
+      console.error("Failed to respond to global party invite:", error);
+      addToast(error?.message || "Failed to respond to party invite.", "error");
+    } finally {
+      setGlobalPartyInviteActionId(null);
+    }
+  };
 
   const handleNotificationClick = async (notice: AppNotification) => {
     try {
@@ -435,7 +530,8 @@ export default function App() {
       setSocialRefreshNonce((current) => current + 1);
     } else if (notice.link_target === "/battlefield" || notice.notice_type === "party_invite" || notice.notice_type === "party_invite_response") {
       setPublicProfileState(null);
-      setActiveTab("Battlefield");
+      setBattlefieldMenuOpen(true);
+      setActiveTab("Battlefield Matchmaking");
     } else if (notice.link_target === "/squad-hub") {
       setActiveTab("Squad Hub");
     }
@@ -809,6 +905,73 @@ export default function App() {
           </main>
         </div>
       ))}
+
+      <AnimatePresence>
+        {primaryGlobalPartyInvite && (
+          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              className="relative z-10 w-full max-w-3xl overflow-hidden rounded-[32px] border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))] p-8 shadow-[0_30px_120px_rgba(0,0,0,0.55)]"
+            >
+              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+                <Bell size={14} />
+                Party Invite Received
+              </div>
+              <div className="mt-6 flex flex-col items-center text-center">
+                <img
+                  src={globalPartyInviteProfiles[primaryGlobalPartyInvite.host_user_id]?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(globalPartyInviteProfiles[primaryGlobalPartyInvite.host_user_id]?.username || "Player")}&background=1f2937&color=ffffff&size=160`}
+                  alt={globalPartyInviteProfiles[primaryGlobalPartyInvite.host_user_id]?.username || "Player"}
+                  className="h-24 w-24 rounded-3xl border-4 border-white/10 object-cover shadow-[0_0_35px_rgba(59,130,246,0.18)]"
+                />
+                <h3 className="mt-6 text-4xl font-display font-bold uppercase tracking-wide text-white">
+                  {globalPartyInviteProfiles[primaryGlobalPartyInvite.host_user_id]?.username || "A teammate"} invited you
+                </h3>
+                <p className="mt-3 max-w-2xl text-base text-esport-text-muted">
+                  Join this party now and head straight into Battlefield matchmaking with your squad.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                  <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+                    {primaryGlobalPartyInvite.team_size}v{primaryGlobalPartyInvite.team_size}
+                  </div>
+                  <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+                    {Number(primaryGlobalPartyInvite.stake_amount)} USDT
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+                    {primaryGlobalPartyInvite.mode}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={globalPartyInviteActionId === primaryGlobalPartyInvite.id}
+                  onClick={() => void respondToGlobalPartyInvite(primaryGlobalPartyInvite.id, "accept")}
+                  className="rounded-2xl bg-esport-success px-6 py-4 text-lg font-bold uppercase tracking-[0.18em] text-black transition-transform hover:scale-[1.01] disabled:opacity-50"
+                >
+                  Accept Invite
+                </button>
+                <button
+                  type="button"
+                  disabled={globalPartyInviteActionId === primaryGlobalPartyInvite.id}
+                  onClick={() => void respondToGlobalPartyInvite(primaryGlobalPartyInvite.id, "decline")}
+                  className="rounded-2xl border border-esport-danger/35 bg-esport-danger/10 px-6 py-4 text-lg font-bold uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-esport-danger/60 disabled:opacity-50"
+                >
+                  Decline
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Toast System */}
       <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-3">
