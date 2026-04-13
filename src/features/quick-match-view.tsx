@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { quickQueueAcceptMatch, quickQueueCancel, quickQueueJoinOrMatch, type QuickQueueStatus } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
+import { playMatchFoundSound } from "../lib/sound";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -132,6 +133,21 @@ export function BattlefieldView({
     const interval = window.setInterval(() => {
       setSearchTime((prev) => prev + 1);
     }, 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [matchState]);
+
+  useEffect(() => {
+    if (matchState !== "ready_check") {
+      return;
+    }
+
+    playMatchFoundSound();
+    const interval = window.setInterval(() => {
+      playMatchFoundSound();
+    }, 2200);
+
     return () => {
       window.clearInterval(interval);
     };

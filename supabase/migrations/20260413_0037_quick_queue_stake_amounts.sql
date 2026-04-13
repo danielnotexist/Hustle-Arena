@@ -389,8 +389,8 @@ begin
 
   select *
   into v_ready_check
-  from public.quick_queue_ready_checks
-  where id = p_ready_check_id
+  from public.quick_queue_ready_checks rc
+  where rc.id = p_ready_check_id
   for update;
 
   if not found then
@@ -399,9 +399,9 @@ begin
 
   if not exists (
     select 1
-    from public.quick_queue_ready_check_members
-    where ready_check_id = p_ready_check_id
-      and user_id = v_user_id
+    from public.quick_queue_ready_check_members m
+    where m.ready_check_id = p_ready_check_id
+      and m.user_id = v_user_id
   ) then
     raise exception 'You are not part of this ready check';
   end if;
@@ -447,16 +447,16 @@ begin
   end if;
 
   if v_ready_check.expires_at <= now() then
-    update public.quick_queue_ready_checks
+    update public.quick_queue_ready_checks rc
     set status = 'expired'
-    where id = p_ready_check_id;
+    where rc.id = p_ready_check_id;
 
-    update public.quick_queue_entries
+    update public.quick_queue_entries q
     set status = 'searching',
         matched_lobby_id = null,
         ready_check_id = null,
         updated_at = now()
-    where ready_check_id = p_ready_check_id;
+    where q.ready_check_id = p_ready_check_id;
 
     return query
     select
@@ -475,22 +475,22 @@ begin
   perform pg_advisory_xact_lock(hashtext(format('quick-ready-check:%s', p_ready_check_id::text)));
 
   if not p_accept then
-    update public.quick_queue_ready_checks
+    update public.quick_queue_ready_checks rc
     set status = 'cancelled',
         completed_at = now()
-    where id = p_ready_check_id;
+    where rc.id = p_ready_check_id;
 
-    update public.quick_queue_entries
+    update public.quick_queue_entries q
     set status = 'searching',
         matched_lobby_id = null,
         ready_check_id = null,
         updated_at = now()
-    where ready_check_id = p_ready_check_id;
+    where q.ready_check_id = p_ready_check_id;
 
-    update public.quick_queue_entries
+    update public.quick_queue_entries q
     set status = 'cancelled',
         updated_at = now()
-    where user_id = v_user_id;
+    where q.user_id = v_user_id;
 
     return query
     select
@@ -506,10 +506,10 @@ begin
     return;
   end if;
 
-  update public.quick_queue_ready_check_members
-  set accepted_at = coalesce(accepted_at, now())
-  where ready_check_id = p_ready_check_id
-    and user_id = v_user_id;
+  update public.quick_queue_ready_check_members m
+  set accepted_at = coalesce(m.accepted_at, now())
+  where m.ready_check_id = p_ready_check_id
+    and m.user_id = v_user_id;
 
   select
     coalesce(array_agg(m.user_id order by m.created_at), '{}'::uuid[]),
@@ -561,19 +561,19 @@ begin
         left_at = null,
         kicked_at = null;
 
-    update public.quick_queue_ready_checks
+    update public.quick_queue_ready_checks rc
     set status = 'completed',
         lobby_id = v_lobby.id,
         owner_user_id = v_owner_user_id,
         completed_at = now()
-    where id = p_ready_check_id;
+    where rc.id = p_ready_check_id;
 
-    update public.quick_queue_entries
+    update public.quick_queue_entries q
     set status = 'matched',
         matched_lobby_id = v_lobby.id,
         ready_check_id = p_ready_check_id,
         updated_at = now()
-    where user_id = any(v_participant_ids);
+    where q.user_id = any(v_participant_ids);
 
     return query
     select

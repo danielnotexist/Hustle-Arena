@@ -48,3 +48,12 @@ export function playNotificationSound() {
     { freq: 1240, duration: 0.18, delay: 0.16, gain: 0.03 },
   ]);
 }
+
+export function playMatchFoundSound() {
+  playToneSequence([
+    { freq: 523.25, duration: 0.24, delay: 0, gain: 0.05 },
+    { freq: 659.25, duration: 0.24, delay: 0.16, gain: 0.05 },
+    { freq: 783.99, duration: 0.3, delay: 0.32, gain: 0.055 },
+    { freq: 1046.5, duration: 0.5, delay: 0.5, gain: 0.05 },
+  ]);
+}
