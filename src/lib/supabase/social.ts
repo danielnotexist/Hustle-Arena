@@ -55,6 +55,16 @@ export interface PublicProfileDetails extends PublicProfileBasic {
   level?: number | null;
 }
 
+export interface PublicApexLeaderboardEntry {
+  user_id: string;
+  username: string | null;
+  avatar_url?: string | null;
+  rank?: string | null;
+  win_rate?: string | null;
+  level?: number | null;
+  combat_rating?: number | null;
+}
+
 export async function fetchPublicProfileBasics(userIds: string[]) {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
   if (!uniqueUserIds.length) {
@@ -106,6 +116,18 @@ export async function fetchPublicProfileDetails(userId: string) {
 
   const row = Array.isArray(data) ? data[0] : data;
   return (row as PublicProfileDetails | null) || null;
+}
+
+export async function fetchPublicApexLeaderboard(limit = 10) {
+  const { data, error } = await supabase.rpc("get_public_apex_leaderboard", {
+    p_limit: limit,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []) as PublicApexLeaderboardEntry[];
 }
 
 export interface AppNotification {

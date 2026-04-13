@@ -4,6 +4,7 @@ import { Activity, CheckCircle2, ChevronDown, Clock, Crown, Download, FileVideo,
 import React, { useEffect, useState } from "react";
 import { collection, db, getDocs, limit, orderBy, query } from "../firebase";
 import { isSupabaseConfigured } from "../lib/env";
+import { fetchPublicApexLeaderboard } from "../lib/supabase/social";
 import type { Mission, UserStats } from "./types";
 import { DynamicImage } from "./landing-auth";
 
@@ -14,8 +15,27 @@ export function ApexListView() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       if (isSupabaseConfigured()) {
-        setPlayers([]);
-        setLoading(false);
+        try {
+          const rows = await fetchPublicApexLeaderboard(10);
+          const leaderboardData = rows.map((player, index) => ({
+            rank: index + 1,
+            name: player.username || `Player ${player.user_id.slice(0, 8)}`,
+            elo: Math.round(Number(player.combat_rating || 0)).toLocaleString(),
+            level: player.level || 1,
+            winRate: player.win_rate || "0%",
+            avatar:
+              player.avatar_url ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(player.username || "Player")}&background=random`,
+            ladderRank: player.rank || "Unranked",
+          }));
+
+          setPlayers(leaderboardData);
+        } catch (error) {
+          console.error("Supabase leaderboard fetch failed:", error);
+          setPlayers([]);
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
@@ -66,22 +86,26 @@ export function ApexListView() {
         <div className="esport-card p-12 text-center text-esport-text-muted">No data available yet.</div>
       ) : (
         <div className="esport-card overflow-hidden">
-          <div className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
+          <div className="grid grid-cols-[80px_1fr_140px_120px_120px] p-6 border-b border-esport-border text-[10px] font-bold uppercase tracking-widest text-esport-text-muted">
             <div className="px-4">Rank</div>
             <div>Player</div>
+            <div className="text-center">Tier</div>
             <div className="text-center">Win Rate</div>
             <div className="text-center">Level</div>
             <div className="text-right px-4">Combat Rating</div>
           </div>
           <div className="divide-y divide-esport-border">
             {players.map(player => (
-              <div key={player.rank} className="grid grid-cols-[80px_1fr_120px_120px_120px] p-6 items-center hover:bg-white/5 transition-colors group cursor-pointer">
+              <div key={player.rank} className="grid grid-cols-[80px_1fr_140px_120px_120px] p-6 items-center hover:bg-white/5 transition-colors group cursor-pointer">
                 <div className="px-4 font-display font-bold text-2xl italic text-esport-text-muted group-hover:text-esport-accent transition-colors">
                   {player.rank === 1 ? <Crown className="text-esport-secondary" size={24} /> : `#${player.rank}`}
                 </div>
                 <div className="flex items-center gap-4">
                   <img src={player.avatar} className="w-10 h-10 rounded-full border-2 border-esport-border group-hover:border-esport-accent transition-colors" />
                   <span className="font-bold text-sm group-hover:text-esport-accent transition-colors">{player.name}</span>
+                </div>
+                <div className="text-center">
+                  <span className="badge bg-white/10 text-white">{player.ladderRank}</span>
                 </div>
                 <div className="text-center text-xs font-bold text-esport-success">{player.winRate}</div>
                 <div className="text-center">
