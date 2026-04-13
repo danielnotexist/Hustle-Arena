@@ -60,6 +60,9 @@ export function BattlefieldView({
   const presenceChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
   const seenPartyInviteStatusesRef = useRef<Record<number, string>>({});
+  const queueRequestVersionRef = useRef(0);
+  const cancelInFlightRef = useRef(false);
+  const suppressAutoQueueUntilRef = useRef(0);
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
   const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
@@ -373,7 +376,12 @@ export function BattlefieldView({
       return;
     }
 
+    if (cancelInFlightRef.current || suppressAutoQueueUntilRef.current > Date.now()) {
+      return;
+    }
+
     let cancelled = false;
+    const requestVersion = queueRequestVersionRef.current;
 
     const syncGuestPartyQueue = async () => {
       try {
@@ -403,7 +411,11 @@ export function BattlefieldView({
         }
 
         const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, "party", selectedStakeAmount);
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          !cancelInFlightRef.current &&
+          requestVersion === queueRequestVersionRef.current
+        ) {
           applyQueueStatus(nextStatus);
         }
       } catch (error) {
@@ -592,6 +604,7 @@ export function BattlefieldView({
   };
 
   const resetQuickQueueState = (nextState: "idle" | "searching" = "idle") => {
+    queueRequestVersionRef.current += 1;
     setMatchState(nextState);
     setSearchTime(0);
     setPlayersJoined(0);
@@ -622,10 +635,15 @@ export function BattlefieldView({
       return;
     }
     try {
+      cancelInFlightRef.current = false;
+      suppressAutoQueueUntilRef.current = 0;
+      const requestVersion = ++queueRequestVersionRef.current;
       setSearchTime(0);
       setMatchState("searching");
       const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
-      applyQueueStatus(status);
+      if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
+        applyQueueStatus(status);
+      }
       addToast("Searching for real players in queue...", "info");
     } catch (error: any) {
       console.error(error);
@@ -754,12 +772,22 @@ export function BattlefieldView({
   };
 
   const cancelSearch = async () => {
+    cancelInFlightRef.current = true;
+    suppressAutoQueueUntilRef.current = Date.now() + 4000;
+    if (pollingRef.current) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    resetQuickQueueState("idle");
     try {
       await quickQueueCancel(accountMode);
     } catch (error) {
       console.error("Failed to cancel quick queue:", error);
+    } finally {
+      window.setTimeout(() => {
+        cancelInFlightRef.current = false;
+      }, 250);
     }
-    resetQuickQueueState("idle");
   };
 
   useEffect(() => {
@@ -774,8 +802,11 @@ export function BattlefieldView({
     const poll = async () => {
       try {
         if (!selectedStakeAmount) return;
+        const requestVersion = queueRequestVersionRef.current;
         const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
-        applyQueueStatus(nextStatus);
+        if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
+          applyQueueStatus(nextStatus);
+        }
       } catch (error) {
         console.error("Quick queue poll failed:", error);
       }
