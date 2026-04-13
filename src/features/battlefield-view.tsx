@@ -102,7 +102,14 @@ const getMemberDisplayName = (member: MatchmakingLobbyMember) => {
   return `Player ${member.user_id.slice(0, 8)}`;
 };
 
-const getMemberAvatarUrl = (member: MatchmakingLobbyMember) => {
+const getMemberAvatarUrl = (
+  member: MatchmakingLobbyMember,
+  currentUserId?: string,
+  currentUserAvatarUrl?: string | null
+) => {
+  if (currentUserId && member.user_id === currentUserId && currentUserAvatarUrl) {
+    return currentUserAvatarUrl;
+  }
   if (member.profiles?.avatar_url) {
     return member.profiles.avatar_url;
   }
@@ -128,6 +135,7 @@ function TeamBoard({
   members,
   capacity,
   currentUserId,
+  currentUserAvatarUrl,
   leaderId,
   teamSide,
   isCurrentTeam,
@@ -143,6 +151,7 @@ function TeamBoard({
   members: MatchmakingLobbyMember[];
   capacity: number;
   currentUserId?: string;
+  currentUserAvatarUrl?: string | null;
   leaderId?: string;
   teamSide: TeamSide;
   isCurrentTeam: boolean;
@@ -173,7 +182,7 @@ function TeamBoard({
           <div key={member.user_id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <img
-                src={getMemberAvatarUrl(member)}
+                src={getMemberAvatarUrl(member, currentUserId, currentUserAvatarUrl)}
                 alt={getMemberDisplayName(member)}
                 className="h-8 w-8 rounded-lg border border-white/15 object-cover"
               />
@@ -1041,12 +1050,12 @@ export function CustomLobbyView({
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{isLeader ? "My" : "Joined"} {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
                   <h3 className="text-2xl font-display font-bold uppercase">{activeLobby.name}</h3>
                   <div className="text-xs text-esport-text-muted mt-1">{formatMode(activeLobby.game_mode)} · {activeLobby.team_size}v{activeLobby.team_size} · Stake {Number(activeLobby.stake_amount).toFixed(2)} USDT</div>
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-400/10 px-2.5 py-1">
-                    <img
-                      src={lobbyOwnerMember ? getMemberAvatarUrl(lobbyOwnerMember) : `https://ui-avatars.com/api/?name=${encodeURIComponent(lobbyOwnerLabel)}&background=1f2937&color=ffffff&size=64`}
-                      alt={lobbyOwnerLabel}
-                      className="h-6 w-6 rounded-full border border-amber-200/50 object-cover"
-                    />
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber-300/35 bg-amber-400/10 px-2.5 py-1">
+                      <img
+                        src={lobbyOwnerMember ? getMemberAvatarUrl(lobbyOwnerMember, user?.id, user?.avatarUrl) : `https://ui-avatars.com/api/?name=${encodeURIComponent(lobbyOwnerLabel)}&background=1f2937&color=ffffff&size=64`}
+                        alt={lobbyOwnerLabel}
+                        className="h-6 w-6 rounded-full border border-amber-200/50 object-cover"
+                      />
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200">Owner</span>
                     <span className="text-sm font-bold text-white">{lobbyOwnerLabel}</span>
                   </div>
@@ -1064,11 +1073,11 @@ export function CustomLobbyView({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} capacity={activeLobby.team_size} currentUserId={user?.id} leaderId={activeLobby.leader_id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
-                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} leaderId={activeLobby.leader_id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
+                <TeamBoard title="Terrorists" accentClass="border-[#ff5e7b]/40 bg-[#ff5e7b]/10" members={tMembers} capacity={activeLobby.team_size} currentUserId={user?.id} currentUserAvatarUrl={user?.avatarUrl || null} leaderId={activeLobby.leader_id} teamSide="T" isCurrentTeam={myMembership?.team_side === "T"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
+                <TeamBoard title="Counter-Terrorists" accentClass="border-[#30d5ff]/40 bg-[#30d5ff]/10" members={ctMembers} capacity={activeLobby.team_size} currentUserId={user?.id} currentUserAvatarUrl={user?.avatarUrl || null} leaderId={activeLobby.leader_id} teamSide="CT" isCurrentTeam={myMembership?.team_side === "CT"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
               </div>
 
-              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} leaderId={activeLobby.leader_id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
+              <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} currentUserAvatarUrl={user?.avatarUrl || null} leaderId={activeLobby.leader_id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
 
               <div className="flex flex-wrap gap-2">
                 <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
