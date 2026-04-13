@@ -40,6 +40,7 @@ import { playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
+  ArenaTVView,
   ApexListView,
   AuthForm,
   BattlefieldView,
@@ -51,7 +52,7 @@ import {
   LandingPage,
   MissionsView,
   NeuralMapView,
-  PulseView,
+  ForumsView,
   SocialView,
   SidebarItem,
   SquadHubView,
@@ -76,7 +77,7 @@ const VALID_TABS = new Set([
   "Neural Map",
   "Missions",
   "Vault",
-  "Pulse",
+  "Forums",
   "Arena TV",
   "Arena Guard",
   "Hustle Prime",
@@ -168,7 +169,7 @@ export default function App() {
     { id: "Apex List", icon: <Trophy size={20} />, label: "Apex List" },
     { id: "Neural Map", icon: <Activity size={20} />, label: "Neural Map" },
     { id: "Arena TV", icon: <PlayCircle size={20} />, label: "Arena TV" },
-    { id: "Pulse", icon: <Zap size={20} />, label: "Pulse" },
+    { id: "Forums", icon: <Zap size={20} />, label: "Forums" },
     { id: "Wallet", icon: <Wallet size={20} />, label: "Wallet", highlight: true },
   ];
 
@@ -707,8 +708,8 @@ export default function App() {
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
                     {activeTab === "Vault" && <VaultView addToast={addToast} />}
-                    {activeTab === "Pulse" && <PulseView />}
-                    {activeTab === "Arena TV" && <PulseView isAdmin={isAdmin} user={user} />}
+                    {activeTab === "Forums" && <ForumsView />}
+                    {activeTab === "Arena TV" && <ArenaTVView isAdmin={isAdmin} user={user} />}
                     {activeTab === "Arena Guard" && <SyndicatesView addToast={addToast} />}
                     {activeTab === "Hustle Prime" && <HustlePrimeView />}
                     {activeTab === "Dashboard" && <DashboardView stats={stats} />}

@@ -357,7 +357,121 @@ export function VaultView({ addToast }: any) {
   );
 }
 
-export function PulseView({ isAdmin = false, user }: { isAdmin?: boolean; user?: any }) {
+export function ForumsView() {
+  const forumCategories = [
+    { id: "announcements", name: "Announcements", description: "Official updates, patch notes, and platform news.", threads: 12, accent: "text-esport-accent" },
+    { id: "matchmaking", name: "Matchmaking", description: "Queue issues, lobby talk, and team-finding threads.", threads: 28, accent: "text-esport-success" },
+    { id: "clips", name: "Clips & Highlights", description: "Share aces, clutch rounds, and Arena TV-worthy moments.", threads: 41, accent: "text-esport-secondary" },
+  ];
+
+  const latestThreads = [
+    { title: "Season 4 feedback thread", category: "Announcements", author: "ArenaStaff", replies: 18, lastReply: "5m ago" },
+    { title: "Looking for 2 wingman grinders tonight", category: "Matchmaking", author: "mamtter123", replies: 7, lastReply: "12m ago" },
+    { title: "Post your best clutch from this week", category: "Clips & Highlights", author: "AWP_JESUS", replies: 24, lastReply: "21m ago" },
+    { title: "Competitive 5v5 map rotation thoughts", category: "Matchmaking", author: "toxicbik3r", replies: 11, lastReply: "34m ago" },
+  ];
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-8">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Forums</h3>
+          <p className="text-sm text-esport-text-muted">Simple community boards for updates, team finding, and clips.</p>
+        </div>
+        <button className="esport-btn-primary px-6 py-3 text-xs uppercase tracking-[0.2em]">Start New Thread</button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
+        <div className="space-y-4">
+          {forumCategories.map((category) => (
+            <div key={category.id} className="esport-card p-5 border border-esport-border hover:border-white/20 transition-colors cursor-pointer">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className={`text-lg font-display font-bold uppercase ${category.accent}`}>{category.name}</div>
+                  <div className="mt-2 text-sm text-esport-text-muted">{category.description}</div>
+                </div>
+                <div className="rounded-xl border border-esport-border bg-white/5 px-4 py-2 text-center min-w-[92px]">
+                  <div className="text-lg font-bold text-white">{category.threads}</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Threads</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="esport-card p-5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Create Thread</div>
+          <div className="mt-4 space-y-3">
+            <input
+              placeholder="Thread title"
+              className="w-full rounded-xl border border-esport-border bg-white/5 px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+            />
+            <select className="w-full rounded-xl border border-esport-border bg-white/5 px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50">
+              <option>Announcements</option>
+              <option>Matchmaking</option>
+              <option>Clips & Highlights</option>
+            </select>
+            <textarea
+              placeholder="Write your post..."
+              className="min-h-[160px] w-full rounded-xl border border-esport-border bg-white/5 px-4 py-3 text-sm resize-none focus:outline-none focus:border-esport-accent/50"
+            />
+            <button className="esport-btn-secondary w-full py-3 text-xs uppercase tracking-[0.2em]">Publish Thread</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="esport-card overflow-hidden">
+        <div className="grid grid-cols-[1.6fr_140px_120px_120px] border-b border-esport-border p-4 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">
+          <div>Latest Discussions</div>
+          <div className="text-center">Category</div>
+          <div className="text-center">Replies</div>
+          <div className="text-right">Last Reply</div>
+        </div>
+        <div className="divide-y divide-esport-border">
+          {latestThreads.map((thread) => (
+            <div key={thread.title} className="grid grid-cols-[1.6fr_140px_120px_120px] items-center p-4 hover:bg-white/5 transition-colors cursor-pointer">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-white">{thread.title}</div>
+                <div className="mt-1 text-[11px] text-esport-text-muted">Started by {thread.author}</div>
+              </div>
+              <div className="text-center">
+                <span className="badge bg-white/10 text-white">{thread.category}</span>
+              </div>
+              <div className="text-center text-sm font-bold text-esport-accent">{thread.replies}</div>
+              <div className="text-right text-xs text-esport-text-muted">{thread.lastReply}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="esport-card p-5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Pinned Topic</div>
+          <div className="mt-3 text-lg font-display font-bold uppercase">Forum Rules</div>
+          <div className="mt-2 text-sm text-esport-text-muted">Keep posts clean, relevant, and respectful to keep the boards useful.</div>
+        </div>
+        <div className="esport-card p-5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-success">Popular Right Now</div>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="text-white">5v5 Team Finder</div>
+            <div className="text-white">Season 4 Suggestions</div>
+            <div className="text-white">Best Wingman Clips</div>
+          </div>
+        </div>
+        <div className="esport-card p-5">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-secondary">Forum Stats</div>
+          <div className="mt-3 space-y-2 text-sm text-esport-text-muted">
+            <div className="flex justify-between"><span>Total Threads</span><span className="font-bold text-white">81</span></div>
+            <div className="flex justify-between"><span>Online Readers</span><span className="font-bold text-white">24</span></div>
+            <div className="flex justify-between"><span>New Today</span><span className="font-bold text-white">9</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ArenaTVView({ isAdmin = false, user }: { isAdmin?: boolean; user?: any }) {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {isAdmin ? (
