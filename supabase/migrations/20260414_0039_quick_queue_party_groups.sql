@@ -216,7 +216,7 @@ begin
     and q.selected_stake_amount = v_safe_stake
     and q.status = 'searching';
 
-  if v_existing_search_count > 0 then
+  if v_existing_search_count > 0 and v_is_party_guest then
     select count(*) + 1
     into v_queue_position
     from public.quick_queue_entries q
@@ -241,42 +241,44 @@ begin
     return;
   end if;
 
-  if v_is_party_guest then
-    return query
-    select
-      'searching'::text,
-      null::uuid,
-      v_party_size,
-      greatest(v_required_players - v_party_size, 0),
-      8,
-      null::uuid,
-      0,
-      '{}'::uuid[],
-      '{}'::uuid[];
-    return;
-  end if;
+  if v_existing_search_count = 0 then
+    if v_is_party_guest then
+      return query
+      select
+        'searching'::text,
+        null::uuid,
+        v_party_size,
+        greatest(v_required_players - v_party_size, 0),
+        8,
+        null::uuid,
+        0,
+        '{}'::uuid[],
+        '{}'::uuid[];
+      return;
+    end if;
 
-  insert into public.quick_queue_entries (user_id, mode, team_size, queue_mode, status, matched_lobby_id, ready_check_id, selected_stake_amount, updated_at)
-  select
-    participant_user_id,
-    p_mode,
-    p_team_size,
-    v_queue_mode,
-    'searching',
-    null,
-    null,
-    v_safe_stake,
-    now()
-  from unnest(v_party_user_ids) as participant_user_id
-  on conflict (user_id) do update
-  set mode = excluded.mode,
-      team_size = excluded.team_size,
-      queue_mode = excluded.queue_mode,
-      status = 'searching',
-      matched_lobby_id = null,
-      ready_check_id = null,
-      selected_stake_amount = excluded.selected_stake_amount,
-      updated_at = now();
+    insert into public.quick_queue_entries (user_id, mode, team_size, queue_mode, status, matched_lobby_id, ready_check_id, selected_stake_amount, updated_at)
+    select
+      participant_user_id,
+      p_mode,
+      p_team_size,
+      v_queue_mode,
+      'searching',
+      null,
+      null,
+      v_safe_stake,
+      now()
+    from unnest(v_party_user_ids) as participant_user_id
+    on conflict (user_id) do update
+    set mode = excluded.mode,
+        team_size = excluded.team_size,
+        queue_mode = excluded.queue_mode,
+        status = 'searching',
+        matched_lobby_id = null,
+        ready_check_id = null,
+        selected_stake_amount = excluded.selected_stake_amount,
+        updated_at = now();
+  end if;
 
   perform pg_advisory_xact_lock(hashtext(format('quick-queue:%s:%s:%s:%s', p_mode::text, p_team_size, v_queue_mode, v_safe_stake)));
 
