@@ -1102,6 +1102,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       setThreadMessages((current) =>
         current.some((entry) => entry.id === data.id) ? current : [...current, data as any]
       );
+      playChatMessageSound();
     }
 
     setMessageDraft('');

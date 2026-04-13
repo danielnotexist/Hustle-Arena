@@ -40,6 +40,7 @@ import {
 } from "../lib/supabase/matchmaking";
 import { sendFriendRequest } from "../lib/supabase/social";
 import { supabase } from "../lib/supabase";
+import { playChatMessageSound } from "../lib/sound";
 import type { AccountMode } from "./types";
 import { KYCForm } from "./landing-auth";
 import { cn } from "./shared-ui";
@@ -791,6 +792,7 @@ export function CustomLobbyView({
     if (!activeLobby || !chatDraft.trim()) return;
     try {
       await sendLobbyMessage(activeLobby.id, chatDraft);
+      playChatMessageSound();
       setChatDraft("");
       await loadState();
     } catch (error: any) {
