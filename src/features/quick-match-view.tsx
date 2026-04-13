@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, Lock, Search, Server, ShieldAlert, Sword, Target, 
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
+  fetchMyQuickQueueStatus,
   fetchQuickQueuePartyInvites,
   quickQueueAcceptMatch,
   quickQueueCancel,
@@ -372,7 +373,7 @@ export function BattlefieldView({
   }, [addToast, partyInviteProfiles, partyInvites, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !isPartyInviteGuest || !acceptedIncomingPartyInvite || matchState !== "idle" || !selectedStakeAmount) {
+    if (!user?.id || matchState === "connecting") {
       return;
     }
 
@@ -383,132 +384,41 @@ export function BattlefieldView({
     let cancelled = false;
     const requestVersion = queueRequestVersionRef.current;
 
-    const syncGuestPartyQueue = async () => {
+    const syncQueueStateFromBackend = async () => {
       try {
-        const { data, error } = await supabase
-          .from("quick_queue_entries")
-          .select("user_id, status, updated_at")
-          .in("user_id", [user.id, acceptedIncomingPartyInvite.host_user_id])
-          .eq("mode", accountMode)
-          .eq("team_size", selectedTeamSize)
-          .eq("queue_mode", "party")
-          .eq("selected_stake_amount", selectedStakeAmount)
-          .in("status", ["searching", "ready_check", "matched"])
-          .order("updated_at", { ascending: false });
-
-        if (error || !data?.length) {
-          if (error) {
-            console.error("Failed to sync guest party queue state:", error);
-          }
+        const status = await fetchMyQuickQueueStatus(accountMode);
+        if (!status) {
           return;
         }
 
-        const hostEntry = data.find((entry) => entry.user_id === acceptedIncomingPartyInvite.host_user_id);
-        const guestEntry = data.find((entry) => entry.user_id === user.id);
-
-        if (!hostEntry && !guestEntry) {
-          return;
-        }
-
-        const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, "party", selectedStakeAmount);
-        if (
-          !cancelled &&
-          !cancelInFlightRef.current &&
-          requestVersion === queueRequestVersionRef.current
-        ) {
-          applyQueueStatus(nextStatus);
-        }
-      } catch (error) {
-        console.error("Failed to hydrate guest party queue state:", error);
-      }
-    };
-
-    void syncGuestPartyQueue();
-    const interval = window.setInterval(() => {
-      void syncGuestPartyQueue();
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [acceptedIncomingPartyInvite, accountMode, isPartyInviteGuest, matchState, selectedStakeAmount, selectedTeamSize, user?.id]);
-
-  useEffect(() => {
-    if (!user?.id || !selectedStakeAmount) {
-      return;
-    }
-
-    if (matchState === "ready_check" || matchState === "connecting") {
-      return;
-    }
-
-    if (cancelInFlightRef.current || suppressAutoQueueUntilRef.current > Date.now()) {
-      return;
-    }
-
-    let cancelled = false;
-    const requestVersion = queueRequestVersionRef.current;
-
-    const syncQueueStateFromEntry = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("quick_queue_entries")
-          .select("mode, team_size, queue_mode, status, selected_stake_amount")
-          .eq("user_id", user.id)
-          .eq("mode", accountMode)
-          .in("status", ["searching", "ready_check", "matched"])
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error || !data) {
-          if (error) {
-            console.error("Failed to sync queue entry state:", error);
-          }
-          return;
-        }
-
-        const entryStakeAmount = Number(data.selected_stake_amount || 0);
-        if (!entryStakeAmount) {
-          return;
-        }
-
-        const entryMatchType = data.team_size === 2 ? "ranked_2v2" : "ranked_5v5";
-        const entryQueueMode = data.queue_mode === "party" ? "party" : "solo";
-
-        if (matchType !== entryMatchType) {
-          setMatchType(entryMatchType);
-        }
-        if (queueMode !== entryQueueMode) {
-          setQueueMode(entryQueueMode);
-        }
-        if (selectedStakeAmount !== entryStakeAmount) {
-          setSelectedStakeAmount(entryStakeAmount);
-        }
-
-        const nextStatus = await quickQueueJoinOrMatch(
-          accountMode,
-          data.team_size as 2 | 5,
-          entryQueueMode,
-          entryStakeAmount
-        );
+        const backendStakeAmount = Number(status.stake_amount || 0);
+        const backendMatchType = status.team_size === 2 ? "ranked_2v2" : "ranked_5v5";
+        const backendQueueMode = status.queue_mode === "party" ? "party" : "solo";
 
         if (
           !cancelled &&
           !cancelInFlightRef.current &&
           requestVersion === queueRequestVersionRef.current
         ) {
-          applyQueueStatus(nextStatus);
+          if (backendStakeAmount && selectedStakeAmount !== backendStakeAmount) {
+            setSelectedStakeAmount(backendStakeAmount);
+          }
+          if (matchType !== backendMatchType) {
+            setMatchType(backendMatchType);
+          }
+          if (queueMode !== backendQueueMode) {
+            setQueueMode(backendQueueMode);
+          }
+          applyQueueStatus(status);
         }
       } catch (error) {
-        console.error("Failed to hydrate queue state from entry:", error);
+        console.error("Failed to sync quick queue state from backend:", error);
       }
     };
 
-    void syncQueueStateFromEntry();
+    void syncQueueStateFromBackend();
     const interval = window.setInterval(() => {
-      void syncQueueStateFromEntry();
+      void syncQueueStateFromBackend();
     }, 1000);
 
     return () => {

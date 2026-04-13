@@ -141,6 +141,12 @@ export interface QuickQueueStatus {
   accepted_user_ids?: string[];
 }
 
+export interface MyQuickQueueStatus extends QuickQueueStatus {
+  team_size: 2 | 5;
+  queue_mode: "solo" | "party";
+  stake_amount: number;
+}
+
 export interface QuickQueuePartyInvite {
   id: number;
   host_user_id: string;
@@ -730,6 +736,19 @@ export async function quickQueueCancel(mode: LobbyMode) {
   if (error) {
     throw error;
   }
+}
+
+export async function fetchMyQuickQueueStatus(mode: LobbyMode) {
+  const { data, error } = await supabase.rpc("get_my_quick_queue_status", {
+    p_mode: mode,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row || null) as MyQuickQueueStatus | null;
 }
 
 export async function fetchQuickQueuePartyInvites(userId: string) {
