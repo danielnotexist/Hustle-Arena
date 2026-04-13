@@ -99,6 +99,7 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
+  const [hasSupabaseSession, setHasSupabaseSession] = useState(false);
   const {
     isLoggedIn,
     isAdmin,
@@ -118,20 +119,27 @@ export default function App() {
   useEffect(() => {
     if (!shouldUseSupabase) {
       setAuthBootstrapComplete(true);
+      setHasSupabaseSession(false);
       return;
     }
 
     let isCancelled = false;
-    void supabase.auth
-      .getSession()
-      .finally(() => {
-        if (!isCancelled) {
-          setAuthBootstrapComplete(true);
-        }
-      });
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!isCancelled) {
+        setHasSupabaseSession(!!data.session?.user);
+        setAuthBootstrapComplete(true);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isCancelled) {
+        setHasSupabaseSession(!!session?.user);
+      }
+    });
 
     return () => {
       isCancelled = true;
+      authListener.subscription.unsubscribe();
     };
   }, [shouldUseSupabase]);
 
@@ -175,7 +183,7 @@ export default function App() {
   useEffect(() => {
     if (user) {
       setView("dashboard");
-      if (previousUserIdRef.current !== user.id) {
+      if (previousUserIdRef.current && previousUserIdRef.current !== user.id) {
         addToast(`Welcome back, ${user.username}!`, "success");
       }
       previousUserIdRef.current = user.id;
@@ -187,9 +195,13 @@ export default function App() {
       return;
     }
 
+    if (shouldUseSupabase && hasSupabaseSession) {
+      return;
+    }
+
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user, authBootstrapComplete]);
+  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

@@ -458,8 +458,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const socialRealtimeChannelRef = useRef<any>(null);
   const typingRealtimeChannelRef = useRef<any>(null);
-  const typingStopTimeoutRef = useRef<number | null>(null);
-  const remoteTypingClearTimeoutRef = useRef<number | null>(null);
   const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
@@ -690,10 +688,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
   useEffect(() => {
     setIsSelectedFriendTyping(false);
-    if (remoteTypingClearTimeoutRef.current) {
-      window.clearTimeout(remoteTypingClearTimeoutRef.current);
-      remoteTypingClearTimeoutRef.current = null;
-    }
   }, [selectedFriendId]);
 
   useEffect(() => {
@@ -719,12 +713,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
         if (isTyping) {
           setIsSelectedFriendTyping(true);
-          if (remoteTypingClearTimeoutRef.current) {
-            window.clearTimeout(remoteTypingClearTimeoutRef.current);
-          }
-          remoteTypingClearTimeoutRef.current = window.setTimeout(() => {
-            setIsSelectedFriendTyping(false);
-          }, 1800);
         } else {
           setIsSelectedFriendTyping(false);
         }
@@ -734,14 +722,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     typingRealtimeChannelRef.current = channel;
 
     return () => {
-      if (typingStopTimeoutRef.current) {
-        window.clearTimeout(typingStopTimeoutRef.current);
-        typingStopTimeoutRef.current = null;
-      }
-      if (remoteTypingClearTimeoutRef.current) {
-        window.clearTimeout(remoteTypingClearTimeoutRef.current);
-        remoteTypingClearTimeoutRef.current = null;
-      }
       if (typingRealtimeChannelRef.current) {
         supabase.removeChannel(typingRealtimeChannelRef.current);
         typingRealtimeChannelRef.current = null;
@@ -841,6 +821,36 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     threadBottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [threadMessages.length, selectedFriendId]);
 
+  useEffect(() => {
+    if (!user?.id || !selectedFriendId || !typingRealtimeChannelRef.current) return;
+    return () => {
+      if (!typingRealtimeChannelRef.current) return;
+      void typingRealtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+          sender_id: user.id,
+          receiver_id: selectedFriendId,
+          is_typing: false,
+        },
+      });
+    };
+  }, [user?.id, selectedFriendId]);
+
+  useEffect(() => {
+    if (!user?.id || !selectedFriendId) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadThread(selectedFriendId);
+    }, 1500);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [user?.id, selectedFriendId]);
+
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
 
@@ -916,11 +926,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
     setMessageDraft('');
     setIsSelectedFriendTyping(false);
-
-    if (typingStopTimeoutRef.current) {
-      window.clearTimeout(typingStopTimeoutRef.current);
-      typingStopTimeoutRef.current = null;
-    }
 
     if (typingRealtimeChannelRef.current && selectedFriendId) {
       void typingRealtimeChannelRef.current.send({
@@ -1028,7 +1033,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             )}
           </div>
 
-          <div className="esport-card p-0 overflow-hidden flex flex-col min-h-[520px]">
+          <div className="esport-card p-0 overflow-hidden flex flex-col h-[560px] max-h-[70vh]">
             <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
               <div>
                 <div className="text-xs font-bold uppercase tracking-widest text-esport-text-muted">Direct Messages</div>
@@ -1087,23 +1092,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                       is_typing: value.trim().length > 0,
                     },
                   });
-
-                  if (typingStopTimeoutRef.current) {
-                    window.clearTimeout(typingStopTimeoutRef.current);
-                  }
-
-                  typingStopTimeoutRef.current = window.setTimeout(() => {
-                    if (!typingRealtimeChannelRef.current || !user?.id || !selectedFriendId) return;
-                    void typingRealtimeChannelRef.current.send({
-                      type: 'broadcast',
-                      event: 'typing',
-                      payload: {
-                        sender_id: user.id,
-                        receiver_id: selectedFriendId,
-                        is_typing: false,
-                      },
-                    });
-                  }, 900);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
