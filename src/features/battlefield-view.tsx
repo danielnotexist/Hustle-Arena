@@ -621,6 +621,13 @@ export function CustomLobbyView({
   const everyoneReady = activeMembers.length > 0 && readyCount === activeMembers.length;
   const teamsFilled = !!activeLobby && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size;
   const shouldShowAutoVetoBar = !!activeLobby && !activeMatch && !activeVoteSession && !activeLobby.selected_map;
+  const readyLockActive =
+    !!activeLobby &&
+    (
+      !!activeVoteSession ||
+      !!activeLobby.map_voting_active ||
+      !!activeLobby.selected_map
+    );
   const canKickPlayers = isLeader && activeLobby?.status === "open";
   const lobbyOwnerLabel = useMemo(() => {
     if (!activeLobby) return "-";
@@ -811,6 +818,10 @@ export function CustomLobbyView({
 
   const handleReadyToggle = async () => {
     if (!activeLobby || !myMembership) return;
+    if (myMembership.is_ready && readyLockActive) {
+      addToast("Ready is locked once map voting starts.", "error");
+      return;
+    }
     try {
       await setLobbyMemberReady(activeLobby.id, !myMembership.is_ready);
       await loadState();
@@ -1243,7 +1254,13 @@ export function CustomLobbyView({
                 <div className="mb-3 text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Lobby Controls</div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
-                  <button onClick={handleReadyToggle} disabled={!myMembership || myMembership.team_side === "UNASSIGNED"} className="esport-btn-primary disabled:opacity-50">{myMembership?.is_ready ? "Unready" : "Ready"}</button>
+                  <button
+                    onClick={handleReadyToggle}
+                    disabled={!myMembership || myMembership.team_side === "UNASSIGNED" || (myMembership?.is_ready && readyLockActive)}
+                    className="esport-btn-primary disabled:opacity-50"
+                  >
+                    {myMembership?.is_ready ? (readyLockActive ? "Ready Locked" : "Unready") : "Ready"}
+                  </button>
                 {shouldShowAutoVetoBar && (
                   <div className={cn(
                     "min-w-[260px] rounded-lg border px-4 py-2.5 text-sm font-bold",
