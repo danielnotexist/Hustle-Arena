@@ -38,6 +38,8 @@ alter table public.quick_queue_entries
   add constraint quick_queue_entries_status_check
   check (status in ('searching', 'ready_check', 'matched', 'cancelled'));
 
+drop function if exists public.quick_queue_join_or_match(public.ha_mode, integer, text);
+
 create or replace function public.quick_queue_join_or_match(
   p_mode public.ha_mode,
   p_team_size integer,

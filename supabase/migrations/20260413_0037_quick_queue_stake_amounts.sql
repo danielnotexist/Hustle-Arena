@@ -1,3 +1,43 @@
+create table if not exists public.quick_queue_ready_checks (
+  id uuid primary key default gen_random_uuid(),
+  mode public.ha_mode not null,
+  team_size integer not null check (team_size in (2, 5)),
+  queue_mode text not null default 'solo',
+  status text not null default 'pending' check (status in ('pending', 'cancelled', 'expired', 'completed')),
+  lobby_id uuid references public.lobbies(id) on delete set null,
+  owner_user_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '30 seconds'),
+  completed_at timestamptz
+);
+
+create table if not exists public.quick_queue_ready_check_members (
+  ready_check_id uuid not null references public.quick_queue_ready_checks(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (ready_check_id, user_id)
+);
+
+create index if not exists idx_quick_queue_ready_checks_status
+  on public.quick_queue_ready_checks(status, mode, team_size, queue_mode, created_at);
+
+create index if not exists idx_quick_queue_ready_check_members_user
+  on public.quick_queue_ready_check_members(user_id, ready_check_id);
+
+alter table public.quick_queue_entries
+  add column if not exists ready_check_id uuid references public.quick_queue_ready_checks(id) on delete set null;
+
+create index if not exists idx_quick_queue_entries_ready_check
+  on public.quick_queue_entries(ready_check_id);
+
+alter table public.quick_queue_entries
+  drop constraint if exists quick_queue_entries_status_check;
+
+alter table public.quick_queue_entries
+  add constraint quick_queue_entries_status_check
+  check (status in ('searching', 'ready_check', 'matched', 'cancelled'));
+
 alter table public.quick_queue_entries
   add column if not exists selected_stake_amount numeric(14,2);
 
@@ -11,6 +51,7 @@ where selected_stake_amount is null;
 create index if not exists idx_quick_queue_entries_pool_by_stake
   on public.quick_queue_entries(mode, team_size, queue_mode, status, selected_stake_amount, created_at);
 
+drop function if exists public.quick_queue_join_or_match(public.ha_mode, integer, text);
 drop function if exists public.quick_queue_join_or_match(public.ha_mode, integer, text, numeric);
 
 create or replace function public.quick_queue_join_or_match(
