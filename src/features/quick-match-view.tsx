@@ -341,6 +341,19 @@ export function BattlefieldView({
   const formatStakeLabel = (amount: number | null | undefined) =>
     amount ? `${Number(amount).toFixed(Number(amount) >= 100 ? 0 : 0)} USDT` : "No stake";
 
+  const resetQuickQueueState = (nextState: "idle" | "searching" = "idle") => {
+    setMatchState(nextState);
+    setSearchTime(0);
+    setPlayersJoined(0);
+    setPlayersNeeded(0);
+    setEstimatedWaitSeconds(75);
+    setMatchedLobbyId(null);
+    setReadyCheckId(null);
+    setParticipantUserIds([]);
+    setAcceptedUserIds([]);
+    handledMatchedLobbyRef.current = null;
+  };
+
   const startSearch = async () => {
     if (requiresKyc && !isKycVerified) {
       addToast("KYC Verification required to play", "error");
@@ -392,7 +405,9 @@ export function BattlefieldView({
     try {
       const status = await quickQueueAcceptMatch(readyCheckId, accept);
       if (!accept) {
-        addToast("You declined the ready check. Returning players to queue.", "info");
+        resetQuickQueueState("idle");
+        addToast("You declined the ready check. Returning to matchmaking.", "info");
+        return;
       }
       applyQueueStatus(status);
     } catch (error: any) {
@@ -407,15 +422,7 @@ export function BattlefieldView({
     } catch (error) {
       console.error("Failed to cancel quick queue:", error);
     }
-    setMatchState("idle");
-    setSearchTime(0);
-    setPlayersJoined(0);
-    setPlayersNeeded(0);
-    setMatchedLobbyId(null);
-    setReadyCheckId(null);
-    setParticipantUserIds([]);
-    setAcceptedUserIds([]);
-    handledMatchedLobbyRef.current = null;
+    resetQuickQueueState("idle");
   };
 
   useEffect(() => {
@@ -835,6 +842,19 @@ export function BattlefieldView({
             <div>
               <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-esport-accent mb-2">{queueMode === "solo" ? "Searching Solo Queue" : "Searching Party Queue"}</h3>
               <div className="text-4xl font-mono font-bold text-white">{formatTime(searchTime)}</div>
+              <div className="mt-5 space-y-2">
+                <div className="text-sm font-bold uppercase tracking-[0.2em] text-white/90">
+                  Found {playersJoined} / {selectedTeamSize * 2} players
+                </div>
+                <div className="text-sm text-esport-text-muted">
+                  Waiting for {Math.max(playersNeeded, 0)} more player{Math.max(playersNeeded, 0) === 1 ? "" : "s"} to accept this pool.
+                </div>
+                {selectedStakeAmount && (
+                  <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+                    Current pool: {formatStakeLabel(selectedStakeAmount)}
+                  </div>
+                )}
+              </div>
             </div>
             <button onClick={() => void cancelSearch()} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
               Cancel Search
