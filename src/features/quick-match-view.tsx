@@ -122,6 +122,12 @@ export function BattlefieldView({
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
   );
+  const localPartySize = queueMode === "party" ? displayedPartyMembers.length : 1;
+  const effectivePlayersJoined = queueMode === "party" ? Math.max(playersJoined, localPartySize) : playersJoined;
+  const effectivePlayersNeeded =
+    queueMode === "party"
+      ? Math.max(selectedTeamSize * 2 - effectivePlayersJoined, 0)
+      : Math.max(playersNeeded, 0);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) {
@@ -1162,7 +1168,7 @@ export function BattlefieldView({
               )}
               {matchState === "searching" && (
                 <div className="mt-2 text-xs text-esport-text-muted">
-                  {playersJoined} joined - {playersNeeded} needed
+                  {effectivePlayersJoined} joined - {effectivePlayersNeeded} needed
                 </div>
               )}
             </div>
@@ -1273,22 +1279,22 @@ export function BattlefieldView({
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Players Found</div>
                   <div className="mt-2 text-2xl font-display font-bold text-white">
-                    {playersJoined} / {selectedTeamSize * 2}
+                    {effectivePlayersJoined} / {selectedTeamSize * 2}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.06] px-5 py-4 shadow-[0_0_25px_rgba(59,130,246,0.08)]">
                   <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Still Waiting</div>
                   <div className="mt-2 text-2xl font-display font-bold text-esport-accent">
-                    {Math.max(playersNeeded, 0)}
+                    {effectivePlayersNeeded}
                   </div>
                 </div>
               </div>
               <div className="mt-5 space-y-2">
                 <div className="text-sm font-bold uppercase tracking-[0.2em] text-white/90">
-                  Found {playersJoined} / {selectedTeamSize * 2} players
+                  Found {effectivePlayersJoined} / {selectedTeamSize * 2} players
                 </div>
                 <div className="text-sm text-esport-text-muted">
-                  Waiting for {Math.max(playersNeeded, 0)} more player{Math.max(playersNeeded, 0) === 1 ? "" : "s"} to accept this pool.
+                  Waiting for {effectivePlayersNeeded} more player{effectivePlayersNeeded === 1 ? "" : "s"} to accept this pool.
                 </div>
                 {selectedStakeAmount && (
                   <div className="inline-flex items-center rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
