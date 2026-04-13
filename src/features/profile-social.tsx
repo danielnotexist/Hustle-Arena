@@ -37,7 +37,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   fetchPublicProfileBasics,
-  fetchPublicProfileDetails,
   findPublicProfileByUsername,
   respondFriendRequest as respondFriendRequestRpc,
   sendFriendRequest as sendFriendRequestRpc,
@@ -584,7 +583,7 @@ export function UserProfileView({
   );
 }
 
-function PublicProfileView({
+export function PublicProfileView({
   profile,
   displayName,
   avatarUrl,
@@ -726,7 +725,7 @@ function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [onlineFriendIds, setOnlineFriendIds] = useState<string[]>([]);
@@ -751,37 +750,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
 
   const openFriendProfile = async (friendId: string) => {
     try {
-      const profile = await fetchPublicProfileDetails(friendId);
-      if (!profile) {
-        addToast('Profile not found.', 'error');
+      if (typeof onOpenPublicProfile === "function") {
+        await onOpenPublicProfile(friendId);
         return;
       }
-
-      const displayName =
-        profile.username?.trim() ||
-        profile.email?.split('@')[0]?.trim() ||
-        `Player ${profile.id.slice(0, 8)}`;
-      const avatarUrl =
-        profile.avatar_url ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=160`;
-      const coverUrl =
-        profile.cover_url ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=111827&color=ffffff&size=1200`;
-
-      openModal(
-        `${displayName} Profile`,
-        <PublicProfileView
-          profile={profile}
-          displayName={displayName}
-          avatarUrl={avatarUrl}
-          coverUrl={coverUrl}
-        />,
-        {
-          size: "full",
-          showFooter: false,
-          bodyPadding: "none",
-        }
-      );
+      addToast('Profile page is not available right now.', 'error');
     } catch (error) {
       console.error('Failed to open public profile:', error);
       addToast('Failed to open profile.', 'error');

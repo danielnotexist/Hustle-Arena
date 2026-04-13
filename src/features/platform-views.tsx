@@ -8,7 +8,7 @@ import { fetchPublicApexLeaderboard } from "../lib/supabase/social";
 import type { Mission, UserStats } from "./types";
 import { DynamicImage } from "./landing-auth";
 
-export function ApexListView() {
+export function ApexListView({ onOpenPublicProfile }: { onOpenPublicProfile?: (userId: string) => void | Promise<void> }) {
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +18,7 @@ export function ApexListView() {
         try {
           const rows = await fetchPublicApexLeaderboard(10);
           const leaderboardData = rows.map((player, index) => ({
+            userId: player.user_id,
             rank: index + 1,
             name: player.username || `Player ${player.user_id.slice(0, 8)}`,
             elo: Math.round(Number(player.combat_rating || 0)).toLocaleString(),
@@ -49,6 +50,7 @@ export function ApexListView() {
         const leaderboardData = snapshot.docs.map((doc, index) => {
           const data = doc.data();
           return {
+            userId: doc.id,
             rank: index + 1,
             name: data.username || "Unknown",
             elo: (data.stats?.credits || 0).toLocaleString(),
@@ -96,7 +98,16 @@ export function ApexListView() {
           </div>
           <div className="divide-y divide-esport-border">
             {players.map(player => (
-              <div key={player.rank} className="grid grid-cols-[80px_1fr_140px_120px_120px] p-6 items-center hover:bg-white/5 transition-colors group cursor-pointer">
+              <button
+                key={`${player.rank}-${player.userId || player.name}`}
+                type="button"
+                onClick={() => {
+                  if (player.userId && onOpenPublicProfile) {
+                    void onOpenPublicProfile(player.userId);
+                  }
+                }}
+                className="grid w-full grid-cols-[80px_1fr_140px_120px_120px] p-6 items-center text-left hover:bg-white/5 transition-colors group cursor-pointer"
+              >
                 <div className="px-4 font-display font-bold text-2xl italic text-esport-text-muted group-hover:text-esport-accent transition-colors">
                   {player.rank === 1 ? <Crown className="text-esport-secondary" size={24} /> : `#${player.rank}`}
                 </div>
@@ -112,7 +123,7 @@ export function ApexListView() {
                   <span className="badge badge-accent">LVL {player.level}</span>
                 </div>
                 <div className="text-right px-4 font-mono font-bold text-esport-accent text-lg">{player.elo}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

@@ -1,5 +1,5 @@
 export { SidebarItem, DashboardView } from "./navigation-dashboard";
-export { UserProfileView, SocialView, SquadHubView } from "./profile-social";
+export { UserProfileView, PublicProfileView, SocialView, SquadHubView } from "./profile-social";
 export { BattlefieldView } from "./quick-match-view";
 export { CustomLobbyBrowserView, CustomLobbyView } from "./battlefield-view";
 export { ApexListView, NeuralMapView, MissionsView, VaultView, ForumsView, ArenaTVView, SyndicatesView, HustlePrimeView } from "./platform-views";

@@ -6,6 +6,8 @@ import { fetchPublicProfileBasics } from "../lib/supabase/social";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
+const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
+
 export function BattlefieldView({
   addToast,
   openModal,
@@ -29,7 +31,8 @@ export function BattlefieldView({
   const [playersJoined, setPlayersJoined] = useState(0);
   const [playersNeeded, setPlayersNeeded] = useState(0);
   const [estimatedWaitSeconds, setEstimatedWaitSeconds] = useState(75);
-  const [onlineNow, setOnlineNow] = useState<Array<{ user_id: string; username: string; avatar_url?: string | null }>>([]);
+  const [selectedStakeAmount, setSelectedStakeAmount] = useState<number | null>(5);
+  const [onlineNow, setOnlineNow] = useState<Array<{ user_id: string; username: string; avatar_url?: string | null; selected_stake_amount?: number | null }>>([]);
   const [matchedLobbyId, setMatchedLobbyId] = useState<string | null>(null);
   const [readyCheckId, setReadyCheckId] = useState<string | null>(null);
   const [participantUserIds, setParticipantUserIds] = useState<string[]>([]);
@@ -181,9 +184,10 @@ export function BattlefieldView({
             user_id: entry.user_id as string,
             username: entry.username as string,
             avatar_url: entry.avatar_url as string | null,
+            selected_stake_amount: typeof entry.selected_stake_amount === "number" ? entry.selected_stake_amount : null,
           }))
           .filter((entry) => !!entry.user_id);
-        const byId = new Map<string, { user_id: string; username: string; avatar_url?: string | null }>();
+        const byId = new Map<string, { user_id: string; username: string; avatar_url?: string | null; selected_stake_amount?: number | null }>();
         flattened.forEach((entry) => byId.set(entry.user_id, entry));
         setOnlineNow(Array.from(byId.values()));
       })
@@ -193,6 +197,7 @@ export function BattlefieldView({
             user_id: user.id,
             username: user.username || user.email?.split("@")[0] || "Player",
             avatar_url: user.avatarUrl || null,
+            selected_stake_amount: selectedStakeAmount,
             online_at: new Date().toISOString(),
           });
         }
@@ -205,13 +210,16 @@ export function BattlefieldView({
         presenceChannelRef.current = null;
       }
     };
-  }, [user?.id, accountMode, user?.username, user?.email, user?.avatarUrl]);
+  }, [user?.id, accountMode, user?.username, user?.email, user?.avatarUrl, selectedStakeAmount]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
     const s = (seconds % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
+
+  const formatStakeLabel = (amount: number | null | undefined) =>
+    amount ? `${Number(amount).toFixed(Number(amount) >= 100 ? 0 : 0)} USDT` : "No stake";
 
   const startSearch = async () => {
     if (requiresKyc && !isKycVerified) {
@@ -222,6 +230,10 @@ export function BattlefieldView({
       addToast("Switch to Demo Account from Profile before entering matchmaking.", "error");
       return;
     }
+    if (!selectedStakeAmount) {
+      addToast("Choose how much you want to play for before starting matchmaking.", "error");
+      return;
+    }
     if (queueMode === "party" && selectedPartyMemberIds.length === 0) {
       addToast("Add at least one friend to your party before searching.", "error");
       return;
@@ -229,7 +241,7 @@ export function BattlefieldView({
     try {
       setSearchTime(0);
       setMatchState("searching");
-      const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
+      const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
       applyQueueStatus(status);
       addToast("Searching for real players in queue...", "info");
     } catch (error: any) {
@@ -297,8 +309,9 @@ export function BattlefieldView({
 
     const poll = async () => {
       try {
-        const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
-        applyQueueStatus(status);
+        if (!selectedStakeAmount) return;
+        const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
+        applyQueueStatus(nextStatus);
       } catch (error) {
         console.error("Quick queue poll failed:", error);
       }
@@ -314,7 +327,7 @@ export function BattlefieldView({
       window.clearInterval(interval);
       pollingRef.current = null;
     };
-  }, [matchState, accountMode, selectedTeamSize, queueMode]);
+  }, [matchState, accountMode, selectedTeamSize, queueMode, selectedStakeAmount]);
 
   if (requiresKyc && !isKycVerified) {
     return (
@@ -400,6 +413,57 @@ export function BattlefieldView({
                 >
                   <div className="text-sm font-bold text-white">Party Quick Match</div>
                   <div className="text-xs text-esport-text-muted mt-1">Enter the random queue with your current squad or party.</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="esport-card p-6 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-xl font-bold font-display uppercase">Stake Amount</h3>
+                  <p className="text-sm text-esport-text-muted">
+                    Choose how much you want to play for. Queue matching will only combine players on the same amount.
+                  </p>
+                </div>
+                <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-esport-accent">
+                  {formatStakeLabel(selectedStakeAmount)}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {STAKE_OPTIONS.map((amount) => {
+                  const active = selectedStakeAmount === amount;
+                  return (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setSelectedStakeAmount(amount)}
+                      className={`rounded-2xl border px-4 py-4 text-left transition-all ${
+                        active
+                          ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
+                          : "border-esport-border bg-black/20 hover:border-white/20"
+                      }`}
+                    >
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Entry</div>
+                      <div className="mt-2 text-2xl font-display font-bold text-white">${amount}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Current choice</div>
+                  <div className="mt-1 text-sm font-bold text-white">
+                    {selectedStakeAmount ? `You will queue for ${formatStakeLabel(selectedStakeAmount)}` : "No stake selected yet"}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStakeAmount(null)}
+                  className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted transition-colors hover:border-white/20 hover:text-white"
+                >
+                  Remove stake
                 </button>
               </div>
             </div>
@@ -550,6 +614,9 @@ export function BattlefieldView({
             <div>
               <div className="text-sm text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
               <div className="text-sm text-white font-bold">{selectedQueueLabel}</div>
+              <div className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-esport-accent">
+                {selectedStakeAmount ? `Queueing for ${formatStakeLabel(selectedStakeAmount)}` : "Choose a stake amount"}
+              </div>
               <div className="text-xs text-esport-text-muted mb-2">Estimated Wait</div>
               <div className="text-2xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
               {queueMode === "party" && (
@@ -565,7 +632,7 @@ export function BattlefieldView({
             </div>
             <button
               onClick={() => void startSearch()}
-              disabled={queueMode === "party" && selectedPartyMemberIds.length === 0}
+              disabled={!selectedStakeAmount || (queueMode === "party" && selectedPartyMemberIds.length === 0)}
               className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
             >
               {queueMode === "solo" ? "FIND SOLO MATCH" : "FIND PARTY MATCH"}
@@ -615,7 +682,16 @@ export function BattlefieldView({
                       alt={entry.username || "Player"}
                       className="w-6 h-6 rounded-full border border-white/20 object-cover"
                     />
-                    <span className="text-xs text-white truncate">{entry.username || `Player ${entry.user_id.slice(0, 6)}`}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-white truncate">{entry.username || `Player ${entry.user_id.slice(0, 6)}`}</div>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.18em] ${
+                      entry.selected_stake_amount
+                        ? "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
+                        : "border-white/10 bg-white/5 text-esport-text-muted"
+                    }`}>
+                      {entry.selected_stake_amount ? `$${entry.selected_stake_amount}` : "No stake"}
+                    </span>
                   </div>
                 ))}
               </div>

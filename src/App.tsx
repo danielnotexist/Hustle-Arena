@@ -35,7 +35,7 @@ import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { supabase } from "./lib/supabase";
 import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
-import { fetchMyNotifications, type AppNotification } from "./lib/supabase/social";
+import { fetchMyNotifications, fetchPublicProfileDetails, type AppNotification, type PublicProfileDetails } from "./lib/supabase/social";
 import { playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import {
@@ -57,6 +57,7 @@ import {
   SidebarItem,
   SquadHubView,
   SyndicatesView,
+  PublicProfileView,
   UserProfileView,
   VaultView,
 } from "./features/app-sections";
@@ -96,6 +97,13 @@ export default function App() {
   });
   const [battlefieldMenuOpen, setBattlefieldMenuOpen] = useState(false);
   const [joiningLobbyTransition, setJoiningLobbyTransition] = useState(false);
+  const [publicProfileState, setPublicProfileState] = useState<{
+    userId: string;
+    profile: PublicProfileDetails;
+    displayName: string;
+    avatarUrl: string;
+    coverUrl: string;
+  } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{
@@ -356,6 +364,39 @@ export default function App() {
     addToast("Logged out successfully", "info");
   };
 
+  const openPublicProfilePage = async (userId: string) => {
+    try {
+      const profile = await fetchPublicProfileDetails(userId);
+      if (!profile) {
+        addToast("Profile not found.", "error");
+        return;
+      }
+
+      const displayName =
+        profile.username?.trim() ||
+        profile.email?.split("@")[0]?.trim() ||
+        `Player ${userId.slice(0, 8)}`;
+      const avatarUrl =
+        profile.avatar_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=256`;
+      const coverUrl =
+        profile.cover_url ||
+        `https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1400&q=80`;
+
+      setPublicProfileState({
+        userId,
+        profile,
+        displayName,
+        avatarUrl,
+        coverUrl,
+      });
+      setActiveTab("Profile");
+    } catch (error) {
+      console.error("Failed to open public profile page:", error);
+      addToast("Failed to open profile.", "error");
+    }
+  };
+
   const unreadNotificationsCount = notifications.filter((notice) => !notice.is_read).length;
 
   const handleNotificationClick = async (notice: AppNotification) => {
@@ -518,7 +559,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => setActiveTab("Profile")}>
+              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
@@ -693,18 +734,27 @@ export default function App() {
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
                     {activeTab === "Wallet" && <DepositPage addToast={addToast} user={user} accountMode={accountMode} visibleBalance={visibleBalance} />}
                     {activeTab === "Profile" && (
-                      <UserProfileView
-                        user={user}
-                        stats={stats}
-                        wallet={wallet}
-                        accountMode={accountMode}
-                        profileData={profileData}
-                        setProfileData={setProfileData}
-                        switchAccountMode={switchAccountMode}
-                        topUpDemoBalance={topUpDemoBalance}
-                        addToast={addToast}
-                        openModal={openModal}
-                      />
+                      publicProfileState ? (
+                        <PublicProfileView
+                          profile={publicProfileState.profile}
+                          displayName={publicProfileState.displayName}
+                          avatarUrl={publicProfileState.avatarUrl}
+                          coverUrl={publicProfileState.coverUrl}
+                        />
+                      ) : (
+                        <UserProfileView
+                          user={user}
+                          stats={stats}
+                          wallet={wallet}
+                          accountMode={accountMode}
+                          profileData={profileData}
+                          setProfileData={setProfileData}
+                          switchAccountMode={switchAccountMode}
+                          topUpDemoBalance={topUpDemoBalance}
+                          addToast={addToast}
+                          openModal={openModal}
+                        />
+                      )
                     )}
                     {activeTab === "Battlefield Matchmaking" && (
                       <BattlefieldView
@@ -721,8 +771,8 @@ export default function App() {
                     )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
-                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}
-                    {activeTab === "Apex List" && <ApexListView />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} />}
+                    {activeTab === "Apex List" && <ApexListView onOpenPublicProfile={openPublicProfilePage} />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
                     {activeTab === "Vault" && <VaultView addToast={addToast} />}

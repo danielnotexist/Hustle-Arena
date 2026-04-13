@@ -672,11 +672,12 @@ export async function recordMatchPlayerStats(input: {
   }
 }
 
-export async function quickQueueJoinOrMatch(mode: LobbyMode, teamSize: 2 | 5, queueMode: "solo" | "party") {
+export async function quickQueueJoinOrMatch(mode: LobbyMode, teamSize: 2 | 5, queueMode: "solo" | "party", stakeAmount: number) {
   const { data, error } = await supabase.rpc("quick_queue_join_or_match", {
     p_mode: mode,
     p_team_size: teamSize,
     p_queue_mode: queueMode,
+    p_stake_amount: stakeAmount,
   });
 
   if (error) {
