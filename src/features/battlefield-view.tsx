@@ -70,8 +70,19 @@ const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as co
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
 
-const formatMode = (value: string | null | undefined) =>
-  (value || "competitive").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+const formatMode = (value: string | null | undefined) => {
+  const normalized = (value || "competitive").toLowerCase();
+
+  if (normalized === "ffa") {
+    return "FFA";
+  }
+
+  if (normalized === "team_ffa") {
+    return "Team FFA";
+  }
+
+  return normalized.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 const getActiveMembers = (lobby: MatchmakingLobby | null) =>
   (lobby?.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at);
@@ -387,9 +398,11 @@ export function CustomLobbyView({
     password: "",
   });
 
-  const loadState = async () => {
+  const loadState = async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!isSupabaseConfigured() || !user?.id) return;
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const [browserLobbies, myLobby, matches] = await Promise.all([
         fetchOpenMatchmakingLobbies(accountMode as LobbyMode),
@@ -426,7 +439,9 @@ export function CustomLobbyView({
       console.error("Failed to load lobby state:", error);
       addToast("Failed to load lobby data.", "error");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
       setLoadedOnce(true);
     }
   };
@@ -458,7 +473,7 @@ export function CustomLobbyView({
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadState();
+      void loadState({ silent: true });
     }, 1000);
     return () => window.clearInterval(interval);
   }, [user?.id, accountMode]);

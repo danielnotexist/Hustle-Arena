@@ -111,7 +111,33 @@ export async function fetchPublicProfileDetails(userId: string) {
   });
 
   if (error) {
-    throw error;
+    const missingRpc =
+      error.code === "PGRST202" ||
+      error.code === "42883" ||
+      /get_public_profile_details|get_public_profile/i.test(error.message || "");
+
+    if (!missingRpc) {
+      throw error;
+    }
+
+    const basics = await fetchPublicProfileBasics([userId]);
+    const basicProfile = basics.get(userId);
+
+    if (!basicProfile) {
+      return null;
+    }
+
+    return {
+      ...basicProfile,
+      cover_url: null,
+      bio: null,
+      country: null,
+      rank: null,
+      win_rate: null,
+      kd_ratio: null,
+      headshot_pct: null,
+      level: null,
+    } satisfies PublicProfileDetails;
   }
 
   const row = Array.isArray(data) ? data[0] : data;
