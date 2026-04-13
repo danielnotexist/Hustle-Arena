@@ -108,8 +108,12 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     if (!user?.id) {
       throw new Error("You must be logged in to update demo balance.");
     }
+    const safeAmount = Number(amount);
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0) {
+      throw new Error("Top-up amount must be greater than zero.");
+    }
 
-    await setDemoBalance(user.id, amount);
+    await setDemoBalance(user.id, wallet.demoBalance + safeAmount);
     await hydrateSession();
   };
 

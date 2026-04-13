@@ -5,6 +5,8 @@ export interface SupabaseProfileRecord {
   id: string;
   username: string;
   email: string;
+  avatar_url?: string | null;
+  cover_url?: string | null;
   role: HaRole;
   account_mode?: "live" | "demo";
   demo_stats?: {
@@ -101,6 +103,8 @@ export interface MyProfileRpcRow {
   id: string;
   username: string;
   email: string;
+  avatar_url?: string | null;
+  cover_url?: string | null;
   role: HaRole;
   account_mode?: "live" | "demo";
   level: number;

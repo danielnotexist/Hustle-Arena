@@ -16,6 +16,7 @@ export interface MatchmakingLobbyMember {
   profiles?: {
     username?: string;
     email?: string;
+    avatar_url?: string | null;
   } | null;
 }
 
@@ -128,6 +129,14 @@ export interface MatchResultNotification {
   created_at: string;
 }
 
+export interface QuickQueueStatus {
+  status: "searching" | "matched";
+  lobby_id: string | null;
+  players_joined: number;
+  players_needed: number;
+  estimated_wait_seconds: number;
+}
+
 export interface MatchServerBootstrap {
   game: "counter-strike-2";
   gameKey: "cs2";
@@ -158,6 +167,7 @@ interface PublicProfileBasic {
   id: string;
   username: string | null;
   email: string | null;
+  avatar_url?: string | null;
 }
 
 const OPEN_LOBBY_SELECT = `
@@ -177,7 +187,7 @@ const OPEN_LOBBY_SELECT = `
   auto_veto_starts_at,
   join_server_deadline,
   created_at,
-  lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email))
+  lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email,avatar_url))
 `;
 
 const ACTIVE_LOBBY_SELECT = `
@@ -197,7 +207,7 @@ const ACTIVE_LOBBY_SELECT = `
   auto_veto_starts_at,
   join_server_deadline,
   created_at,
-  lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email)),
+  lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email,avatar_url)),
   lobby_messages(id, user_id, message, created_at, profiles:user_id(username)),
   map_vote_sessions(id, lobby_id, active_team, turn_ends_at, turn_seconds, remaining_maps, status, round_number, last_vetoed_map, map_votes(user_id, map_code, updated_at))
 `;
@@ -241,6 +251,7 @@ function enrichLobbyProfiles(lobby: MatchmakingLobby | null, profilesById: Map<s
         ? {
             username: profilesById.get(member.user_id)?.username || undefined,
             email: profilesById.get(member.user_id)?.email || undefined,
+            avatar_url: profilesById.get(member.user_id)?.avatar_url || null,
           }
         : member.profiles || null,
     })),
@@ -650,6 +661,34 @@ export async function recordMatchPlayerStats(input: {
     p_assists: input.assists,
     p_round_score: input.roundScore,
     p_is_winner: input.isWinner,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function quickQueueJoinOrMatch(mode: LobbyMode, teamSize: 2 | 5, queueMode: "solo" | "party") {
+  const { data, error } = await supabase.rpc("quick_queue_join_or_match", {
+    p_mode: mode,
+    p_team_size: teamSize,
+    p_queue_mode: queueMode,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return null;
+  }
+  return row as QuickQueueStatus;
+}
+
+export async function quickQueueCancel(mode: LobbyMode) {
+  const { error } = await supabase.rpc("quick_queue_cancel", {
+    p_mode: mode,
   });
 
   if (error) {

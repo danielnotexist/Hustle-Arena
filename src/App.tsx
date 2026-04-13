@@ -36,6 +36,7 @@ import { isSupabaseConfigured } from "./lib/env";
 import { supabase } from "./lib/supabase";
 import { fetchMyActiveLobby, fetchMyReconnectableMatch, launchMatchServer, markNotificationRead, type ReconnectableMatch } from "./lib/supabase/matchmaking";
 import { fetchMyNotifications, type AppNotification } from "./lib/supabase/social";
+import { playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import {
   AdminPanel,
@@ -84,7 +85,9 @@ const VALID_TABS = new Set([
 // --- Main App Component ---
 export default function App() {
   const shouldUseSupabase = isSupabaseConfigured();
-  const [view, setView] = useState<"landing" | "dashboard" | "admin">("landing");
+  const [view, setView] = useState<"landing" | "dashboard" | "admin">(
+    shouldUseSupabase ? "dashboard" : "landing"
+  );
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === "undefined") return DASHBOARD_TAB;
     const storedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
@@ -102,6 +105,7 @@ export default function App() {
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
   );
+  const [canShowLanding, setCanShowLanding] = useState(!shouldUseSupabase);
   const {
     isLoggedIn,
     isAdmin,
@@ -117,11 +121,13 @@ export default function App() {
     refreshSession,
   } = usePlatformSession();
   const previousUserIdRef = useRef<string | null>(null);
+  const previousUnreadNotificationCountRef = useRef(0);
 
   useEffect(() => {
     if (!shouldUseSupabase) {
       setAuthBootstrapComplete(true);
       setHasSupabaseSession(false);
+      setCanShowLanding(true);
       return;
     }
 
@@ -136,6 +142,11 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isCancelled) {
         setHasSupabaseSession(!!session?.user);
+        if (session?.user) {
+          setCanShowLanding(false);
+        } else if (_event === "SIGNED_OUT") {
+          setCanShowLanding(true);
+        }
       }
     });
 
@@ -144,6 +155,26 @@ export default function App() {
       authListener.subscription.unsubscribe();
     };
   }, [shouldUseSupabase]);
+
+  useEffect(() => {
+    if (!shouldUseSupabase) return;
+    if (!authBootstrapComplete) return;
+    if (user) {
+      setCanShowLanding(false);
+      return;
+    }
+    if (hasSupabaseSession !== false) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCanShowLanding(true);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shouldUseSupabase, authBootstrapComplete, hasSupabaseSession, user]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
@@ -197,13 +228,13 @@ export default function App() {
       return;
     }
 
-    if (shouldUseSupabase && hasSupabaseSession !== false) {
+    if (shouldUseSupabase && (!canShowLanding || hasSupabaseSession !== false)) {
       return;
     }
 
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession]);
+  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession, canShowLanding]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -289,6 +320,7 @@ export default function App() {
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured()) {
       setNotifications([]);
+      previousUnreadNotificationCountRef.current = 0;
       return;
     }
 
@@ -298,6 +330,11 @@ export default function App() {
       try {
         const rows = await fetchMyNotifications(20);
         if (!cancelled) {
+          const unreadCount = rows.filter((notice) => !notice.is_read).length;
+          if (previousUnreadNotificationCountRef.current > 0 && unreadCount > previousUnreadNotificationCountRef.current) {
+            playNotificationSound();
+          }
+          previousUnreadNotificationCountRef.current = unreadCount;
           setNotifications(rows);
         }
       } catch (error) {
@@ -353,7 +390,7 @@ export default function App() {
             Restoring Session...
           </div>
         </div>
-      ) : shouldUseSupabase && hasSupabaseSession === null ? (
+      ) : shouldUseSupabase && (hasSupabaseSession === null || !canShowLanding) ? (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-sm uppercase tracking-[0.2em] text-esport-text-muted animate-pulse">
             Restoring Session...
@@ -491,7 +528,10 @@ export default function App() {
             <div className="p-4 border-t border-esport-border bg-black/20">
               <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => setActiveTab("Profile")}>
                 <div className="relative">
-                  <img src="https://ui-avatars.com/api/?name=Pro&background=random" className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors" />
+                  <img
+                    src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
+                    className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors object-cover"
+                  />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -674,7 +714,19 @@ export default function App() {
                         openModal={openModal}
                       />
                     )}
-                    {activeTab === "Battlefield Matchmaking" && <BattlefieldView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} />}
+                    {activeTab === "Battlefield Matchmaking" && (
+                      <BattlefieldView
+                        addToast={addToast}
+                        openModal={openModal}
+                        user={user}
+                        accountMode={accountMode}
+                        refreshSession={refreshSession}
+                        onMatchReady={() => {
+                          setBattlefieldMenuOpen(true);
+                          setActiveTab("Squad Hub");
+                        }}
+                      />
+                    )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
                     {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} />}

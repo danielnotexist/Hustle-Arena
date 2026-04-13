@@ -44,6 +44,7 @@ import {
 import { joinMatchmakingLobby } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
+import { playChatMessageSound } from "../lib/sound";
 import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
 import type { AccountMode, Mission, UserStats, WalletSnapshot } from "./types";
@@ -76,13 +77,85 @@ export function UserProfileView({
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(profileData);
-  const [demoTopUpAmount, setDemoTopUpAmount] = useState(wallet.demoBalance > 0 ? wallet.demoBalance.toString() : "");
+  const [demoTopUpAmount, setDemoTopUpAmount] = useState("");
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
 
   useEffect(() => {
-    setDemoTopUpAmount(wallet.demoBalance > 0 ? wallet.demoBalance.toString() : "");
-  }, [wallet.demoBalance]);
+    setEditForm(profileData);
+  }, [profileData]);
+
+  const readImageAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read image file."));
+      reader.readAsDataURL(file);
+    });
+
+  const downscaleImageDataUrl = async (
+    sourceDataUrl: string,
+    targetWidth: number,
+    targetHeight: number,
+    quality = 0.82
+  ) => {
+    const image = new Image();
+    image.src = sourceDataUrl;
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("Failed to process image."));
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Failed to prepare image canvas.");
+    }
+
+    const scale = Math.max(targetWidth / image.width, targetHeight / image.height);
+    const scaledWidth = image.width * scale;
+    const scaledHeight = image.height * scale;
+    const dx = (targetWidth - scaledWidth) / 2;
+    const dy = (targetHeight - scaledHeight) / 2;
+    context.drawImage(image, dx, dy, scaledWidth, scaledHeight);
+    return canvas.toDataURL("image/jpeg", quality);
+  };
+
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    mode: "avatar" | "cover"
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      addToast("Please upload an image file.", "error");
+      return;
+    }
+
+    try {
+      const rawDataUrl = await readImageAsDataUrl(file);
+      const normalizedDataUrl =
+        mode === "avatar"
+          ? await downscaleImageDataUrl(rawDataUrl, 256, 256, 0.86)
+          : await downscaleImageDataUrl(rawDataUrl, 1400, 520, 0.82);
+
+      if (mode === "avatar") {
+        setEditForm((current: any) => ({ ...current, avatarUrl: normalizedDataUrl }));
+      } else {
+        setEditForm((current: any) => ({ ...current, coverUrl: normalizedDataUrl }));
+      }
+      addToast(mode === "avatar" ? "Profile image selected." : "Cover image selected.", "success");
+    } catch (error) {
+      console.error("Image upload error:", error);
+      addToast("Failed to process image.", "error");
+    } finally {
+      event.target.value = "";
+    }
+  };
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -119,15 +192,16 @@ export function UserProfileView({
 
   const handleTopUpDemoBalance = async () => {
     const amount = Number(demoTopUpAmount);
-    if (!Number.isFinite(amount) || amount < 0) {
-      addToast("Enter a valid non-negative demo balance amount.", "error");
+    if (!Number.isFinite(amount) || amount <= 0) {
+      addToast("Enter a valid top-up amount greater than zero.", "error");
       return;
     }
 
     setIsSavingDemoBalance(true);
     try {
       await topUpDemoBalance(amount);
-      addToast("Demo balance updated.", "success");
+      setDemoTopUpAmount("");
+      addToast(`Added ${amount.toFixed(2)} USDT to demo balance.`, "success");
     } catch (error) {
       console.error("Error updating demo balance:", error);
       addToast("Failed to update demo balance.", "error");
@@ -140,12 +214,20 @@ export function UserProfileView({
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       {/* Banner */}
       <div className="relative h-64 md:h-80 rounded-2xl overflow-hidden bg-esport-card border border-esport-border group">
-        <DynamicImage prompt="abstract dark blue neon cyberpunk landscape" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+        {profileData.coverUrl ? (
+          <img
+            src={profileData.coverUrl}
+            alt="Profile cover"
+            className="w-full h-full object-cover opacity-70 group-hover:opacity-85 transition-opacity"
+          />
+        ) : (
+          <DynamicImage prompt="abstract dark blue neon cyberpunk landscape" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/60 to-transparent" />
         
         <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 flex flex-col md:flex-row items-end gap-6">
           <div className="relative">
-            <img src={`https://ui-avatars.com/api/?name=${user?.username || 'Player'}&background=random&size=128`} className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-[#0a0b0d] shadow-2xl" />
+            <img src={profileData.avatarUrl || `https://ui-avatars.com/api/?name=${user?.username || 'Player'}&background=random&size=128`} className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-4 border-[#0a0b0d] shadow-2xl object-cover" />
             <div className="absolute -bottom-2 -right-2 bg-esport-accent text-white text-xs font-bold px-2 py-1 rounded-lg border-2 border-[#0a0b0d]">
               LVL {stats?.level || 1}
             </div>
@@ -245,7 +327,7 @@ export function UserProfileView({
 
             {accountMode === "demo" && (
               <div className="mt-4 pt-4 border-t border-esport-border space-y-3">
-                <div className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Top Balance</div>
+                <div className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Add Balance</div>
                 <div className="flex gap-2">
                   <input
                     type="number"
@@ -253,9 +335,9 @@ export function UserProfileView({
                     step="0.01"
                     value={demoTopUpAmount}
                     onChange={(e) => setDemoTopUpAmount(e.target.value)}
-                    className="flex-1 bg-black/50 border border-esport-border rounded-lg px-3 py-2 text-sm text-white focus:border-esport-secondary outline-none transition-colors"
-                    placeholder="1000.00"
-                  />
+                      className="flex-1 bg-black/50 border border-esport-border rounded-lg px-3 py-2 text-sm text-white focus:border-esport-secondary outline-none transition-colors"
+                      placeholder="Amount to add"
+                    />
                   <button
                     onClick={handleTopUpDemoBalance}
                     disabled={isSavingDemoBalance}
@@ -407,6 +489,64 @@ export function UserProfileView({
                       className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors"
                     />
                   </div>
+                    <div>
+                      <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Avatar URL</label>
+                      <input
+                        type="text"
+                        value={editForm.avatarUrl || ""}
+                        onChange={(e) => setEditForm({ ...editForm, avatarUrl: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors"
+                      />
+                      <div className="mt-2 flex items-center gap-3">
+                        <label className="esport-btn-secondary cursor-pointer text-xs px-3 py-2">
+                          Upload Profile Image
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => void handleImageUpload(event, "avatar")}
+                            className="hidden"
+                          />
+                        </label>
+                        {editForm.avatarUrl ? (
+                          <img
+                            src={editForm.avatarUrl}
+                            alt="Avatar preview"
+                            className="w-10 h-10 rounded-full border border-esport-border object-cover"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Cover Image URL</label>
+                      <input
+                        type="text"
+                        value={editForm.coverUrl || ""}
+                        onChange={(e) => setEditForm({ ...editForm, coverUrl: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors"
+                      />
+                      <div className="mt-2 flex items-center gap-3">
+                        <label className="esport-btn-secondary cursor-pointer text-xs px-3 py-2">
+                          Upload Cover Image
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => void handleImageUpload(event, "cover")}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                      {editForm.coverUrl ? (
+                        <div className="mt-3 rounded-lg border border-esport-border overflow-hidden h-24">
+                          <img
+                            src={editForm.coverUrl}
+                            alt="Cover preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   <div className="pt-4 border-t border-esport-border flex gap-3">
                     <button onClick={handleSave} className="esport-btn-primary">Save Changes</button>
                     <button onClick={() => { setEditForm(profileData); setIsEditing(false); setActiveTab('overview'); }} className="esport-btn-secondary">Cancel</button>
@@ -445,7 +585,7 @@ export function UserProfileView({
 
 export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession }: any) {
   const [loading, setLoading] = useState(true);
-  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string }>>([]);
+  const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
   const [pendingLobbyInvites, setPendingLobbyInvites] = useState<Array<{ id: number; lobby_id: string; lobby_name: string; from_user_id: string; from_username: string; password_required: boolean }>>([]);
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
@@ -458,6 +598,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
+  const playedIncomingMessageIdsRef = useRef<Set<number>>(new Set());
 
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
@@ -467,6 +608,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     () =>
       friendsList.reduce<Record<string, string>>((acc, friend) => {
         acc[friend.id] = friend.username;
+        return acc;
+      }, {}),
+    [friendsList]
+  );
+  const friendAvatarById = useMemo(
+    () =>
+      friendsList.reduce<Record<string, string>>((acc, friend) => {
+        if (friend.avatarUrl) {
+          acc[friend.id] = friend.avatarUrl;
+        }
         return acc;
       }, {}),
     [friendsList]
@@ -518,7 +669,8 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       .map((id) => {
         const profile = profileMap.get(id);
         const username = profile?.username?.trim() || profile?.email?.split('@')[0]?.trim() || `Player ${id.slice(0, 8)}`;
-        return { id, username };
+        const avatarUrl = profile?.avatar_url || null;
+        return { id, username, avatarUrl };
       })
       .sort((a, b) => a.username.localeCompare(b.username));
     setFriendsList(mapped);
@@ -783,6 +935,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             metadata: any;
             created_at: string;
           };
+
+          if (row.receiver_id === user.id && row.sender_id !== user.id && !playedIncomingMessageIdsRef.current.has(row.id)) {
+            playedIncomingMessageIdsRef.current.add(row.id);
+            playChatMessageSound();
+          }
 
           if (
             selectedFriendId &&
@@ -1079,7 +1236,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                   const senderName = mine
                     ? (user?.username || user?.email?.split('@')[0] || 'You')
                     : (friendNameById[msg.sender_id] || selectedFriend?.username || `Player ${msg.sender_id.slice(0, 8)}`);
-                  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=1f2937&color=ffffff&size=64`;
+                  const avatarUrl =
+                    (mine
+                      ? (user?.avatarUrl || null)
+                      : (friendAvatarById[msg.sender_id] || null)) ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=1f2937&color=ffffff&size=64`;
                   return (
                     <div key={msg.id} className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
                       <div className={'flex items-end gap-2 max-w-[75%] ' + (mine ? 'flex-row-reverse' : 'flex-row')}>

@@ -15,12 +15,15 @@ export interface ProfileData {
   country: string;
   twitter: string;
   twitch: string;
+  avatarUrl?: string;
+  coverUrl?: string;
 }
 
 export interface ArenaUser {
   id: string;
   username: string;
   email: string;
+  avatarUrl?: string | null;
   role: string;
   kycStatus: string;
   kycMessage?: string | null;

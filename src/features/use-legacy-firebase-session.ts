@@ -26,6 +26,8 @@ export const DEFAULT_PROFILE_DATA: ProfileData = {
   country: "Israel",
   twitter: "",
   twitch: "",
+  avatarUrl: "",
+  coverUrl: "",
 };
 
 export const DEFAULT_WALLET: WalletSnapshot = {
@@ -39,6 +41,7 @@ function toArenaUser(userData: any): ArenaUser {
     id: userData.uid || userData.id,
     username: userData.username || userData.displayName || userData.email?.split("@")[0] || "Player",
     email: userData.email || "",
+    avatarUrl: userData.photoURL || userData.avatarUrl || null,
     role: userData.role || "user",
     kycStatus: userData.kycStatus || "none",
     accountMode: userData.accountMode || "live",
@@ -97,6 +100,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
       country: profile.country || DEFAULT_PROFILE_DATA.country,
       twitter: profile.twitter || DEFAULT_PROFILE_DATA.twitter,
       twitch: profile.twitch || DEFAULT_PROFILE_DATA.twitch,
+      avatarUrl: profile.avatarUrl || profile.photoURL || DEFAULT_PROFILE_DATA.avatarUrl,
+      coverUrl: profile.coverUrl || DEFAULT_PROFILE_DATA.coverUrl,
     });
   };
 
@@ -165,6 +170,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
               country: profile.country || DEFAULT_PROFILE_DATA.country,
               twitter: profile.twitter || DEFAULT_PROFILE_DATA.twitter,
               twitch: profile.twitch || DEFAULT_PROFILE_DATA.twitch,
+              avatarUrl: profile.avatarUrl || profile.photoURL || DEFAULT_PROFILE_DATA.avatarUrl,
+              coverUrl: profile.coverUrl || DEFAULT_PROFILE_DATA.coverUrl,
             });
           },
           (error) => {
@@ -205,25 +212,27 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     }
 
     const safeAmount = Number(amount);
-    if (!Number.isFinite(safeAmount) || safeAmount < 0) {
-      throw new Error("Demo balance must be a non-negative amount.");
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0) {
+      throw new Error("Top-up amount must be greater than zero.");
     }
+
+    const nextDemoBalance = wallet.demoBalance + safeAmount;
 
     await setDoc(
       doc(db, "users", user.id),
       {
-        demoBalance: safeAmount,
+        demoBalance: nextDemoBalance,
       },
       { merge: true }
     );
 
     setWallet((currentWallet) => ({
       ...currentWallet,
-      demoBalance: safeAmount,
+      demoBalance: nextDemoBalance,
     }));
     setDemoStats((currentStats) => ({
       ...currentStats,
-      credits: safeAmount,
+      credits: nextDemoBalance,
     }));
   };
 

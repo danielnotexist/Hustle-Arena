@@ -1,5 +1,7 @@
 import { CheckCircle2, Clock, Lock, Search, Server, ShieldAlert, Sword, Target, Users } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { quickQueueCancel, quickQueueJoinOrMatch } from "../lib/supabase/matchmaking";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -8,36 +10,40 @@ export function BattlefieldView({
   openModal,
   user,
   accountMode,
+  onMatchReady,
 }: {
   addToast: any;
   openModal: any;
   user: any;
   accountMode: AccountMode;
   refreshSession?: () => Promise<void>;
+  onMatchReady?: () => void;
 }) {
   const isKycVerified = user?.kycStatus === "verified" || user?.email?.toLowerCase() === "danielnotexist@gmail.com";
   const requiresKyc = accountMode === "live";
   const [matchState, setMatchState] = useState<"idle" | "searching" | "found" | "accepted" | "connecting">("idle");
   const [searchTime, setSearchTime] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
-  const [matchType, setMatchType] = useState("standard");
+  const [matchType, setMatchType] = useState<"ranked_5v5" | "ranked_2v2">("ranked_5v5");
   const [queueMode, setQueueMode] = useState<"solo" | "party">("solo");
+  const [playersJoined, setPlayersJoined] = useState(0);
+  const [playersNeeded, setPlayersNeeded] = useState(0);
+  const [estimatedWaitSeconds, setEstimatedWaitSeconds] = useState(75);
+  const [onlineNow, setOnlineNow] = useState<Array<{ user_id: string; username: string; avatar_url?: string | null }>>([]);
+  const [matchedLobbyId, setMatchedLobbyId] = useState<string | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const presenceChannelRef = useRef<any>(null);
+
+  const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
+  const selectedQueueLabel = matchType === "ranked_2v2" ? "Ranked 2v2" : "Ranked 5v5";
 
   useEffect(() => {
-    let interval: number | undefined;
-    if (matchState === "searching") {
-      interval = window.setInterval(() => {
-        setSearchTime((prev) => {
-          if (prev >= 5) {
-            setMatchState("found");
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
+    if (matchState !== "searching") return;
+    const interval = window.setInterval(() => {
+      setSearchTime((prev) => prev + 1);
+    }, 1000);
     return () => {
-      if (interval) window.clearInterval(interval);
+      window.clearInterval(interval);
     };
   }, [matchState]);
 
@@ -47,7 +53,10 @@ export function BattlefieldView({
       interval = window.setInterval(() => {
         setAcceptedCount((prev) => {
           if (prev >= 10) {
-            window.setTimeout(() => setMatchState("connecting"), 1000);
+            window.setTimeout(() => {
+              setMatchState("connecting");
+              onMatchReady?.();
+            }, 800);
             return 10;
           }
           return prev + 1;
@@ -57,7 +66,53 @@ export function BattlefieldView({
     return () => {
       if (interval) window.clearInterval(interval);
     };
-  }, [matchState]);
+  }, [matchState, onMatchReady]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (presenceChannelRef.current) {
+      supabase.removeChannel(presenceChannelRef.current);
+      presenceChannelRef.current = null;
+    }
+
+    const channel = supabase.channel(`battlefield-online-${accountMode}`, {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const flattened = Object.values(state)
+          .flat()
+          .map((entry: any) => ({
+            user_id: entry.user_id as string,
+            username: entry.username as string,
+            avatar_url: entry.avatar_url as string | null,
+          }))
+          .filter((entry) => !!entry.user_id);
+        const byId = new Map<string, { user_id: string; username: string; avatar_url?: string | null }>();
+        flattened.forEach((entry) => byId.set(entry.user_id, entry));
+        setOnlineNow(Array.from(byId.values()));
+      })
+      .subscribe(async (status: string) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({
+            user_id: user.id,
+            username: user.username || user.email?.split("@")[0] || "Player",
+            avatar_url: user.avatarUrl || null,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+    return () => {
+      if (presenceChannelRef.current) {
+        supabase.removeChannel(presenceChannelRef.current);
+        presenceChannelRef.current = null;
+      }
+    };
+  }, [user?.id, accountMode, user?.username, user?.email, user?.avatarUrl]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -65,7 +120,7 @@ export function BattlefieldView({
     return `${m}:${s}`;
   };
 
-  const startSearch = () => {
+  const startSearch = async () => {
     if (requiresKyc && !isKycVerified) {
       addToast("KYC Verification required to play", "error");
       return;
@@ -74,9 +129,25 @@ export function BattlefieldView({
       addToast("Switch to Demo Account from Profile before entering matchmaking.", "error");
       return;
     }
-    setSearchTime(0);
-    setMatchState("searching");
-    addToast("Searching for match...", "info");
+    try {
+      setSearchTime(0);
+      setMatchState("searching");
+      const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
+      if (status) {
+        setPlayersJoined(status.players_joined || 0);
+        setPlayersNeeded(status.players_needed || 0);
+        setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
+        setMatchedLobbyId(status.lobby_id || null);
+        if (status.status === "matched") {
+          setMatchState("found");
+        }
+      }
+      addToast("Searching for real players in queue...", "info");
+    } catch (error: any) {
+      console.error(error);
+      setMatchState("idle");
+      addToast(error?.message || "Failed to start quick queue.", "error");
+    }
   };
 
   const acceptMatch = () => {
@@ -84,10 +155,55 @@ export function BattlefieldView({
     setAcceptedCount(1);
   };
 
-  const cancelSearch = () => {
+  const cancelSearch = async () => {
+    try {
+      await quickQueueCancel(accountMode);
+    } catch (error) {
+      console.error("Failed to cancel quick queue:", error);
+    }
     setMatchState("idle");
     setSearchTime(0);
+    setPlayersJoined(0);
+    setPlayersNeeded(0);
+    setMatchedLobbyId(null);
   };
+
+  useEffect(() => {
+    if (matchState !== "searching") {
+      if (pollingRef.current) {
+        window.clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode);
+        if (!status) return;
+        setPlayersJoined(status.players_joined || 0);
+        setPlayersNeeded(status.players_needed || 0);
+        setEstimatedWaitSeconds(status.estimated_wait_seconds || 10);
+        setMatchedLobbyId(status.lobby_id || null);
+        if (status.status === "matched") {
+          setMatchState("found");
+        }
+      } catch (error) {
+        console.error("Quick queue poll failed:", error);
+      }
+    };
+
+    void poll();
+    const interval = window.setInterval(() => {
+      void poll();
+    }, 2000);
+    pollingRef.current = interval;
+
+    return () => {
+      window.clearInterval(interval);
+      pollingRef.current = null;
+    };
+  }, [matchState, accountMode, selectedTeamSize, queueMode]);
 
   if (requiresKyc && !isKycVerified) {
     return (
@@ -125,7 +241,9 @@ export function BattlefieldView({
         <div className="flex items-center gap-4 bg-esport-card border border-esport-border px-4 py-2 rounded-lg">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" />
-            <span className="text-sm font-bold">{accountMode === "demo" ? "Quick Queue Online" : "Live Queue Locked"}</span>
+            <span className="text-sm font-bold">
+              {accountMode === "demo" ? `Quick Queue Online · ${onlineNow.length}` : "Live Queue Locked"}
+            </span>
           </div>
         </div>
       </div>
@@ -176,33 +294,33 @@ export function BattlefieldView({
             </div>
 
             <div
-              onClick={() => setMatchType("standard")}
-              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "standard" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
+              onClick={() => setMatchType("ranked_5v5")}
+              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "ranked_5v5" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "standard" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
+              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_5v5" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
               <div className="flex items-center justify-between relative z-10">
                 <div>
                   <h3 className="text-2xl font-bold font-display uppercase mb-1">Ranked 5v5</h3>
                   <p className="text-sm text-esport-text-muted">Quick competitive matchmaking. Affects your ELO.</p>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "standard" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
-                  <Sword className={matchType === "standard" ? "text-esport-accent" : "text-esport-text-muted"} />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_5v5" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
+                  <Sword className={matchType === "ranked_5v5" ? "text-esport-accent" : "text-esport-text-muted"} />
                 </div>
               </div>
             </div>
 
             <div
-              onClick={() => setMatchType("unranked")}
-              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "unranked" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
+              onClick={() => setMatchType("ranked_2v2")}
+              className={`esport-card p-6 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "ranked_2v2" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "unranked" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
+              <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_2v2" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
               <div className="flex items-center justify-between relative z-10">
                 <div>
-                  <h3 className="text-xl font-bold font-display uppercase mb-1">Unranked</h3>
-                  <p className="text-sm text-esport-text-muted">Quick casual queue. Try new strategies.</p>
+                  <h3 className="text-xl font-bold font-display uppercase mb-1">Ranked 2v2</h3>
+                  <p className="text-sm text-esport-text-muted">Wingman quick queue. Competitive and fast.</p>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "unranked" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
-                  <Users className={matchType === "unranked" ? "text-esport-accent" : "text-esport-text-muted"} />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_2v2" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
+                  <Users className={matchType === "ranked_2v2" ? "text-esport-accent" : "text-esport-text-muted"} />
                 </div>
               </div>
             </div>
@@ -214,12 +332,38 @@ export function BattlefieldView({
             </div>
             <div>
               <div className="text-sm text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
+              <div className="text-sm text-white font-bold">{selectedQueueLabel}</div>
               <div className="text-xs text-esport-text-muted mb-2">Estimated Wait</div>
-              <div className="text-2xl font-bold font-mono">01:15</div>
+              <div className="text-2xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
+              {matchState === "searching" && (
+                <div className="mt-2 text-xs text-esport-text-muted">
+                  {playersJoined} joined · {playersNeeded} needed
+                </div>
+              )}
             </div>
-            <button onClick={startSearch} className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <button onClick={() => void startSearch()} className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               {queueMode === "solo" ? "FIND SOLO MATCH" : "FIND PARTY MATCH"}
             </button>
+            <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
+              <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">
+                Online Right Now
+              </div>
+              <div className="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+                {onlineNow.length === 0 && (
+                  <div className="text-xs text-esport-text-muted">No active players on Battlefield right now.</div>
+                )}
+                {onlineNow.slice(0, 12).map((entry) => (
+                  <div key={entry.user_id} className="flex items-center gap-2">
+                    <img
+                      src={entry.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(entry.username || "Player")}&background=1f2937&color=ffffff&size=48`}
+                      alt={entry.username || "Player"}
+                      className="w-6 h-6 rounded-full border border-white/20 object-cover"
+                    />
+                    <span className="text-xs text-white truncate">{entry.username || `Player ${entry.user_id.slice(0, 6)}`}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -240,7 +384,7 @@ export function BattlefieldView({
               <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-esport-accent mb-2">{queueMode === "solo" ? "Searching Solo Queue" : "Searching Party Queue"}</h3>
               <div className="text-4xl font-mono font-bold text-white">{formatTime(searchTime)}</div>
             </div>
-            <button onClick={cancelSearch} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
+            <button onClick={() => void cancelSearch()} className="esport-btn-secondary text-esport-danger border-esport-danger/30 hover:bg-esport-danger/10">
               Cancel Search
             </button>
           </div>
@@ -259,7 +403,7 @@ export function BattlefieldView({
             <button onClick={acceptMatch} className="bg-esport-success hover:bg-emerald-400 text-black font-bold py-4 px-12 rounded-lg text-xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
               ACCEPT
             </button>
-            <button onClick={cancelSearch} className="esport-btn-secondary py-4 px-8">
+            <button onClick={() => void cancelSearch()} className="esport-btn-secondary py-4 px-8">
               DECLINE
             </button>
           </div>
@@ -271,14 +415,14 @@ export function BattlefieldView({
           <h3 className="text-2xl font-bold font-display uppercase tracking-widest text-white mb-8">Waiting for players...</h3>
 
           <div className="flex gap-2 mb-8">
-            {Array.from({ length: 10 }).map((_, i) => (
+            {Array.from({ length: selectedTeamSize * 2 }).map((_, i) => (
               <div key={i} className={`w-12 h-16 rounded border-2 flex items-center justify-center transition-all duration-300 ${i < acceptedCount ? "bg-esport-success/20 border-esport-success text-esport-success shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-black/50 border-esport-border text-esport-border"}`}>
                 {i < acceptedCount ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
               </div>
             ))}
           </div>
 
-          <div className="text-xl font-mono font-bold text-esport-accent">{acceptedCount} / 10 Accepted</div>
+          <div className="text-xl font-mono font-bold text-esport-accent">{acceptedCount} / {selectedTeamSize * 2} Accepted</div>
         </div>
       )}
 
@@ -295,7 +439,8 @@ export function BattlefieldView({
           <p className="text-esport-text-muted font-mono bg-black/50 px-4 py-2 rounded border border-esport-border">
             IP: 192.168.1.{Math.floor(Math.random() * 255)}:27015
           </p>
-          <button onClick={cancelSearch} className="mt-8 esport-btn-secondary text-sm">
+          <div className="text-xs text-esport-text-muted mt-2">Lobby: {matchedLobbyId || "pending"}</div>
+          <button onClick={() => void cancelSearch()} className="mt-8 esport-btn-secondary text-sm">
             Disconnect
           </button>
         </div>

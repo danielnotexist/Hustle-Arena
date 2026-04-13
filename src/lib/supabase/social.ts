@@ -41,6 +41,7 @@ export interface PublicProfileBasic {
   id: string;
   username: string | null;
   email: string | null;
+  avatar_url?: string | null;
 }
 
 export async function fetchPublicProfileBasics(userIds: string[]) {
@@ -64,6 +65,7 @@ export async function fetchPublicProfileBasics(userIds: string[]) {
         id: profile.id,
         username: profile.username,
         email: profile.email,
+        avatar_url: profile.avatar_url || null,
       },
     ])
   );

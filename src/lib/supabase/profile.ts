@@ -15,7 +15,7 @@ export async function fetchMyProfile() {
 export async function fetchExtendedProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, email, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance")
+    .select("id, username, email, avatar_url, cover_url, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance")
     .eq("id", userId)
     .single();
 
@@ -45,6 +45,7 @@ export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | M
     id: profile.id,
     username: profile.username,
     email: profile.email,
+    avatarUrl: ("avatar_url" in profile ? profile.avatar_url : null) || null,
     role: profile.role,
     kycStatus: profile.kyc_status,
     kycMessage: "kyc_message" in profile ? profile.kyc_message || null : null,
@@ -58,6 +59,8 @@ export function mapSupabaseProfileToProfileData(profile: Partial<SupabaseProfile
     country: profile.country || "Israel",
     twitter: profile.twitter || "",
     twitch: profile.twitch || "",
+    avatarUrl: profile.avatar_url || "",
+    coverUrl: profile.cover_url || "",
   };
 }
 
@@ -106,6 +109,8 @@ export async function updateProfileBasics(userId: string, profile: ProfileData) 
       country: profile.country,
       twitter: profile.twitter,
       twitch: profile.twitch,
+      avatar_url: profile.avatarUrl?.trim() || null,
+      cover_url: profile.coverUrl?.trim() || null,
     })
     .eq("id", userId);
 
