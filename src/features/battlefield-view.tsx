@@ -1007,19 +1007,26 @@ export function CustomLobbyView({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div>
+      <div className="rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.96),rgba(2,6,23,0.98))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+        <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+          <Radio className="h-3.5 w-3.5" />
+          Real-time squad control
+        </div>
         <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub</h2>
+        <p className="mt-2 max-w-3xl text-sm text-esport-text-muted">
+          Manage your custom lobby, teams, readiness, chat, and match flow from one polished control room.
+        </p>
       </div>
 
       <div className="space-y-6">
           {!activeLobby && showJoiningLobbyState && (
-            <div className="esport-card p-7">
-              <div className="rounded-2xl border border-esport-accent/30 bg-esport-accent/10 p-6">
+            <div className="esport-card overflow-hidden border-esport-accent/25 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),transparent_45%),linear-gradient(180deg,rgba(17,24,39,0.98),rgba(2,6,23,0.98))] p-7">
+              <div className="rounded-3xl border border-esport-accent/30 bg-black/20 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                 <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
                   Joining Lobby
                 </div>
                 <div className="mt-3 flex items-center gap-3">
-                  <div className="h-3 w-3 animate-pulse rounded-full bg-esport-accent" />
+                  <div className="h-3 w-3 animate-pulse rounded-full bg-esport-accent shadow-[0_0_14px_rgba(59,130,246,0.8)]" />
                   <div className="text-lg font-display font-bold text-white">
                     Connecting you to the custom lobby...
                   </div>
@@ -1032,30 +1039,74 @@ export function CustomLobbyView({
           )}
 
           {!activeLobby && !showJoiningLobbyState && (
-            <div className="esport-card p-5 space-y-4">
-              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
-              <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
-              <select value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                {STAKE_OPTIONS.map((amount) => (
-                  <option key={amount} value={amount}>
-                    {amount} USDT
-                  </option>
-                ))}
-              </select>
-              <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                <option value={2}>2v2</option>
-                <option value={5}>5v5</option>
-              </select>
-              <select value={formState.gameMode} onChange={(e) => setFormState((current) => ({ ...current, gameMode: e.target.value as SupportedGameMode }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
-                {getGameModeOptions(formState.teamSize).map((mode) => <option key={mode} value={mode}>{formatMode(mode)}</option>)}
-              </select>
-              <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="w-full bg-white/5 border border-esport-border rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
-              <button onClick={handleCreateLobby} disabled={creating || loading} className="esport-btn-primary w-full py-3 disabled:opacity-50">{creating ? "Creating..." : "Create Custom Lobby"}</button>
+            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.98),rgba(2,6,23,0.98))] p-6 space-y-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
+                  <h3 className="mt-2 text-2xl font-display font-bold uppercase text-white">Build Your Squad Room</h3>
+                  <p className="mt-2 max-w-2xl text-sm text-esport-text-muted">
+                    Configure the lobby name, stake, format, and access settings before inviting players into your arena.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-left">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Stake</div>
+                    <div className="mt-2 text-lg font-bold text-white">{formState.stakeAmount} USDT</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Teams</div>
+                    <div className="mt-2 text-lg font-bold text-white">{formState.teamSize}v{formState.teamSize}</div>
+                  </div>
+                  <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.08] px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Mode</div>
+                    <div className="mt-2 text-lg font-bold text-esport-accent">{formatMode(formState.gameMode)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Name</div>
+                  <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
+                </label>
+                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Entry Stake</div>
+                  <select value={formState.stakeAmount} onChange={(e) => setFormState((current) => ({ ...current, stakeAmount: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
+                    {STAKE_OPTIONS.map((amount) => (
+                      <option key={amount} value={amount}>
+                        {amount} USDT
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Team Format</div>
+                  <select value={formState.teamSize} onChange={(e) => setFormState((current) => ({ ...current, teamSize: Number(e.target.value) as 2 | 5, gameMode: Number(e.target.value) === 2 ? "wingman" : "competitive" }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
+                    <option value={2}>2v2</option>
+                    <option value={5}>5v5</option>
+                  </select>
+                </label>
+                <label className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Game Mode</div>
+                  <select value={formState.gameMode} onChange={(e) => setFormState((current) => ({ ...current, gameMode: e.target.value as SupportedGameMode }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60">
+                    {getGameModeOptions(formState.teamSize).map((mode) => <option key={mode} value={mode}>{formatMode(mode)}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Access Control</div>
+                <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="mt-3 w-full bg-white/5 border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
+              </div>
+
+              <div className="flex justify-center">
+                <button onClick={handleCreateLobby} disabled={creating || loading} className="esport-btn-primary min-w-[320px] py-3 disabled:opacity-50 shadow-[0_0_26px_rgba(59,130,246,0.25)]">{creating ? "Creating..." : "Create Custom Lobby"}</button>
+              </div>
             </div>
           )}
 
           {activeLobby && (
-            <div className="esport-card p-5 space-y-5">
+            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.98),rgba(2,6,23,0.98))] p-5 space-y-5">
               <div className="flex flex-col lg:flex-row justify-between gap-4">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{isLeader ? "My" : "Joined"} {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
@@ -1078,9 +1129,9 @@ export function CustomLobbyView({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby status</div><div className="mt-2 text-sm font-bold text-white">{activeMatch ? activeMatch.status : activeLobby.status}</div></div>
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ready players</div><div className="mt-2 text-sm font-bold text-esport-success">{readyCount}/{activeMembers.length}</div></div>
-                <div className="rounded-xl border border-esport-border bg-white/5 p-4"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Stake Amount</div><div className="mt-2 text-sm font-bold text-white">{`${Number(activeLobby.stake_amount || 0).toFixed(2)} USDT / player`}</div></div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby status</div><div className="mt-2 text-sm font-bold text-white">{activeMatch ? activeMatch.status : activeLobby.status}</div></div>
+                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] p-4 shadow-[0_0_25px_rgba(16,185,129,0.06)]"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ready players</div><div className="mt-2 text-sm font-bold text-esport-success">{readyCount}/{activeMembers.length}</div></div>
+                <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.07] p-4 shadow-[0_0_25px_rgba(59,130,246,0.08)]"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Stake Amount</div><div className="mt-2 text-sm font-bold text-white">{`${Number(activeLobby.stake_amount || 0).toFixed(2)} USDT / player`}</div></div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1242,7 +1293,7 @@ export function CustomLobbyView({
             </div>
           )}
 
-          <div className="esport-card p-5">
+          <div className="esport-card border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.94),rgba(2,6,23,0.96))] p-5">
             <div className="flex items-center gap-2 mb-4"><Server className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Recent matches</div></div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

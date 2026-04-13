@@ -447,7 +447,7 @@ export function BattlefieldView({
     void poll();
     const interval = window.setInterval(() => {
       void poll();
-    }, 2000);
+    }, 750);
     pollingRef.current = interval;
 
     return () => {
