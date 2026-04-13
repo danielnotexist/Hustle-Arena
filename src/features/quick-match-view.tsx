@@ -435,6 +435,89 @@ export function BattlefieldView({
   }, [acceptedIncomingPartyInvite, accountMode, isPartyInviteGuest, matchState, selectedStakeAmount, selectedTeamSize, user?.id]);
 
   useEffect(() => {
+    if (!user?.id || !selectedStakeAmount) {
+      return;
+    }
+
+    if (matchState === "ready_check" || matchState === "connecting") {
+      return;
+    }
+
+    if (cancelInFlightRef.current || suppressAutoQueueUntilRef.current > Date.now()) {
+      return;
+    }
+
+    let cancelled = false;
+    const requestVersion = queueRequestVersionRef.current;
+
+    const syncQueueStateFromEntry = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("quick_queue_entries")
+          .select("mode, team_size, queue_mode, status, selected_stake_amount")
+          .eq("user_id", user.id)
+          .eq("mode", accountMode)
+          .in("status", ["searching", "ready_check", "matched"])
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !data) {
+          if (error) {
+            console.error("Failed to sync queue entry state:", error);
+          }
+          return;
+        }
+
+        const entryStakeAmount = Number(data.selected_stake_amount || 0);
+        if (!entryStakeAmount) {
+          return;
+        }
+
+        const entryMatchType = data.team_size === 2 ? "ranked_2v2" : "ranked_5v5";
+        const entryQueueMode = data.queue_mode === "party" ? "party" : "solo";
+
+        if (matchType !== entryMatchType) {
+          setMatchType(entryMatchType);
+        }
+        if (queueMode !== entryQueueMode) {
+          setQueueMode(entryQueueMode);
+        }
+        if (selectedStakeAmount !== entryStakeAmount) {
+          setSelectedStakeAmount(entryStakeAmount);
+        }
+
+        const nextStatus = await quickQueueJoinOrMatch(
+          accountMode,
+          data.team_size as 2 | 5,
+          entryQueueMode,
+          entryStakeAmount
+        );
+
+        if (
+          !cancelled &&
+          !cancelInFlightRef.current &&
+          requestVersion === queueRequestVersionRef.current
+        ) {
+          applyQueueStatus(nextStatus);
+        }
+      } catch (error) {
+        console.error("Failed to hydrate queue state from entry:", error);
+      }
+    };
+
+    void syncQueueStateFromEntry();
+    const interval = window.setInterval(() => {
+      void syncQueueStateFromEntry();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [accountMode, matchState, matchType, queueMode, selectedStakeAmount, user?.id]);
+
+  useEffect(() => {
     if (queueMode !== "party" || isPartyInviteGuest) {
       setPartyPickerOpen(false);
     }
