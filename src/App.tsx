@@ -664,6 +664,14 @@ export default function App() {
     }
   };
 
+  const openDirectMessageWithFriend = (friendId: string) => {
+    setNotificationsOpen(false);
+    setPublicProfileState(null);
+    setSocialFocusFriendId(friendId);
+    setActiveTab("Social");
+    setSocialRefreshNonce((current) => current + 1);
+  };
+
   const acknowledgeLobbyClosedNotice = async (noticeId: number) => {
     try {
       await markNotificationRead(noticeId);
@@ -1076,6 +1084,7 @@ export default function App() {
                         user={user}
                         accountMode={accountMode}
                         visibleBalance={visibleBalance}
+                        onOpenDirectMessage={openDirectMessageWithFriend}
                         refreshSession={refreshSession}
                         onMatchReady={() => {
                           setBattlefieldMenuOpen(true);
