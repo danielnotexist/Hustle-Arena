@@ -5,12 +5,16 @@ import {
   fetchMyActiveLobby,
   fetchMyQuickQueueStatus,
   fetchQuickQueuePartyInvites,
+  fetchQuickQueuePartyStakeUpdates,
   quickQueueAcceptMatch,
   quickQueueCancel,
   quickQueueJoinOrMatch,
+  requestQuickQueuePartyStakeUpdate,
   respondQuickQueuePartyInvite,
+  respondQuickQueuePartyStakeUpdate,
   sendQuickQueuePartyInvite,
   type QuickQueuePartyInvite,
+  type QuickQueuePartyStakeUpdate,
   type QuickQueueStatus,
 } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
@@ -59,8 +63,10 @@ export function BattlefieldView({
   const [readyCheckProfiles, setReadyCheckProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [partyInvites, setPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
+  const [partyStakeUpdates, setPartyStakeUpdates] = useState<QuickQueuePartyStakeUpdate[]>([]);
   const [partyInviteProfiles, setPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [partyInviteActionUserId, setPartyInviteActionUserId] = useState<string | null>(null);
+  const [stakeUpdateActionId, setStakeUpdateActionId] = useState<number | null>(null);
   const [incomingInviteActionId, setIncomingInviteActionId] = useState<number | null>(null);
   const [partyInviteBackendMissing, setPartyInviteBackendMissing] = useState(false);
   const [partyPickerOpen, setPartyPickerOpen] = useState(false);
@@ -73,6 +79,7 @@ export function BattlefieldView({
   const suppressAutoQueueUntilRef = useRef(0);
   const readyCheckAcceptedCountRef = useRef(0);
   const readyCheckCompletionSoundRef = useRef<string | null>(null);
+  const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
 
   const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
   const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
@@ -134,6 +141,18 @@ export function BattlefieldView({
   };
   const displayedPartyMembers = [selfPartyMember, ...visiblePartyMembers];
   const isPartyInviteGuest = !!incomingPartyHost && selectedPartyMembers.length === 0;
+  const isPartyLeader = queueMode === "party" && !isPartyInviteGuest;
+  const contextPartyStakeUpdates = partyStakeUpdates.filter(
+    (update) => update.mode === accountMode && update.team_size === selectedTeamSize
+  );
+  const pendingOutgoingStakeUpdates = contextPartyStakeUpdates.filter(
+    (update) => update.host_user_id === user?.id && update.status === "pending"
+  );
+  const pendingIncomingStakeUpdate =
+    contextPartyStakeUpdates.find(
+      (update) => update.invitee_user_id === user?.id && update.status === "pending"
+    ) || null;
+  const hostStakeChangePending = pendingOutgoingStakeUpdates.length > 0;
   const availablePartyFriends = friendsList.filter((friend) => !visiblePartyMembers.some((member) => member.id === friend.id));
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
@@ -299,6 +318,7 @@ export function BattlefieldView({
   useEffect(() => {
     if (!user?.id) {
       setPartyInvites([]);
+      setPartyStakeUpdates([]);
       return;
     }
 
@@ -306,10 +326,14 @@ export function BattlefieldView({
 
     const loadPartyInvites = async () => {
       try {
-        const rows = await fetchQuickQueuePartyInvites(user.id);
+        const [inviteRows, stakeUpdateRows] = await Promise.all([
+          fetchQuickQueuePartyInvites(user.id),
+          fetchQuickQueuePartyStakeUpdates(user.id),
+        ]);
         if (!cancelled) {
           setPartyInviteBackendMissing(false);
-          setPartyInvites(rows);
+          setPartyInvites(inviteRows);
+          setPartyStakeUpdates(stakeUpdateRows);
         }
       } catch (error) {
         console.error("Failed to load party invites:", error);
@@ -329,6 +353,29 @@ export function BattlefieldView({
       window.clearInterval(interval);
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !contextPartyStakeUpdates.length) {
+      return;
+    }
+
+    const previous = seenStakeUpdateStatusesRef.current;
+    contextPartyStakeUpdates.forEach((update) => {
+      const lastStatus = previous[update.id];
+      if (update.host_user_id === user.id && lastStatus === "pending" && update.status === "declined") {
+        if (selectedStakeAmount === Number(update.new_stake_amount)) {
+          setSelectedStakeAmount(Number(update.previous_stake_amount));
+        }
+        addToast("Your teammate declined the new stake amount. Reverted to the previous amount.", "info");
+      }
+
+      if (update.host_user_id === user.id && lastStatus === "pending" && update.status === "accepted") {
+        addToast("Your teammate accepted the new stake amount.", "success");
+      }
+
+      previous[update.id] = update.status;
+    });
+  }, [addToast, contextPartyStakeUpdates, selectedStakeAmount, user?.id]);
 
   useEffect(() => {
     const profileIds: string[] = Array.from(
@@ -761,6 +808,10 @@ export function BattlefieldView({
       addToast("Invite a friend and wait for them to accept before searching.", "error");
       return;
     }
+    if (queueMode === "party" && isPartyLeader && hostStakeChangePending) {
+      addToast("Wait for your teammate to accept or decline the updated stake amount before searching.", "error");
+      return;
+    }
     try {
       cancelInFlightRef.current = false;
       suppressAutoQueueUntilRef.current = 0;
@@ -776,6 +827,86 @@ export function BattlefieldView({
       console.error(error);
       setMatchState("idle");
       addToast(error?.message || "Failed to start quick queue.", "error");
+    }
+  };
+
+  const requestStakeChange = async (nextStakeAmount: number | null) => {
+    if (isPartyInviteGuest) {
+      return;
+    }
+
+    if (!nextStakeAmount) {
+      setSelectedStakeAmount(null);
+      return;
+    }
+
+    const previousStakeAmount = Number(selectedStakeAmount || 0);
+    const nextAmount = Number(nextStakeAmount);
+
+    if (
+      queueMode === "party" &&
+      isPartyLeader &&
+      acceptedPartyMembers.length > 0 &&
+      previousStakeAmount > 0 &&
+      previousStakeAmount !== nextAmount
+    ) {
+      if (hostStakeChangePending) {
+        addToast("A stake update request is already pending teammate approval.", "info");
+        return;
+      }
+
+      setSelectedStakeAmount(nextAmount);
+      try {
+        const sentCount = await requestQuickQueuePartyStakeUpdate(
+          accountMode,
+          selectedTeamSize,
+          previousStakeAmount,
+          nextAmount
+        );
+
+        if (sentCount > 0) {
+          addToast("Stake update sent for teammate approval.", "info");
+        } else {
+          addToast("No active accepted teammate found for stake update.", "error");
+          setSelectedStakeAmount(previousStakeAmount);
+        }
+      } catch (error: any) {
+        setSelectedStakeAmount(previousStakeAmount);
+        addToast(error?.message || "Failed to request stake update.", "error");
+      }
+      return;
+    }
+
+    setSelectedStakeAmount(nextAmount);
+  };
+
+  const respondToStakeUpdate = async (updateId: number, action: "accept" | "decline") => {
+    setStakeUpdateActionId(updateId);
+    try {
+      await respondQuickQueuePartyStakeUpdate(updateId, action);
+      setPartyStakeUpdates((current) =>
+        current.map((update) =>
+          update.id === updateId
+            ? {
+                ...update,
+                status: action === "accept" ? "accepted" : "declined",
+                responded_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }
+            : update
+        )
+      );
+      addToast(
+        action === "accept"
+          ? "You accepted the updated stake amount."
+          : "You declined the updated stake amount.",
+        action === "accept" ? "success" : "info"
+      );
+    } catch (error: any) {
+      console.error("Failed to respond to stake update:", error);
+      addToast(error?.message || "Failed to respond to stake update.", "error");
+    } finally {
+      setStakeUpdateActionId(null);
     }
   };
 
@@ -1039,7 +1170,10 @@ export function BattlefieldView({
               </div>
             </div>
 
-            <div className="esport-card p-5 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
+            {!isPartyInviteGuest ? (
+            <div className={`esport-card p-5 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
+              hostStakeChangePending ? "border-amber-300/50 shadow-[0_0_28px_rgba(251,191,36,0.18)]" : "border-esport-border"
+            }`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h3 className="text-xl font-bold font-display uppercase">Stake Amount</h3>
@@ -1047,10 +1181,20 @@ export function BattlefieldView({
                     Choose how much you want to play for. Queue matching will only combine players on the same amount.
                   </p>
                 </div>
-                <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-esport-accent">
+                <div className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] ${
+                  hostStakeChangePending
+                    ? "border-amber-300/40 bg-amber-400/10 text-amber-200"
+                    : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
+                }`}>
                   {formatStakeLabel(selectedStakeAmount)}
                 </div>
               </div>
+
+              {hostStakeChangePending && (
+                <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-400/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-amber-200">
+                  Pending teammate approval for updated stake amount.
+                </div>
+              )}
 
               <div className="mt-4 grid grid-cols-4 gap-2">
                 {STAKE_OPTIONS.map((amount) => {
@@ -1059,7 +1203,7 @@ export function BattlefieldView({
                     <button
                       key={amount}
                       type="button"
-                      onClick={() => setSelectedStakeAmount(amount)}
+                      onClick={() => void requestStakeChange(amount)}
                         className={`rounded-xl border px-3 py-3 text-left transition-all ${
                         active
                           ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
@@ -1082,13 +1226,34 @@ export function BattlefieldView({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedStakeAmount(null)}
+                  onClick={() => void requestStakeChange(null)}
                   className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted transition-colors hover:border-white/20 hover:text-white"
                 >
                   Remove stake
                 </button>
               </div>
             </div>
+            ) : (
+              <div className="esport-card p-5 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold font-display uppercase">Stake Amount</h3>
+                    <p className="text-sm text-esport-text-muted">
+                      Stake amount is controlled by the party leader.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-esport-accent">
+                    {formatStakeLabel(selectedStakeAmount)}
+                  </div>
+                </div>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Current party setting</div>
+                  <div className="mt-1 text-sm font-bold text-white">
+                    Stake Amount: {formatStakeLabel(selectedStakeAmount)}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div
@@ -1360,7 +1525,11 @@ export function BattlefieldView({
             </div>
             <button
               onClick={() => void startSearch()}
-              disabled={!selectedStakeAmount || (queueMode === "party" && (acceptedPartyMembers.length === 0 || isPartyInviteGuest))}
+              disabled={
+                !selectedStakeAmount ||
+                (queueMode === "party" &&
+                  (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
+              }
               className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
             >
               {queueMode === "solo" ? "FIND SOLO MATCH" : isPartyInviteGuest ? "WAITING FOR PARTY LEADER" : "FIND PARTY MATCH"}
@@ -1546,6 +1715,46 @@ export function BattlefieldView({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {pendingIncomingStakeUpdate && (
+        <div className="fixed inset-0 z-[106] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+          <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-[32px] border border-amber-300/35 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.15),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))] p-8 shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-amber-200">
+              <Clock size={14} />
+              Stake Update Request
+            </div>
+            <div className="mt-6 flex flex-col items-center text-center">
+              <h3 className="mt-2 text-4xl font-display font-bold uppercase tracking-wide text-white">
+                Party Leader Has Changed The Staking Amount
+              </h3>
+              <p className="mt-3 max-w-2xl text-base text-esport-text-muted">
+                Previous: {formatStakeLabel(pendingIncomingStakeUpdate.previous_stake_amount)} · New:{" "}
+                {formatStakeLabel(pendingIncomingStakeUpdate.new_stake_amount)}
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={stakeUpdateActionId === pendingIncomingStakeUpdate.id}
+                onClick={() => void respondToStakeUpdate(pendingIncomingStakeUpdate.id, "accept")}
+                className="rounded-2xl bg-esport-success px-6 py-4 text-lg font-bold uppercase tracking-[0.18em] text-black transition-transform hover:scale-[1.01] disabled:opacity-50"
+              >
+                I Accept
+              </button>
+              <button
+                type="button"
+                disabled={stakeUpdateActionId === pendingIncomingStakeUpdate.id}
+                onClick={() => void respondToStakeUpdate(pendingIncomingStakeUpdate.id, "decline")}
+                className="rounded-2xl border border-esport-danger/35 bg-esport-danger/10 px-6 py-4 text-lg font-bold uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-esport-danger/60 disabled:opacity-50"
+              >
+                I Decline
+              </button>
+            </div>
           </div>
         </div>
       )}

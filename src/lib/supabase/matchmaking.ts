@@ -160,6 +160,20 @@ export interface QuickQueuePartyInvite {
   responded_at?: string | null;
 }
 
+export interface QuickQueuePartyStakeUpdate {
+  id: number;
+  host_user_id: string;
+  invitee_user_id: string;
+  mode: LobbyMode;
+  team_size: 2 | 5;
+  previous_stake_amount: number;
+  new_stake_amount: number;
+  status: "pending" | "accepted" | "declined" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  responded_at?: string | null;
+}
+
 export interface MatchServerBootstrap {
   game: "counter-strike-2";
   gameKey: "cs2";
@@ -784,6 +798,53 @@ export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: Lob
 export async function respondQuickQueuePartyInvite(inviteId: number, action: "accept" | "decline" | "cancel") {
   const { data, error } = await supabase.rpc("respond_quick_queue_party_invite", {
     p_invite_id: inviteId,
+    p_action: action,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || action) as string;
+}
+
+export async function fetchQuickQueuePartyStakeUpdates(userId: string) {
+  const { data, error } = await supabase
+    .from("quick_queue_party_stake_updates")
+    .select("id, host_user_id, invitee_user_id, mode, team_size, previous_stake_amount, new_stake_amount, status, created_at, updated_at, responded_at")
+    .or(`host_user_id.eq.${userId},invitee_user_id.eq.${userId}`)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []) as QuickQueuePartyStakeUpdate[];
+}
+
+export async function requestQuickQueuePartyStakeUpdate(
+  mode: LobbyMode,
+  teamSize: 2 | 5,
+  previousStakeAmount: number,
+  newStakeAmount: number
+) {
+  const { data, error } = await supabase.rpc("request_quick_queue_party_stake_update", {
+    p_mode: mode,
+    p_team_size: teamSize,
+    p_previous_stake_amount: previousStakeAmount,
+    p_new_stake_amount: newStakeAmount,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Number(data || 0);
+}
+
+export async function respondQuickQueuePartyStakeUpdate(stakeUpdateId: number, action: "accept" | "decline") {
+  const { data, error } = await supabase.rpc("respond_quick_queue_party_stake_update", {
+    p_stake_update_id: stakeUpdateId,
     p_action: action,
   });
 
