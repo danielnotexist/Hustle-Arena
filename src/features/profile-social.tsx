@@ -1325,7 +1325,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
   };
 
-  const totalUnreadCount = Object.values(unreadByFriend).reduce((sum, count) => sum + count, 0);
+  const totalUnreadCount = Object.values(unreadByFriend as Record<string, number>).reduce(
+    (sum: number, count: number) => sum + count,
+    0
+  );
 
   return (
     <div className="space-y-6">

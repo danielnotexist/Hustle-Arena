@@ -17,6 +17,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import { fetchOpenMatchmakingLobbies, fetchRecentMatches } from "../lib/supabase/matchmaking";
 import { fetchPublicApexLeaderboard } from "../lib/supabase/social";
+import { supabase } from "../lib/supabase";
 import type { AccountMode, UserStats } from "./types";
 
 type DashboardMatchSummary = Awaited<ReturnType<typeof fetchRecentMatches>>[number];
@@ -139,6 +140,16 @@ export function DashboardView({
       }
 
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session?.user) {
+          if (!cancelled) {
+            setRecentMatches(fallbackRecentMatches);
+            setLiveServers([]);
+            setLeaders(fallbackLeaders);
+          }
+          return;
+        }
+
         const [matchRows, lobbyRows, leaderRows] = await Promise.all([
           fetchRecentMatches(accountMode, 6),
           fetchOpenMatchmakingLobbies(accountMode),

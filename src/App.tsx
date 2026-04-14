@@ -435,7 +435,7 @@ export default function App() {
   }, [user?.id]);
 
   useEffect(() => {
-    const hostIds = Array.from(new Set(globalPartyInvites.map((invite) => invite.host_user_id)));
+    const hostIds: string[] = Array.from(new Set(globalPartyInvites.map((invite) => invite.host_user_id)));
     if (!hostIds.length) {
       setGlobalPartyInviteProfiles({});
       return;

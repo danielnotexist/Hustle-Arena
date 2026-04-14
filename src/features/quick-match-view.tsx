@@ -96,7 +96,9 @@ export function BattlefieldView({
         invite.status === "accepted" &&
         invite.mode === accountMode
     ) || null;
-  const partyInviteByFriendId = new Map(currentConfigPartyInvites.map((invite) => [invite.invitee_user_id, invite]));
+  const partyInviteByFriendId = new Map<string, QuickQueuePartyInvite>(
+    currentConfigPartyInvites.map((invite) => [invite.invitee_user_id, invite] as const)
+  );
   const selectedPartyMemberIds = currentConfigPartyInvites.map((invite) => invite.invitee_user_id);
   const selectedPartyMembers = currentConfigPartyInvites
     .map((invite) => {
@@ -329,7 +331,7 @@ export function BattlefieldView({
   }, [user?.id]);
 
   useEffect(() => {
-    const profileIds = Array.from(
+    const profileIds: string[] = Array.from(
       new Set(
         partyInvites.flatMap((invite) => [invite.host_user_id, invite.invitee_user_id]).filter((id) => id !== user?.id)
       )
