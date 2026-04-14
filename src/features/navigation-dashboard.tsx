@@ -103,7 +103,7 @@ export function SidebarItem({ icon, label, active, onClick, highlight }: any) {
       className={`sidebar-item ${active ? "active" : ""} ${highlight ? "text-esport-secondary hover:text-esport-secondary" : ""}`}
     >
       <div className="shrink-0">{icon}</div>
-      <span className="text-sm font-bold tracking-tight">{label}</span>
+      <span className="text-[13px] font-bold tracking-tight">{label}</span>
       {highlight && <div className="ml-auto w-2 h-2 bg-esport-secondary rounded-full shadow-[0_0_8px_rgba(249,115,22,0.6)]" />}
     </div>
   );

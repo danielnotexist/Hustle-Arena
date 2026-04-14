@@ -739,23 +739,23 @@ export default function App() {
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
           <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
-            <div className="p-6">
+            <div className="p-5 pb-4">
               <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <div className="flex items-center gap-3 h-12">
+                <div className="flex items-center gap-2.5 h-10">
                   <img
                     src={hustleArenaLogo}
                     alt="Hustle Arena"
-                    className="h-full w-12 rounded-lg object-cover border border-esport-border"
+                    className="h-full w-10 rounded-lg object-cover border border-esport-border"
                   />
-                  <span className="font-display font-bold text-xl tracking-wider text-white">Hustle-Arena</span>
+                  <span className="font-display font-bold text-lg tracking-wide text-white">Hustle-Arena</span>
                 </div>
               </div>
             </div>
 
-            <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-8 py-4">
+            <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-5 py-3">
               {isAdmin && (
                 <div>
-                  <div className="px-4 mb-3 text-[10px] font-bold text-esport-secondary uppercase tracking-[0.2em]">Administration</div>
+                  <div className="px-3.5 mb-2 text-[9px] font-bold text-esport-secondary uppercase tracking-[0.2em]">Administration</div>
                   <div className="space-y-1">
                     <SidebarItem 
                       icon={<Shield size={20} />} 
@@ -769,7 +769,7 @@ export default function App() {
               )}
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
+                <div className="px-3.5 mb-2 text-[9px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
                 <div className="space-y-1">
                   <SidebarItem
                     icon={<LayoutDashboard size={20} />}
@@ -792,13 +792,13 @@ export default function App() {
                     }}
                   />
                   {(battlefieldMenuOpen || isBattlefieldTab) && (
-                    <div className="ml-6 space-y-1 border-l border-esport-border pl-3">
+                    <div className="ml-5 space-y-1 border-l border-esport-border pl-2.5">
                       <button
                         onClick={() => {
                           setBattlefieldMenuOpen(true);
                           setActiveTab("Battlefield Matchmaking");
                         }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                        className={`w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] font-bold uppercase tracking-[0.16em] transition-all ${
                           activeTab === "Battlefield Matchmaking"
                             ? "bg-esport-accent/10 text-esport-accent"
                             : "text-esport-text-muted hover:bg-white/5 hover:text-white"
@@ -811,7 +811,7 @@ export default function App() {
                           setBattlefieldMenuOpen(true);
                           setActiveTab("Custom Lobby Browser");
                         }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                        className={`w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] font-bold uppercase tracking-[0.16em] transition-all ${
                           activeTab === "Custom Lobby Browser"
                             ? "bg-esport-accent/10 text-esport-accent"
                             : "text-esport-text-muted hover:bg-white/5 hover:text-white"
@@ -833,7 +833,7 @@ export default function App() {
               </div>
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Social</div>
+                <div className="px-3.5 mb-2 text-[9px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Social</div>
                 <div className="space-y-1">
                   {socialItems.map(item => (
                     <SidebarItem
@@ -847,7 +847,7 @@ export default function App() {
               </div>
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Collective</div>
+                <div className="px-3.5 mb-2 text-[9px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Collective</div>
                 <div className="space-y-1">
                   {collectiveItems.map(item => (
                     <SidebarItem 
@@ -861,12 +861,12 @@ export default function App() {
               </div>
             </nav>
 
-            <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
+            <div className="p-3 border-t border-esport-border bg-black/20">
+              <div className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
-                    className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors object-cover"
+                    className="h-9 w-9 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors object-cover"
                   />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
                 </div>
