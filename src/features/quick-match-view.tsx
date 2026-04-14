@@ -1302,17 +1302,17 @@ export function BattlefieldView({
             </div>
 
             {!isPartyInviteGuest ? (
-            <div className={`esport-card p-4 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
+            <div className={`esport-card p-3 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
               hostStakeChangePending ? "border-amber-300/50 shadow-[0_0_28px_rgba(251,191,36,0.18)]" : "border-esport-border"
             }`}>
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-xl font-bold font-display uppercase">Stake Amount</h3>
-                  <p className="text-sm text-esport-text-muted">
+                  <h3 className="text-lg font-bold font-display uppercase">Stake Amount</h3>
+                  <p className="text-xs text-esport-text-muted">
                     Choose how much you want to play for. Queue matching will only combine players on the same amount.
                   </p>
                 </div>
-                <div className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] ${
+                <div className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] ${
                   hostStakeChangePending
                     ? "border-amber-300/40 bg-amber-400/10 text-amber-200"
                     : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
@@ -1322,18 +1322,18 @@ export function BattlefieldView({
               </div>
 
               {hostStakeChangePending && (
-                <div className="mt-3 rounded-xl border border-amber-300/35 bg-amber-400/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-amber-200">
+                <div className="mt-2 rounded-xl border border-amber-300/35 bg-amber-400/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200">
                   Pending teammate approval for updated stake amount.
                 </div>
               )}
 
               {isPartyQueueMode && isPartyLeader && acceptedPartyMembers.length > 0 && effectiveStakeLimit < STAKE_OPTIONS[STAKE_OPTIONS.length - 1] && (
-                <div className="mt-3 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-xs text-esport-text-muted">
+                <div className="mt-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[11px] text-esport-text-muted">
                   Some stake options are unavailable because a party member balance is below that amount.
                 </div>
               )}
 
-              <div className="mt-4 grid grid-cols-4 gap-2">
+              <div className="mt-2.5 grid grid-cols-4 gap-1.5">
                 {STAKE_OPTIONS.map((amount) => {
                   const active = selectedStakeAmount === amount;
                   const disabledForBalance = amount > effectiveStakeLimit;
@@ -1343,7 +1343,7 @@ export function BattlefieldView({
                       type="button"
                       disabled={disabledForBalance}
                       onClick={() => void requestStakeChange(amount)}
-                        className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                        className={`rounded-xl border px-2 py-1.5 text-left transition-all ${
                         disabledForBalance
                           ? "cursor-not-allowed border-white/10 bg-white/[0.03] opacity-45"
                           : active
@@ -1351,45 +1351,45 @@ export function BattlefieldView({
                           : "border-esport-border bg-black/20 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Entry</div>
-                      <div className="mt-1 text-xl font-display font-bold text-white">${amount}</div>
+                      <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Entry</div>
+                      <div className="mt-0.5 text-lg leading-none font-display font-bold text-white">${amount}</div>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Current choice</div>
-                  <div className="mt-1 text-sm font-bold text-white">
+                  <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Current choice</div>
+                  <div className="mt-0.5 text-xs font-bold text-white">
                     {selectedStakeAmount ? `You will queue for ${formatStakeLabel(selectedStakeAmount)}` : "No stake selected yet"}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => void requestStakeChange(null)}
-                  className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted transition-colors hover:border-white/20 hover:text-white"
+                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-esport-text-muted transition-colors hover:border-white/20 hover:text-white"
                 >
                   Remove stake
                 </button>
               </div>
             </div>
             ) : (
-              <div className="esport-card p-5 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="esport-card p-3 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h3 className="text-xl font-bold font-display uppercase">Stake Amount</h3>
-                    <p className="text-sm text-esport-text-muted">
+                    <h3 className="text-lg font-bold font-display uppercase">Stake Amount</h3>
+                    <p className="text-xs text-esport-text-muted">
                       Stake amount is controlled by the party leader.
                     </p>
                   </div>
-                  <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-esport-accent">
+                  <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
                     {formatStakeLabel(selectedStakeAmount)}
                   </div>
                 </div>
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Current party setting</div>
-                  <div className="mt-1 text-sm font-bold text-white">
+                <div className="mt-2.5 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+                  <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Current party setting</div>
+                  <div className="mt-0.5 text-xs font-bold text-white">
                     Stake Amount: {formatStakeLabel(selectedStakeAmount)}
                   </div>
                 </div>
