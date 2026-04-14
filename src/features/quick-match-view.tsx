@@ -1443,11 +1443,11 @@ export function BattlefieldView({
             </div>
 
             {queueMode === "party" && (
-              <div className="esport-card p-4 border border-esport-border">
-                <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="esport-card p-3 border border-esport-border">
+                <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <h3 className="text-xl font-bold font-display uppercase">Party Members</h3>
-                    <p className="text-sm text-esport-text-muted">
+                    <h3 className="text-lg font-bold font-display uppercase">Party Members</h3>
+                    <p className="text-xs text-esport-text-muted">
                       {isPartyInviteGuest
                         ? "You joined this party as a guest. The party owner controls invites and queue configuration."
                         : `Invite up to ${maxPartyMembers} friend${maxPartyMembers === 1 ? "" : "s"} and wait for them to accept before starting queue.`}
@@ -1464,8 +1464,8 @@ export function BattlefieldView({
                   </div>
                 )}
 
-                <div className="mb-4 overflow-x-auto custom-scrollbar pb-2">
-                  <div className="flex min-w-max gap-3">
+                <div className="mb-3 overflow-x-auto custom-scrollbar pb-1">
+                  <div className="flex min-w-max gap-2.5">
                     {Array.from({ length: selectedTeamSize }).map((_, index) => {
                       const friend = displayedPartyMembers[index];
 
@@ -1479,7 +1479,7 @@ export function BattlefieldView({
                                 void togglePartyMember(friend.id);
                               }
                             }}
-                            className={`w-[136px] rounded-2xl border p-3 text-center transition-colors ${
+                            className={`w-[124px] rounded-2xl border p-2.5 text-center transition-colors ${
                               "isSelf" in friend && friend.isSelf
                                 ? "border-white/20 bg-gradient-to-b from-white/[0.08] to-black/40"
                                 : "border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 hover:border-esport-accent"
@@ -1488,10 +1488,10 @@ export function BattlefieldView({
                             <img
                               src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
                               alt={friend.username}
-                              className="mx-auto h-16 w-16 rounded-full border-4 border-white/10 object-cover"
+                              className="mx-auto h-14 w-14 rounded-full border-4 border-white/10 object-cover"
                             />
-                            <div className="mt-3 text-sm font-bold text-white truncate">{friend.username}</div>
-                            <div className={`mt-2 text-[10px] uppercase tracking-[0.2em] ${
+                            <div className="mt-2 text-xs font-bold text-white truncate">{friend.username}</div>
+                            <div className={`mt-1.5 text-[9px] uppercase tracking-[0.2em] ${
                               friend.status === "owner"
                                 ? "text-white"
                                 : friend.status === "accepted"
@@ -1520,11 +1520,11 @@ export function BattlefieldView({
                           type="button"
                           onClick={() => addToast("Use the Online Friends panel on the right to send invites.", "info")}
                           disabled={isPartyInviteGuest}
-                          className="w-[136px] rounded-2xl border border-esport-border bg-black/20 p-3 flex flex-col items-center justify-center text-center min-h-[160px] transition-colors hover:border-esport-accent disabled:opacity-60"
+                          className="w-[124px] rounded-2xl border border-esport-border bg-black/20 p-2.5 flex flex-col items-center justify-center text-center min-h-[136px] transition-colors hover:border-esport-accent disabled:opacity-60"
                         >
-                          <div className="text-5xl leading-none text-white/30">+</div>
-                          <div className="mt-3 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Empty Slot</div>
-                          <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Click to invite</div>
+                          <div className="text-4xl leading-none text-white/30">+</div>
+                          <div className="mt-2 text-[9px] uppercase tracking-[0.2em] text-esport-text-muted">Empty Slot</div>
+                          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-esport-accent">Click to invite</div>
                         </button>
                       );
                     })}
@@ -1532,9 +1532,9 @@ export function BattlefieldView({
                 </div>
 
                 {!isPartyInviteGuest && (
-                  <div className="mb-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                  <div className="mb-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Quick Invite</div>
-                    <div className="mt-1 text-sm font-bold text-white">Use the Online Friends panel on the right to invite teammates or message them directly.</div>
+                    <div className="mt-1 text-xs font-bold text-white">Use the Friends panel on the right for invite or message.</div>
                   </div>
                 )}
 
