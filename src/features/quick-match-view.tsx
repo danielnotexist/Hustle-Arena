@@ -121,6 +121,8 @@ export function BattlefieldView({
     })
     .slice(0, maxPartyMembers);
   const acceptedPartyMembers = selectedPartyMembers.filter((member) => member.status === "accepted");
+  const isPartyInviteGuest =
+    !!acceptedIncomingPartyInvite && acceptedIncomingPartyInvite.host_user_id !== user?.id;
   const incomingPartyHost = acceptedIncomingPartyInvite
     ? {
         id: acceptedIncomingPartyInvite.host_user_id,
@@ -131,8 +133,15 @@ export function BattlefieldView({
         status: "owner",
       }
     : null;
-  const visiblePartyMembers =
-    selectedPartyMembers.length > 0 ? selectedPartyMembers : incomingPartyHost ? [incomingPartyHost] : [];
+  const visiblePartyMembers = isPartyInviteGuest
+    ? incomingPartyHost
+      ? [incomingPartyHost]
+      : []
+    : selectedPartyMembers.length > 0
+      ? selectedPartyMembers
+      : incomingPartyHost
+        ? [incomingPartyHost]
+        : [];
   const selfPartyMember = {
     id: user?.id || "self",
     username: user?.username || "You",
@@ -141,7 +150,6 @@ export function BattlefieldView({
     isSelf: true,
   };
   const displayedPartyMembers = [selfPartyMember, ...visiblePartyMembers];
-  const isPartyInviteGuest = !!incomingPartyHost && selectedPartyMembers.length === 0;
   const isPartyLeader = queueMode === "party" && !isPartyInviteGuest;
   const isPartyQueueMode = queueMode === "party";
   const contextPartyStakeUpdates = partyStakeUpdates.filter(
