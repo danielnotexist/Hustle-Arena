@@ -1564,25 +1564,25 @@ export function BattlefieldView({
             )}
           </div>
 
-          <div className="esport-card p-4 flex flex-col justify-center items-center text-center space-y-4 xl:sticky xl:top-6 h-fit">
-            <div className="h-20 w-20 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
-              <Target className="h-8 w-8 text-esport-text-muted" />
+          <div className="esport-card p-3 flex flex-col justify-center items-center text-center space-y-3 xl:sticky xl:top-6 h-fit">
+            <div className="h-16 w-16 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
+              <Target className="h-7 w-7 text-esport-text-muted" />
             </div>
             <div>
-              <div className="text-sm text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
-              <div className="text-sm text-white font-bold">{selectedQueueLabel}</div>
-              <div className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-esport-accent">
+              <div className="text-xs text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
+              <div className="text-xs text-white font-bold">{selectedQueueLabel}</div>
+              <div className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-esport-accent">
                 {selectedStakeAmount ? `Queueing for ${formatStakeLabel(selectedStakeAmount)}` : "Choose a stake amount"}
               </div>
-              <div className="text-xs text-esport-text-muted mb-2">Estimated Wait</div>
-              <div className="text-xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
+              <div className="text-[11px] text-esport-text-muted mb-1.5">Estimated Wait</div>
+              <div className="text-lg font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
               {queueMode === "party" && (
-                <div className="mt-2 text-xs text-esport-text-muted">
+                <div className="mt-1.5 text-[11px] text-esport-text-muted">
                   Party size: {(isPartyInviteGuest ? 1 : acceptedPartyMembers.length) + 1}/{selectedTeamSize}
                 </div>
               )}
               {matchState === "searching" && (
-                <div className="mt-2 text-xs text-esport-text-muted">
+                <div className="mt-1.5 text-[11px] text-esport-text-muted">
                   {effectivePlayersJoined} joined - {effectivePlayersNeeded} needed
                 </div>
               )}
@@ -1594,32 +1594,32 @@ export function BattlefieldView({
                 (queueMode === "party" &&
                   (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
               }
-              className="esport-btn-primary w-full py-3 text-base animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
+              className="esport-btn-primary w-full py-2.5 text-sm animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
             >
               {queueMode === "solo" ? "FIND SOLO MATCH" : isPartyInviteGuest ? "WAITING FOR PARTY LEADER" : "FIND PARTY MATCH"}
             </button>
             {queueMode === "party" && (
-              <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
-                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted mb-2">
+              <div className="w-full rounded-lg border border-esport-border bg-black/20 p-2.5 text-left">
+                <div className="text-[9px] uppercase tracking-widest text-esport-text-muted mb-1.5">
                   Your Party
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
                     <img
                       src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "You")}&background=1f2937&color=ffffff&size=48`}
                       alt={user?.username || "You"}
-                      className="w-6 h-6 rounded-full border border-white/20 object-cover"
+                      className="h-5 w-5 rounded-full border border-white/20 object-cover"
                     />
-                    <span className="text-xs font-bold text-white truncate">{user?.username || "You"} (You)</span>
+                    <span className="text-[11px] font-bold text-white truncate">{user?.username || "You"} (You)</span>
                   </div>
                   {visiblePartyMembers.map((friend) => (
-                    <div key={friend.id} className="flex items-center gap-2">
+                    <div key={friend.id} className="flex items-center gap-1.5">
                       <img
                         src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
                         alt={friend.username}
-                        className="w-6 h-6 rounded-full border border-white/20 object-cover"
+                        className="h-5 w-5 rounded-full border border-white/20 object-cover"
                       />
-                      <span className="text-xs text-white truncate">{friend.username}</span>
+                      <span className="text-[11px] text-white truncate">{friend.username}</span>
                       <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
                         friend.status === "owner"
                           ? "border-white/15 bg-white/10 text-white"
@@ -1642,11 +1642,11 @@ export function BattlefieldView({
                 </div>
               </div>
             )}
-            <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Friends</div>
+            <div className="w-full rounded-lg border border-esport-border bg-black/20 p-2.5 text-left">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="text-[9px] uppercase tracking-widest text-esport-text-muted">Friends</div>
               </div>
-              <div className="space-y-2 max-h-[230px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-1.5 max-h-[190px] overflow-y-auto custom-scrollbar pr-1">
                 {friendsList.length === 0 && (
                   <div className="text-xs text-esport-text-muted">No friends yet.</div>
                 )}
@@ -1680,23 +1680,23 @@ export function BattlefieldView({
                         : "border-white/10 bg-white/5 text-esport-text-muted";
 
                     return (
-                      <div key={friend.id} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5">
-                        <div className="flex items-center gap-2">
+                      <div key={friend.id} className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-2">
+                        <div className="flex items-center gap-1.5">
                           <img
                             src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
                             alt={friend.username}
-                            className="h-8 w-8 rounded-full border border-white/20 object-cover"
+                            className="h-7 w-7 rounded-full border border-white/20 object-cover"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-xs font-bold text-white">{friend.username}</div>
-                            <div className="mt-1 flex items-center gap-1.5">
+                            <div className="truncate text-[11px] font-bold text-white">{friend.username}</div>
+                            <div className="mt-1 flex items-center gap-1">
                               <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] ${activityClasses}`}>
                                 {activityLabel}
                               </span>
                             </div>
                           </div>
                         </div>
-                        <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
                             onClick={() => void handleSidebarInvite(friend.id)}
@@ -1706,7 +1706,7 @@ export function BattlefieldView({
                               partyInviteActionUserId === friend.id ||
                               (inviteStatus === "none" && currentConfigPartyInvites.length >= maxPartyMembers)
                             }
-                            className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors disabled:opacity-50 ${
+                            className={`rounded-lg border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] transition-colors disabled:opacity-50 ${
                               inviteStatus === "accepted" || inviteStatus === "pending"
                                 ? "border-rose-300/30 bg-rose-400/10 text-rose-200 hover:border-rose-300/50"
                                 : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent hover:border-esport-accent/60"
@@ -1717,7 +1717,7 @@ export function BattlefieldView({
                           <button
                             type="button"
                             onClick={() => onOpenDirectMessage?.(friend.id)}
-                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/90 transition-colors hover:border-white/30 hover:bg-white/10"
+                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/90 transition-colors hover:border-white/30 hover:bg-white/10"
                           >
                             <span className="inline-flex items-center gap-1">
                               <MessageSquare size={11} />
