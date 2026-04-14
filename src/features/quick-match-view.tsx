@@ -155,14 +155,34 @@ export function BattlefieldView({
   const contextPartyStakeUpdates = partyStakeUpdates.filter(
     (update) => update.mode === accountMode && update.team_size === selectedTeamSize
   );
+  const activeAcceptedInviteeIds = new Set(
+    partyInvites
+      .filter(
+        (invite) =>
+          invite.host_user_id === user?.id &&
+          invite.mode === accountMode &&
+          invite.team_size === selectedTeamSize &&
+          Number(invite.stake_amount) === Number(selectedStakeAmount || 0) &&
+          invite.status === "accepted"
+      )
+      .map((invite) => invite.invitee_user_id)
+  );
   const pendingOutgoingStakeUpdates = isPartyQueueMode
     ? contextPartyStakeUpdates.filter(
-        (update) => update.host_user_id === user?.id && update.status === "pending"
+        (update) =>
+          update.host_user_id === user?.id &&
+          update.status === "pending" &&
+          activeAcceptedInviteeIds.has(update.invitee_user_id) &&
+          Number(update.new_stake_amount) === Number(selectedStakeAmount || 0)
       )
     : [];
   const pendingIncomingStakeUpdate = isPartyQueueMode
     ? contextPartyStakeUpdates.find(
-        (update) => update.invitee_user_id === user?.id && update.status === "pending"
+        (update) =>
+          update.invitee_user_id === user?.id &&
+          update.status === "pending" &&
+          !!acceptedIncomingPartyInvite &&
+          update.host_user_id === acceptedIncomingPartyInvite.host_user_id
       ) || null
     : null;
   const hostStakeChangePending = isPartyQueueMode && isPartyLeader && pendingOutgoingStakeUpdates.length > 0;
