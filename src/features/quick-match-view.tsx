@@ -88,6 +88,7 @@ export function BattlefieldView({
   const [stakeUpdateActionId, setStakeUpdateActionId] = useState<number | null>(null);
   const [incomingInviteActionId, setIncomingInviteActionId] = useState<number | null>(null);
   const [partyInviteBackendMissing, setPartyInviteBackendMissing] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
@@ -207,7 +208,6 @@ export function BattlefieldView({
   const effectiveStakeLimit = isPartyQueueMode && isPartyLeader
     ? Math.max(Number(partyStakeCap ?? currentUserStakeBalance), 0)
     : currentUserStakeBalance;
-  const availablePartyFriends = friendsList.filter((friend) => !visiblePartyMembers.some((member) => member.id === friend.id));
   const partyVisibleMemberIds = new Set(visiblePartyMembers.map((member) => member.id));
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
@@ -525,7 +525,12 @@ export function BattlefieldView({
     setQueueMode("party");
     setSelectedStakeAmount(Number(acceptedIncomingPartyInvite.stake_amount));
     setMatchType(acceptedIncomingPartyInvite.team_size === 2 ? "ranked_2v2" : "ranked_5v5");
+    setWizardStep(3);
   }, [acceptedIncomingPartyInvite]);
+
+  useEffect(() => {
+    setWizardStep(1);
+  }, [user?.id, accountMode]);
 
   useEffect(() => {
     const hostOwnedInvites = partyInvites.filter((invite) => invite.host_user_id === user?.id);
@@ -1012,6 +1017,32 @@ export function BattlefieldView({
     }
   };
 
+  const selectWizardQueueType = (mode: "solo" | "party") => {
+    if (isPartyInviteGuest) {
+      return;
+    }
+    setQueueMode(mode);
+    setWizardStep(2);
+  };
+
+  const goToAssemblyStep = () => {
+    if (!selectedStakeAmount) {
+      addToast("Choose a stake amount before continuing.", "error");
+      return;
+    }
+    setWizardStep(3);
+  };
+
+  const goToPreviousWizardStep = () => {
+    if (isPartyInviteGuest) {
+      return;
+    }
+    setWizardStep((current) => {
+      if (current <= 1) return 1;
+      return (current - 1) as 1 | 2 | 3;
+    });
+  };
+
   const togglePartyMember = async (friendId: string) => {
     const existingInvite = partyInviteByFriendId.get(friendId);
 
@@ -1255,485 +1286,298 @@ export function BattlefieldView({
       )}
 
       {matchState === "idle" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_300px] gap-4">
-          <div className="space-y-4">
-            <div className="esport-card p-4 border border-esport-border">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <div>
-                  <h3 className="text-xl font-bold font-display uppercase">Queue Type</h3>
-                  <p className="text-sm text-esport-text-muted">Pick whether you are searching alone or entering quick queue with your party.</p>
-                </div>
-                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Battlefield only</div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    if (!isPartyInviteGuest) {
-                      setQueueMode("solo");
-                    }
-                  }}
-                  disabled={isPartyInviteGuest}
-                  className={`rounded-xl border p-3 text-left transition-colors ${
-                    queueMode === "solo"
-                      ? "border-esport-accent bg-esport-accent/10"
-                      : "border-esport-border bg-black/20 hover:border-white/20"
-                  } ${isPartyInviteGuest ? "opacity-60 cursor-not-allowed" : ""}`}
-                >
-                  <div className="text-sm font-bold text-white">Solo Quick Match</div>
-                  <div className="text-xs text-esport-text-muted mt-1">Find a random team and queue on your own.</div>
-                </button>
-                <button
-                  onClick={() => {
-                    if (!isPartyInviteGuest) {
-                      setQueueMode("party");
-                    }
-                  }}
-                  disabled={isPartyInviteGuest}
-                  className={`rounded-xl border p-3 text-left transition-colors ${
-                    queueMode === "party"
-                      ? "border-esport-accent bg-esport-accent/10"
-                      : "border-esport-border bg-black/20 hover:border-white/20"
-                  } ${isPartyInviteGuest ? "opacity-80 cursor-not-allowed" : ""}`}
-                >
-                  <div className="text-sm font-bold text-white">Party Quick Match</div>
-                  <div className="text-xs text-esport-text-muted mt-1">Enter the random queue with your current squad or party.</div>
-                </button>
-              </div>
-            </div>
-
-            {!isPartyInviteGuest ? (
-            <div className={`esport-card p-3 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
-              hostStakeChangePending ? "border-amber-300/50 shadow-[0_0_28px_rgba(251,191,36,0.18)]" : "border-esport-border"
-            }`}>
-              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h3 className="text-lg font-bold font-display uppercase">Stake Amount</h3>
-                  <p className="text-xs text-esport-text-muted">
-                    Choose how much you want to play for. Queue matching will only combine players on the same amount.
-                  </p>
-                </div>
-                <div className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] ${
-                  hostStakeChangePending
-                    ? "border-amber-300/40 bg-amber-400/10 text-amber-200"
-                    : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
-                }`}>
-                  {formatStakeLabel(selectedStakeAmount)}
-                </div>
-              </div>
-
-              {hostStakeChangePending && (
-                <div className="mt-2 rounded-xl border border-amber-300/35 bg-amber-400/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200">
-                  Pending teammate approval for updated stake amount.
-                </div>
-              )}
-
-              {isPartyQueueMode && isPartyLeader && acceptedPartyMembers.length > 0 && effectiveStakeLimit < STAKE_OPTIONS[STAKE_OPTIONS.length - 1] && (
-                <div className="mt-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[11px] text-esport-text-muted">
-                  Some stake options are unavailable because a party member balance is below that amount.
-                </div>
-              )}
-
-              <div className="mt-2.5 grid grid-cols-4 gap-1.5">
-                {STAKE_OPTIONS.map((amount) => {
-                  const active = selectedStakeAmount === amount;
-                  const disabledForBalance = amount > effectiveStakeLimit;
-                  return (
-                    <button
-                      key={amount}
-                      type="button"
-                      disabled={disabledForBalance}
-                      onClick={() => void requestStakeChange(amount)}
-                        className={`rounded-xl border px-2 py-1.5 text-left transition-all ${
-                        disabledForBalance
-                          ? "cursor-not-allowed border-white/10 bg-white/[0.03] opacity-45"
-                          : active
-                          ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
-                          : "border-esport-border bg-black/20 hover:border-white/20"
-                      }`}
-                    >
-                      <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Entry</div>
-                      <div className="mt-0.5 text-lg leading-none font-display font-bold text-white">${amount}</div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-                <div>
-                  <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Current choice</div>
-                  <div className="mt-0.5 text-xs font-bold text-white">
-                    {selectedStakeAmount ? `You will queue for ${formatStakeLabel(selectedStakeAmount)}` : "No stake selected yet"}
-                  </div>
+        <div className="relative min-h-[72vh]">
+          <div className="absolute inset-0 rounded-3xl border border-white/10 bg-black/65 backdrop-blur-md" />
+          <div className="relative z-10 flex min-h-[72vh] items-center justify-center p-4">
+            <div className="w-full max-w-4xl rounded-[28px] border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-esport-accent">
+                  Matchmaking Setup - Step {wizardStep} of 3
                 </div>
                 <button
                   type="button"
-                  onClick={() => void requestStakeChange(null)}
-                  className="rounded-full border border-white/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-esport-text-muted transition-colors hover:border-white/20 hover:text-white"
+                  onClick={goToPreviousWizardStep}
+                  disabled={wizardStep === 1 || isPartyInviteGuest}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-text-muted hover:border-white/20 hover:text-white disabled:opacity-40"
                 >
-                  Remove stake
+                  Back
                 </button>
               </div>
-            </div>
-            ) : (
-              <div className="esport-card p-3 border border-esport-border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)]">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold font-display uppercase">Stake Amount</h3>
-                    <p className="text-xs text-esport-text-muted">
-                      Stake amount is controlled by the party leader.
-                    </p>
+
+              {wizardStep === 1 && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-3xl font-display font-bold uppercase tracking-tight text-white">How do you want to play?</h3>
+                    <p className="mt-2 text-sm text-esport-text-muted">Choose your queue style to continue.</p>
                   </div>
-                  <div className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
-                    {formatStakeLabel(selectedStakeAmount)}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => selectWizardQueueType("solo")}
+                      disabled={isPartyInviteGuest}
+                      className="rounded-2xl border border-esport-border bg-black/30 p-6 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10"
+                    >
+                      <div className="text-xl font-display font-bold uppercase text-white">Solo Quick Match</div>
+                      <div className="mt-2 text-sm text-esport-text-muted">Find a random team and queue on your own.</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectWizardQueueType("party")}
+                      disabled={isPartyInviteGuest}
+                      className="rounded-2xl border border-esport-border bg-black/30 p-6 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10 disabled:opacity-60"
+                    >
+                      <div className="text-xl font-display font-bold uppercase text-white">Party Quick Match</div>
+                      <div className="mt-2 text-sm text-esport-text-muted">Queue with your party and invite friends before search.</div>
+                    </button>
                   </div>
                 </div>
-                <div className="mt-2.5 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-                  <div className="text-[9px] uppercase tracking-[0.18em] text-esport-text-muted">Current party setting</div>
-                  <div className="mt-0.5 text-xs font-bold text-white">
-                    Stake Amount: {formatStakeLabel(selectedStakeAmount)}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div
-                onClick={() => {
-                  if (!isPartyInviteGuest) {
-                    setMatchType("ranked_5v5");
-                  }
-                }}
-                className={`esport-card p-4 border relative overflow-hidden group transition-colors ${
-                  isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                } ${matchType === "ranked_5v5" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_5v5" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
-                <div className="flex items-center justify-between relative z-10">
-                  <div>
-                    <h3 className="text-lg font-bold font-display uppercase mb-1">COMPETETIVE 5V5</h3>
-                    <p className="text-sm text-esport-text-muted">Quick competitive matchmaking. Affects your ELO.</p>
+              {wizardStep === 2 && (
+                <div className="space-y-5">
+                  <div className="text-center">
+                    <h3 className="text-3xl font-display font-bold uppercase tracking-tight text-white">Choose Your Stake</h3>
+                    <p className="mt-2 text-sm text-esport-text-muted">Pick the amount you want to queue for in USDT.</p>
                   </div>
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_5v5" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
-                    <Sword className={matchType === "ranked_5v5" ? "text-esport-accent" : "text-esport-text-muted"} />
-                  </div>
-                </div>
-              </div>
 
-              <div
-                onClick={() => {
-                  if (!isPartyInviteGuest) {
-                    setMatchType("ranked_2v2");
-                  }
-                }}
-                className={`esport-card p-4 border relative overflow-hidden group transition-colors ${
-                  isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                } ${matchType === "ranked_2v2" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_2v2" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
-                <div className="flex items-center justify-between relative z-10">
-                  <div>
-                    <h3 className="text-lg font-bold font-display uppercase mb-1">WINGMAN 2V2</h3>
-                    <p className="text-sm text-esport-text-muted">Wingman quick queue. Competitive and fast.</p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_2v2" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
-                    <Users className={matchType === "ranked_2v2" ? "text-esport-accent" : "text-esport-text-muted"} />
-                  </div>
-                </div>
-              </div>
-            </div>
+                  {isPartyQueueMode && isPartyLeader && acceptedPartyMembers.length > 0 && effectiveStakeLimit < STAKE_OPTIONS[STAKE_OPTIONS.length - 1] && (
+                    <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-xs text-esport-text-muted">
+                      Some stake options are unavailable because a party member balance is below that amount.
+                    </div>
+                  )}
 
-            {queueMode === "party" && (
-              <div className="esport-card p-3 border border-esport-border">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <h3 className="text-lg font-bold font-display uppercase">Party Members</h3>
-                    <p className="text-xs text-esport-text-muted">
-                      {isPartyInviteGuest
-                        ? "You joined this party as a guest. The party owner controls invites and queue configuration."
-                        : `Invite up to ${maxPartyMembers} friend${maxPartyMembers === 1 ? "" : "s"} and wait for them to accept before starting queue.`}
-                    </p>
-                  </div>
-                  <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">
-                    {(isPartyInviteGuest ? visiblePartyMembers.filter((member) => member.status === "accepted" || member.status === "owner").length : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
-                  </div>
-                </div>
-
-                {partyInviteBackendMissing && (
-                  <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    Party invites are not active in the database yet. Run `20260413_0038_quick_queue_party_invites.sql` in Supabase, then refresh this page.
-                  </div>
-                )}
-
-                <div className="mb-3 overflow-x-auto custom-scrollbar pb-1">
-                  <div className="flex min-w-max gap-2.5">
-                    {Array.from({ length: selectedTeamSize }).map((_, index) => {
-                      const friend = displayedPartyMembers[index];
-
-                      if (friend) {
-                        return (
-                          <button
-                            key={`${friend.id}-${index}`}
-                            type="button"
-                            onClick={() => {
-                              if (!isPartyInviteGuest && !("isSelf" in friend && friend.isSelf)) {
-                                void togglePartyMember(friend.id);
-                              }
-                            }}
-                            className={`w-[124px] rounded-2xl border p-2.5 text-center transition-colors ${
-                              "isSelf" in friend && friend.isSelf
-                                ? "border-white/20 bg-gradient-to-b from-white/[0.08] to-black/40"
-                                : "border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 hover:border-esport-accent"
-                            }`}
-                          >
-                            <img
-                              src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
-                              alt={friend.username}
-                              className="mx-auto h-14 w-14 rounded-full border-4 border-white/10 object-cover"
-                            />
-                            <div className="mt-2 text-xs font-bold text-white truncate">{friend.username}</div>
-                            <div className={`mt-1.5 text-[9px] uppercase tracking-[0.2em] ${
-                              friend.status === "owner"
-                                ? "text-white"
-                                : friend.status === "accepted"
-                                ? "text-emerald-300"
-                                : friend.status === "declined"
-                                  ? "text-rose-300"
-                                  : "text-esport-accent"
-                            }`}>
-                              {"isSelf" in friend && friend.isSelf
-                                ? "You"
-                                : friend.status === "owner"
-                                  ? "Owner"
-                                : friend.status === "accepted"
-                                  ? "Accepted"
-                                  : friend.status === "declined"
-                                    ? "Declined"
-                                    : "Pending"}
-                            </div>
-                          </button>
-                        );
-                      }
-
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {STAKE_OPTIONS.map((amount) => {
+                      const active = selectedStakeAmount === amount;
+                      const disabledForBalance = amount > effectiveStakeLimit;
                       return (
                         <button
-                          key={`empty-slot-${index}`}
+                          key={amount}
                           type="button"
-                          onClick={() => addToast("Use the Online Friends panel on the right to send invites.", "info")}
-                          disabled={isPartyInviteGuest}
-                          className="w-[124px] rounded-2xl border border-esport-border bg-black/20 p-2.5 flex flex-col items-center justify-center text-center min-h-[136px] transition-colors hover:border-esport-accent disabled:opacity-60"
+                          disabled={disabledForBalance}
+                          onClick={() => void requestStakeChange(amount)}
+                          className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                            disabledForBalance
+                              ? "cursor-not-allowed border-white/10 bg-white/[0.03] opacity-45"
+                              : active
+                                ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
+                                : "border-esport-border bg-black/20 hover:border-white/20"
+                          }`}
                         >
-                          <div className="text-4xl leading-none text-white/30">+</div>
-                          <div className="mt-2 text-[9px] uppercase tracking-[0.2em] text-esport-text-muted">Empty Slot</div>
-                          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-esport-accent">Click to invite</div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">Entry</div>
+                          <div className="mt-1 text-lg font-display font-bold text-white">${amount}</div>
                         </button>
                       );
                     })}
                   </div>
-                </div>
 
-                {!isPartyInviteGuest && (
-                  <div className="mb-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Quick Invite</div>
-                    <div className="mt-1 text-xs font-bold text-white">Use the Friends panel on the right for invite or message.</div>
-                  </div>
-                )}
-
-                {isPartyInviteGuest && incomingPartyHost && (
-                  <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Joined Party</div>
-                      <div className="mt-1 text-sm font-bold text-white">{incomingPartyHost.username} is the party owner.</div>
+                  <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+                    <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-esport-accent">
+                      Current: {formatStakeLabel(selectedStakeAmount)}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void leaveJoinedParty()}
-                      disabled={incomingInviteActionId === acceptedIncomingPartyInvite?.id}
-                      className="rounded-full border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-200 transition-colors hover:border-rose-300/50 disabled:opacity-50"
-                    >
-                      {incomingInviteActionId === acceptedIncomingPartyInvite?.id ? "Leaving..." : "Leave Party"}
+                    <button type="button" onClick={goToAssemblyStep} className="esport-btn-primary px-8 py-3 text-sm">
+                      Next
                     </button>
                   </div>
-                )}
-
-                {!isPartyInviteGuest && availablePartyFriends.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-esport-border bg-black/20 px-4 py-4 text-sm text-esport-text-muted">
-                    No additional friends available right now. Add friends from Social to invite them.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="esport-card p-3 flex flex-col justify-center items-center text-center space-y-3 xl:sticky xl:top-6 h-fit">
-            <div className="h-16 w-16 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
-              <Target className="h-7 w-7 text-esport-text-muted" />
-            </div>
-            <div>
-              <div className="text-xs text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
-              <div className="text-xs text-white font-bold">{selectedQueueLabel}</div>
-              <div className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-esport-accent">
-                {selectedStakeAmount ? `Queueing for ${formatStakeLabel(selectedStakeAmount)}` : "Choose a stake amount"}
-              </div>
-              <div className="text-[11px] text-esport-text-muted mb-1.5">Estimated Wait</div>
-              <div className="text-lg font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
-              {queueMode === "party" && (
-                <div className="mt-1.5 text-[11px] text-esport-text-muted">
-                  Party size: {(isPartyInviteGuest ? 1 : acceptedPartyMembers.length) + 1}/{selectedTeamSize}
                 </div>
               )}
-              {matchState === "searching" && (
-                <div className="mt-1.5 text-[11px] text-esport-text-muted">
-                  {effectivePlayersJoined} joined - {effectivePlayersNeeded} needed
-                </div>
-              )}
-            </div>
-            <button
-              onClick={() => void startSearch()}
-              disabled={
-                !selectedStakeAmount ||
-                (queueMode === "party" &&
-                  (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
-              }
-              className="esport-btn-primary w-full py-2.5 text-sm animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
-            >
-              {queueMode === "solo" ? "FIND SOLO MATCH" : isPartyInviteGuest ? "WAITING FOR PARTY LEADER" : "FIND PARTY MATCH"}
-            </button>
-            {queueMode === "party" && (
-              <div className="w-full rounded-lg border border-esport-border bg-black/20 p-2.5 text-left">
-                <div className="text-[9px] uppercase tracking-widest text-esport-text-muted mb-1.5">
-                  Your Party
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <img
-                      src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "You")}&background=1f2937&color=ffffff&size=48`}
-                      alt={user?.username || "You"}
-                      className="h-5 w-5 rounded-full border border-white/20 object-cover"
-                    />
-                    <span className="text-[11px] font-bold text-white truncate">{user?.username || "You"} (You)</span>
-                  </div>
-                  {visiblePartyMembers.map((friend) => (
-                    <div key={friend.id} className="flex items-center gap-1.5">
-                      <img
-                        src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
-                        alt={friend.username}
-                        className="h-5 w-5 rounded-full border border-white/20 object-cover"
-                      />
-                      <span className="text-[11px] text-white truncate">{friend.username}</span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] ${
-                        friend.status === "owner"
-                          ? "border-white/15 bg-white/10 text-white"
-                          : friend.status === "accepted"
-                          ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
-                          : friend.status === "declined"
-                            ? "border-rose-300/30 bg-rose-400/10 text-rose-300"
-                            : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
-                      }`}>
-                        {friend.status === "owner" ? "owner" : friend.status}
-                      </span>
+
+              {wizardStep === 3 && (
+                <div className="space-y-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-2xl font-display font-bold uppercase tracking-tight text-white">
+                        {queueMode === "party" ? "Party Assembly" : "Ready To Queue"}
+                      </h3>
+                      <p className="mt-1 text-sm text-esport-text-muted">
+                        {queueMode === "party"
+                          ? "Invite teammates, review party slots, then start matchmaking."
+                          : "Your setup is complete. Start matchmaking when you are ready."}
+                      </p>
                     </div>
-                  ))}
-                  {visiblePartyMembers.length === 0 && (
-                    <div className="text-xs text-esport-text-muted">Invite at least one friend and wait for acceptance to enable party matchmaking.</div>
-                  )}
-                  {isPartyInviteGuest && (
-                    <div className="text-xs text-esport-text-muted">Party leader will start the matchmaking search for this squad.</div>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="w-full rounded-lg border border-esport-border bg-black/20 p-2.5 text-left">
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <div className="text-[9px] uppercase tracking-widest text-esport-text-muted">Friends</div>
-              </div>
-              <div className="space-y-1.5 max-h-[190px] overflow-y-auto custom-scrollbar pr-1">
-                {friendsList.length === 0 && (
-                  <div className="text-xs text-esport-text-muted">No friends yet.</div>
-                )}
-                {friendsList
-                  .slice()
-                  .sort((a, b) => Number(onlineNowIds.has(b.id)) - Number(onlineNowIds.has(a.id)))
-                  .map((friend) => {
-                    const invite = partyInviteByFriendId.get(friend.id);
-                    const inviteStatus = invite?.status || "none";
-                    const isOnline = onlineNowIds.has(friend.id);
-                    const isInParty = partyVisibleMemberIds.has(friend.id);
-                    const inviteActionLabel =
-                      partyInviteActionUserId === friend.id
-                        ? "Updating..."
-                        : inviteStatus === "accepted"
-                          ? "Remove"
-                          : inviteStatus === "pending"
-                            ? "Cancel"
-                            : inviteStatus === "declined"
-                              ? "Reinvite"
-                              : "Invite";
-                    const activityLabel = isInParty
-                      ? "In Party"
-                      : isOnline
-                        ? "Online"
-                        : "Offline";
-                    const activityClasses = isInParty
-                      ? "border-esport-accent/30 bg-esport-accent/10 text-esport-accent"
-                      : isOnline
-                        ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
-                        : "border-white/10 bg-white/5 text-esport-text-muted";
+                    <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-esport-accent">
+                      {selectedQueueLabel} - {formatStakeLabel(selectedStakeAmount)}
+                    </div>
+                  </div>
 
-                    return (
-                      <div key={friend.id} className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-2">
-                        <div className="flex items-center gap-1.5">
-                          <img
-                            src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
-                            alt={friend.username}
-                            className="h-7 w-7 rounded-full border border-white/20 object-cover"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-[11px] font-bold text-white">{friend.username}</div>
-                            <div className="mt-1 flex items-center gap-1">
-                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] ${activityClasses}`}>
-                                {activityLabel}
-                              </span>
-                            </div>
+                  {queueMode === "party" && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isPartyInviteGuest) setMatchType("ranked_5v5");
+                          }}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            matchType === "ranked_5v5" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
+                        >
+                          <div className="text-sm font-bold uppercase text-white">Competitive 5v5</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isPartyInviteGuest) setMatchType("ranked_2v2");
+                          }}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
+                        >
+                          <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
+                        </button>
+                      </div>
+
+                      {partyInviteBackendMissing && (
+                        <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                          Party invites are not active in the database yet. Run `20260413_0038_quick_queue_party_invites.sql` in Supabase, then refresh this page.
+                        </div>
+                      )}
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Party Members</div>
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
+                            {(isPartyInviteGuest ? visiblePartyMembers.filter((member) => member.status === "accepted" || member.status === "owner").length : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
                           </div>
                         </div>
-                        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => void handleSidebarInvite(friend.id)}
-                            disabled={
-                              isPartyInviteGuest ||
-                              partyInviteBackendMissing ||
-                              partyInviteActionUserId === friend.id ||
-                              (inviteStatus === "none" && currentConfigPartyInvites.length >= maxPartyMembers)
+                        <div className="flex min-w-max gap-2.5 overflow-x-auto custom-scrollbar pb-1">
+                          {Array.from({ length: selectedTeamSize }).map((_, index) => {
+                            const friend = displayedPartyMembers[index];
+                            if (friend) {
+                              return (
+                                <button
+                                  key={`${friend.id}-${index}`}
+                                  type="button"
+                                  onClick={() => {
+                                    if (!isPartyInviteGuest && !("isSelf" in friend && friend.isSelf)) {
+                                      void togglePartyMember(friend.id);
+                                    }
+                                  }}
+                                  className={`w-[124px] rounded-2xl border p-2.5 text-center transition-colors ${
+                                    "isSelf" in friend && friend.isSelf
+                                      ? "border-white/20 bg-gradient-to-b from-white/[0.08] to-black/40"
+                                      : "border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 hover:border-esport-accent"
+                                  }`}
+                                >
+                                  <img
+                                    src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
+                                    alt={friend.username}
+                                    className="mx-auto h-14 w-14 rounded-full border-4 border-white/10 object-cover"
+                                  />
+                                  <div className="mt-2 truncate text-xs font-bold text-white">{friend.username}</div>
+                                  <div className="mt-1.5 text-[9px] uppercase tracking-[0.2em] text-esport-text-muted">
+                                    {"isSelf" in friend && friend.isSelf ? "You" : friend.status === "owner" ? "Owner" : friend.status}
+                                  </div>
+                                </button>
+                              );
                             }
-                            className={`rounded-lg border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] transition-colors disabled:opacity-50 ${
-                              inviteStatus === "accepted" || inviteStatus === "pending"
-                                ? "border-rose-300/30 bg-rose-400/10 text-rose-200 hover:border-rose-300/50"
-                                : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent hover:border-esport-accent/60"
-                            }`}
-                          >
-                            {inviteActionLabel}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onOpenDirectMessage?.(friend.id)}
-                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/90 transition-colors hover:border-white/30 hover:bg-white/10"
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              <MessageSquare size={11} />
-                              Message
-                            </span>
-                          </button>
+                            return (
+                              <button
+                                key={`empty-slot-${index}`}
+                                type="button"
+                                onClick={() => addToast("Invite from the friends list below.", "info")}
+                                disabled={isPartyInviteGuest}
+                                className="w-[124px] rounded-2xl border border-esport-border bg-black/20 p-2.5 text-center transition-colors hover:border-esport-accent disabled:opacity-60"
+                              >
+                                <div className="text-4xl leading-none text-white/30">+</div>
+                                <div className="mt-2 text-[9px] font-bold uppercase tracking-[0.18em] text-esport-accent">Click to invite</div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                    );
-                  })}
-              </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Friends</div>
+                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+                          {friendsList.length === 0 && <div className="text-xs text-esport-text-muted">No friends yet.</div>}
+                          {friendsList
+                            .slice()
+                            .sort((a, b) => Number(onlineNowIds.has(b.id)) - Number(onlineNowIds.has(a.id)))
+                            .map((friend) => {
+                              const invite = partyInviteByFriendId.get(friend.id);
+                              const inviteStatus = invite?.status || "none";
+                              const inviteActionLabel =
+                                partyInviteActionUserId === friend.id
+                                  ? "Updating..."
+                                  : inviteStatus === "accepted"
+                                    ? "Remove"
+                                    : inviteStatus === "pending"
+                                      ? "Cancel"
+                                      : inviteStatus === "declined"
+                                        ? "Reinvite"
+                                        : "Invite";
+                              return (
+                                <div key={friend.id} className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <img
+                                      src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=48`}
+                                      alt={friend.username}
+                                      className="h-7 w-7 rounded-full border border-white/20 object-cover"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate text-[11px] font-bold text-white">{friend.username}</div>
+                                      <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-esport-text-muted">
+                                        {partyVisibleMemberIds.has(friend.id) ? "In Party" : onlineNowIds.has(friend.id) ? "Online" : "Offline"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleSidebarInvite(friend.id)}
+                                      disabled={
+                                        isPartyInviteGuest ||
+                                        partyInviteBackendMissing ||
+                                        partyInviteActionUserId === friend.id ||
+                                        (inviteStatus === "none" && currentConfigPartyInvites.length >= maxPartyMembers)
+                                      }
+                                      className={`rounded-lg border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] transition-colors disabled:opacity-50 ${
+                                        inviteStatus === "accepted" || inviteStatus === "pending"
+                                          ? "border-rose-300/30 bg-rose-400/10 text-rose-200 hover:border-rose-300/50"
+                                          : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent hover:border-esport-accent/60"
+                                      }`}
+                                    >
+                                      {inviteActionLabel}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenDirectMessage?.(friend.id)}
+                                      className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/90 transition-colors hover:border-white/30 hover:bg-white/10"
+                                    >
+                                      <span className="inline-flex items-center gap-1">
+                                        <MessageSquare size={11} />
+                                        Message
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="pt-1">
+                    <button
+                      onClick={() => void startSearch()}
+                      disabled={
+                        !selectedStakeAmount ||
+                        (queueMode === "party" &&
+                          (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
+                      }
+                      className="esport-btn-primary w-full py-3 text-sm shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {queueMode === "solo" ? "Start Matchmaking" : isPartyInviteGuest ? "Waiting For Party Leader" : "Start Matchmaking"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-
       {matchState === "searching" && (
         <div className="esport-card p-12 flex flex-col items-center justify-center min-h-[440px] relative overflow-hidden border-esport-accent/40 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
           <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
