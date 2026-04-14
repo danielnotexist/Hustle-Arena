@@ -371,6 +371,10 @@ export default function App() {
 
           if (seenNotificationIdsRef.current.size > 0) {
             newUnreadNotices.forEach((notice) => {
+              if (notice.notice_type === "lobby_closed_by_leader") {
+                return;
+              }
+
               if (notice.notice_type === "direct_message") {
                 playChatMessageSound();
               } else {
@@ -590,6 +594,8 @@ export default function App() {
   ).length;
   const generalNotifications = notifications.filter((notice) => notice.notice_type !== "direct_message");
   const primaryGlobalPartyInvite = globalPartyInvites[0] || null;
+  const primaryLobbyClosedNotice =
+    notifications.find((notice) => !notice.is_read && notice.notice_type === "lobby_closed_by_leader") || null;
 
   const openMessagesInbox = async () => {
     const directMessageNotifications = notifications.filter((notice) => notice.notice_type === "direct_message");
@@ -658,6 +664,20 @@ export default function App() {
     }
   };
 
+  const acknowledgeLobbyClosedNotice = async (noticeId: number) => {
+    try {
+      await markNotificationRead(noticeId);
+      setNotifications((current) =>
+        current.map((notice) =>
+          notice.id === noticeId ? { ...notice, is_read: true } : notice
+        )
+      );
+    } catch (error) {
+      console.error("Failed to mark lobby-close notification as read:", error);
+      addToast("Failed to dismiss this notification.", "error");
+    }
+  };
+
   const handleNotificationClick = async (notice: AppNotification) => {
     try {
       if (!notice.is_read) {
@@ -686,6 +706,10 @@ export default function App() {
       setPublicProfileState(null);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
+    } else if (notice.notice_type === "lobby_closed_by_leader") {
+      setPublicProfileState(null);
+      setBattlefieldMenuOpen(true);
+      setActiveTab("Squad Hub");
     } else if (notice.link_target === "/squad-hub") {
       setActiveTab("Squad Hub");
     }
@@ -1086,7 +1110,59 @@ export default function App() {
       ))}
 
       <AnimatePresence>
-        {primaryGlobalPartyInvite && (
+        {primaryLobbyClosedNotice && (
+          <div className="fixed inset-0 z-[106] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              className="relative z-10 w-full max-w-3xl overflow-hidden rounded-[32px] border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))] p-8 shadow-[0_30px_120px_rgba(0,0,0,0.55)]"
+            >
+              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+                <Bell size={14} />
+                Session Update
+              </div>
+              <div className="mt-6 flex flex-col items-center text-center">
+                <img
+                  src={hustleArenaLogo}
+                  alt="Hustle Arena"
+                  className="h-24 w-24 rounded-3xl border-4 border-white/10 object-cover shadow-[0_0_35px_rgba(59,130,246,0.18)]"
+                />
+                <h3 className="mt-6 text-4xl font-display font-bold uppercase tracking-wide text-white">
+                  This Session Was Closed By The Party Leader
+                </h3>
+                <p className="mt-3 max-w-2xl text-base text-esport-text-muted">
+                  Your previous squad lobby is no longer active. You can create a new lobby or join another party.
+                </p>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void acknowledgeLobbyClosedNotice(primaryLobbyClosedNotice.id);
+                    setPublicProfileState(null);
+                    setBattlefieldMenuOpen(true);
+                    setActiveTab("Squad Hub");
+                  }}
+                  className="rounded-2xl bg-esport-success px-6 py-4 text-lg font-bold uppercase tracking-[0.18em] text-black transition-transform hover:scale-[1.01]"
+                >
+                  Understood
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!primaryLobbyClosedNotice && primaryGlobalPartyInvite && (
           <div className="fixed inset-0 z-[105] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
