@@ -1,7 +1,31 @@
 let audioCtx: AudioContext | null = null;
+let audioUnlocked = false;
+let unlockListenersAttached = false;
+
+function attachAudioUnlockListeners() {
+  if (typeof window === "undefined" || unlockListenersAttached) return;
+  unlockListenersAttached = true;
+
+  const unlock = () => {
+    audioUnlocked = true;
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") {
+      void ctx.resume().catch(() => undefined);
+    }
+
+    window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("keydown", unlock);
+    window.removeEventListener("touchstart", unlock);
+  };
+
+  window.addEventListener("pointerdown", unlock, { once: true, passive: true });
+  window.addEventListener("keydown", unlock, { once: true });
+  window.addEventListener("touchstart", unlock, { once: true, passive: true });
+}
 
 function getAudioContext() {
   if (typeof window === "undefined") return null;
+  attachAudioUnlockListeners();
   const Context = window.AudioContext || (window as any).webkitAudioContext;
   if (!Context) return null;
   if (!audioCtx) {
@@ -13,6 +37,7 @@ function getAudioContext() {
 function playToneSequence(tones: Array<{ freq: number; duration: number; delay: number; gain: number }>) {
   const ctx = getAudioContext();
   if (!ctx) return;
+  if (!audioUnlocked) return;
 
   if (ctx.state === "suspended") {
     void ctx.resume().catch(() => undefined);
