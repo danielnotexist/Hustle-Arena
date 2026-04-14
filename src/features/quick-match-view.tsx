@@ -1218,10 +1218,10 @@ export function BattlefieldView({
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Battlefield</h2>
+          <h2 className="text-2xl font-display font-bold uppercase tracking-tight">Battlefield</h2>
           <p className="text-esport-text-muted">
             {accountMode === "demo"
               ? "Quick matchmaking is active here. Use Battlefield only for instant solo or party queue search."
@@ -1255,9 +1255,9 @@ export function BattlefieldView({
       )}
 
       {matchState === "idle" && (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_320px] gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_300px] gap-4">
           <div className="space-y-4">
-            <div className="esport-card p-5 border border-esport-border">
+            <div className="esport-card p-4 border border-esport-border">
               <div className="flex items-center justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-xl font-bold font-display uppercase">Queue Type</h3>
@@ -1273,7 +1273,7 @@ export function BattlefieldView({
                     }
                   }}
                   disabled={isPartyInviteGuest}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
+                  className={`rounded-xl border p-3 text-left transition-colors ${
                     queueMode === "solo"
                       ? "border-esport-accent bg-esport-accent/10"
                       : "border-esport-border bg-black/20 hover:border-white/20"
@@ -1289,7 +1289,7 @@ export function BattlefieldView({
                     }
                   }}
                   disabled={isPartyInviteGuest}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
+                  className={`rounded-xl border p-3 text-left transition-colors ${
                     queueMode === "party"
                       ? "border-esport-accent bg-esport-accent/10"
                       : "border-esport-border bg-black/20 hover:border-white/20"
@@ -1302,7 +1302,7 @@ export function BattlefieldView({
             </div>
 
             {!isPartyInviteGuest ? (
-            <div className={`esport-card p-5 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
+            <div className={`esport-card p-4 border bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%)] ${
               hostStakeChangePending ? "border-amber-300/50 shadow-[0_0_28px_rgba(251,191,36,0.18)]" : "border-esport-border"
             }`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1396,21 +1396,21 @@ export function BattlefieldView({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div
                 onClick={() => {
                   if (!isPartyInviteGuest) {
                     setMatchType("ranked_5v5");
                   }
                 }}
-                className={`esport-card p-5 border relative overflow-hidden group transition-colors ${
+                className={`esport-card p-4 border relative overflow-hidden group transition-colors ${
                   isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 } ${matchType === "ranked_5v5" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_5v5" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
                 <div className="flex items-center justify-between relative z-10">
                   <div>
-                    <h3 className="text-xl font-bold font-display uppercase mb-1">COMPETETIVE 5V5</h3>
+                    <h3 className="text-lg font-bold font-display uppercase mb-1">COMPETETIVE 5V5</h3>
                     <p className="text-sm text-esport-text-muted">Quick competitive matchmaking. Affects your ELO.</p>
                   </div>
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_5v5" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
@@ -1425,14 +1425,14 @@ export function BattlefieldView({
                     setMatchType("ranked_2v2");
                   }
                 }}
-                className={`esport-card p-5 border relative overflow-hidden group transition-colors ${
+                className={`esport-card p-4 border relative overflow-hidden group transition-colors ${
                   isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 } ${matchType === "ranked_2v2" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_2v2" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
                 <div className="flex items-center justify-between relative z-10">
                   <div>
-                    <h3 className="text-xl font-bold font-display uppercase mb-1">WINGMAN 2V2</h3>
+                    <h3 className="text-lg font-bold font-display uppercase mb-1">WINGMAN 2V2</h3>
                     <p className="text-sm text-esport-text-muted">Wingman quick queue. Competitive and fast.</p>
                   </div>
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${matchType === "ranked_2v2" ? "bg-esport-accent/20 border-esport-accent" : "bg-black/50 border-esport-border"}`}>
@@ -1443,7 +1443,7 @@ export function BattlefieldView({
             </div>
 
             {queueMode === "party" && (
-              <div className="esport-card p-5 border border-esport-border">
+              <div className="esport-card p-4 border border-esport-border">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <div>
                     <h3 className="text-xl font-bold font-display uppercase">Party Members</h3>
@@ -1479,7 +1479,7 @@ export function BattlefieldView({
                                 void togglePartyMember(friend.id);
                               }
                             }}
-                            className={`w-[150px] rounded-2xl border p-4 text-center transition-colors ${
+                            className={`w-[136px] rounded-2xl border p-3 text-center transition-colors ${
                               "isSelf" in friend && friend.isSelf
                                 ? "border-white/20 bg-gradient-to-b from-white/[0.08] to-black/40"
                                 : "border-esport-accent/40 bg-gradient-to-b from-esport-accent/10 to-black/40 hover:border-esport-accent"
@@ -1488,7 +1488,7 @@ export function BattlefieldView({
                             <img
                               src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=160`}
                               alt={friend.username}
-                              className="mx-auto w-20 h-20 rounded-full border-4 border-white/10 object-cover"
+                              className="mx-auto h-16 w-16 rounded-full border-4 border-white/10 object-cover"
                             />
                             <div className="mt-3 text-sm font-bold text-white truncate">{friend.username}</div>
                             <div className={`mt-2 text-[10px] uppercase tracking-[0.2em] ${
@@ -1520,7 +1520,7 @@ export function BattlefieldView({
                           type="button"
                           onClick={() => addToast("Use the Online Friends panel on the right to send invites.", "info")}
                           disabled={isPartyInviteGuest}
-                          className="w-[150px] rounded-2xl border border-esport-border bg-black/20 p-4 flex flex-col items-center justify-center text-center min-h-[180px] transition-colors hover:border-esport-accent disabled:opacity-60"
+                          className="w-[136px] rounded-2xl border border-esport-border bg-black/20 p-3 flex flex-col items-center justify-center text-center min-h-[160px] transition-colors hover:border-esport-accent disabled:opacity-60"
                         >
                           <div className="text-5xl leading-none text-white/30">+</div>
                           <div className="mt-3 text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Empty Slot</div>
@@ -1564,9 +1564,9 @@ export function BattlefieldView({
             )}
           </div>
 
-          <div className="esport-card p-5 flex flex-col justify-center items-center text-center space-y-5 xl:sticky xl:top-6 h-fit">
-            <div className="w-24 h-24 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
-              <Target className="w-10 h-10 text-esport-text-muted" />
+          <div className="esport-card p-4 flex flex-col justify-center items-center text-center space-y-4 xl:sticky xl:top-6 h-fit">
+            <div className="h-20 w-20 rounded-full border-4 border-esport-border flex items-center justify-center bg-black/50">
+              <Target className="h-8 w-8 text-esport-text-muted" />
             </div>
             <div>
               <div className="text-sm text-esport-text-muted mb-1">{queueMode === "solo" ? "Solo Queue" : "Party Queue"}</div>
@@ -1575,7 +1575,7 @@ export function BattlefieldView({
                 {selectedStakeAmount ? `Queueing for ${formatStakeLabel(selectedStakeAmount)}` : "Choose a stake amount"}
               </div>
               <div className="text-xs text-esport-text-muted mb-2">Estimated Wait</div>
-              <div className="text-2xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
+              <div className="text-xl font-bold font-mono">{formatTime(estimatedWaitSeconds)}</div>
               {queueMode === "party" && (
                 <div className="mt-2 text-xs text-esport-text-muted">
                   Party size: {(isPartyInviteGuest ? 1 : acceptedPartyMembers.length) + 1}/{selectedTeamSize}
@@ -1594,7 +1594,7 @@ export function BattlefieldView({
                 (queueMode === "party" &&
                   (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
               }
-              className="esport-btn-primary w-full py-4 text-lg animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
+              className="esport-btn-primary w-full py-3 text-base animate-pulse hover:animate-none shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50 disabled:animate-none"
             >
               {queueMode === "solo" ? "FIND SOLO MATCH" : isPartyInviteGuest ? "WAITING FOR PARTY LEADER" : "FIND PARTY MATCH"}
             </button>
@@ -1646,7 +1646,7 @@ export function BattlefieldView({
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Friends</div>
               </div>
-              <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
+              <div className="space-y-2 max-h-[230px] overflow-y-auto custom-scrollbar pr-1">
                 {friendsList.length === 0 && (
                   <div className="text-xs text-esport-text-muted">No friends yet.</div>
                 )}
