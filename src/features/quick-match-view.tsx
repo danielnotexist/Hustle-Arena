@@ -829,23 +829,6 @@ export function BattlefieldView({
     );
   };
 
-  const getPartyInviteStatusText = (status: string) => {
-    if (status === "owner") return "Party Owner";
-    if (status === "accepted") return "Accepted";
-    if (status === "declined") return "Declined";
-    if (status === "pending") return "Waiting for approval";
-    if (status === "cancelled") return "Invite cancelled";
-    return "Ready to invite";
-  };
-
-  const getPartyInviteStatusClasses = (status: string) => {
-    if (status === "owner") return "border-white/15 bg-white/10 text-white";
-    if (status === "accepted") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-300";
-    if (status === "declined") return "border-rose-300/30 bg-rose-400/10 text-rose-300";
-    if (status === "pending") return "border-esport-accent/30 bg-esport-accent/10 text-esport-accent";
-    return "border-white/10 bg-white/5 text-esport-text-muted";
-  };
-
   const resetQuickQueueState = (nextState: "idle" | "searching" = "idle") => {
     queueRequestVersionRef.current += 1;
     setMatchState(nextState);
@@ -1661,14 +1644,11 @@ export function BattlefieldView({
             )}
             <div className="w-full rounded-lg border border-esport-border bg-black/20 p-3 text-left">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Online Friends</div>
-                <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-esport-accent">
-                  {friendsList.length} total
-                </div>
+                <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">Friends</div>
               </div>
               <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
                 {friendsList.length === 0 && (
-                  <div className="text-xs text-esport-text-muted">No friends yet. Add friends in Social to use quick actions.</div>
+                  <div className="text-xs text-esport-text-muted">No friends yet.</div>
                 )}
                 {friendsList
                   .slice()
@@ -1712,9 +1692,6 @@ export function BattlefieldView({
                             <div className="mt-1 flex items-center gap-1.5">
                               <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] ${activityClasses}`}>
                                 {activityLabel}
-                              </span>
-                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] ${getPartyInviteStatusClasses(inviteStatus)}`}>
-                                {getPartyInviteStatusText(inviteStatus)}
                               </span>
                             </div>
                           </div>
