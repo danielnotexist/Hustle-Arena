@@ -64,6 +64,7 @@ export function BattlefieldView({
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [partyInvites, setPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
   const [partyStakeUpdates, setPartyStakeUpdates] = useState<QuickQueuePartyStakeUpdate[]>([]);
+  const [partyStakeUpdateBackendMissing, setPartyStakeUpdateBackendMissing] = useState(false);
   const [partyInviteProfiles, setPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [partyInviteActionUserId, setPartyInviteActionUserId] = useState<string | null>(null);
   const [stakeUpdateActionId, setStakeUpdateActionId] = useState<number | null>(null);
@@ -319,6 +320,7 @@ export function BattlefieldView({
     if (!user?.id) {
       setPartyInvites([]);
       setPartyStakeUpdates([]);
+      setPartyStakeUpdateBackendMissing(false);
       return;
     }
 
@@ -326,19 +328,34 @@ export function BattlefieldView({
 
     const loadPartyInvites = async () => {
       try {
-        const [inviteRows, stakeUpdateRows] = await Promise.all([
-          fetchQuickQueuePartyInvites(user.id),
-          fetchQuickQueuePartyStakeUpdates(user.id),
-        ]);
+        const inviteRows = await fetchQuickQueuePartyInvites(user.id);
         if (!cancelled) {
           setPartyInviteBackendMissing(false);
           setPartyInvites(inviteRows);
-          setPartyStakeUpdates(stakeUpdateRows);
         }
       } catch (error) {
         console.error("Failed to load party invites:", error);
         if (!cancelled && isPartyInviteBackendError(error)) {
           setPartyInviteBackendMissing(true);
+        }
+      }
+
+      if (partyStakeUpdateBackendMissing) {
+        return;
+      }
+
+      try {
+        const stakeUpdateRows = await fetchQuickQueuePartyStakeUpdates(user.id);
+        if (!cancelled) {
+          setPartyStakeUpdates(stakeUpdateRows);
+        }
+      } catch (error) {
+        if (!cancelled && isPartyStakeUpdateBackendError(error)) {
+          setPartyStakeUpdateBackendMissing(true);
+          setPartyStakeUpdates([]);
+          console.warn("Party stake update backend is not available yet.", error);
+        } else {
+          console.error("Failed to load party stake updates:", error);
         }
       }
     };
@@ -352,7 +369,7 @@ export function BattlefieldView({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [user?.id]);
+  }, [user?.id, partyStakeUpdateBackendMissing]);
 
   useEffect(() => {
     if (!user?.id || !contextPartyStakeUpdates.length) {
@@ -830,6 +847,18 @@ export function BattlefieldView({
     }
   };
 
+  const isPartyStakeUpdateBackendError = (error: any) => {
+    const message = String(error?.message || "");
+    return (
+      error?.code === "42501" ||
+      error?.code === "PGRST205" ||
+      error?.code === "PGRST202" ||
+      message.includes("quick_queue_party_stake_updates") ||
+      message.includes("request_quick_queue_party_stake_update") ||
+      message.includes("respond_quick_queue_party_stake_update")
+    );
+  };
+
   const requestStakeChange = async (nextStakeAmount: number | null) => {
     if (isPartyInviteGuest) {
       return;
@@ -872,7 +901,12 @@ export function BattlefieldView({
         }
       } catch (error: any) {
         setSelectedStakeAmount(previousStakeAmount);
-        addToast(error?.message || "Failed to request stake update.", "error");
+        if (isPartyStakeUpdateBackendError(error)) {
+          setPartyStakeUpdateBackendMissing(true);
+          addToast("Stake update consent backend is not active yet. Run migration 20260414_0050.", "error");
+        } else {
+          addToast(error?.message || "Failed to request stake update.", "error");
+        }
       }
       return;
     }
@@ -904,7 +938,12 @@ export function BattlefieldView({
       );
     } catch (error: any) {
       console.error("Failed to respond to stake update:", error);
-      addToast(error?.message || "Failed to respond to stake update.", "error");
+      if (isPartyStakeUpdateBackendError(error)) {
+        setPartyStakeUpdateBackendMissing(true);
+        addToast("Stake update consent backend is not active yet. Run migration 20260414_0050.", "error");
+      } else {
+        addToast(error?.message || "Failed to respond to stake update.", "error");
+      }
     } finally {
       setStakeUpdateActionId(null);
     }
