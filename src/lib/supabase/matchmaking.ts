@@ -822,6 +822,19 @@ export async function fetchQuickQueuePartyStakeUpdates(userId: string) {
   return (data || []) as QuickQueuePartyStakeUpdate[];
 }
 
+export async function fetchQuickQueuePartyStakeCap(mode: LobbyMode, teamSize: 2 | 5) {
+  const { data, error } = await supabase.rpc("get_quick_queue_party_stake_cap", {
+    p_mode: mode,
+    p_team_size: teamSize,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Number(data || 0);
+}
+
 export async function requestQuickQueuePartyStakeUpdate(
   mode: LobbyMode,
   teamSize: 2 | 5,

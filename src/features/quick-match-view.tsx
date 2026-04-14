@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
   fetchMyActiveLobby,
+  fetchQuickQueuePartyStakeCap,
   fetchMyQuickQueueStatus,
   fetchQuickQueuePartyInvites,
   fetchQuickQueuePartyStakeUpdates,
@@ -30,17 +31,31 @@ import type { AccountMode } from "./types";
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
 const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
 
+const isPartyStakeUpdateBackendError = (error: any) => {
+  const message = String(error?.message || "");
+  return (
+    error?.code === "42501" ||
+    error?.code === "PGRST205" ||
+    error?.code === "PGRST202" ||
+    message.includes("quick_queue_party_stake_updates") ||
+    message.includes("request_quick_queue_party_stake_update") ||
+    message.includes("respond_quick_queue_party_stake_update")
+  );
+};
+
 export function BattlefieldView({
   addToast,
   openModal,
   user,
   accountMode,
+  visibleBalance,
   onMatchReady,
 }: {
   addToast: any;
   openModal: any;
   user: any;
   accountMode: AccountMode;
+  visibleBalance: number;
   refreshSession?: () => Promise<void>;
   onMatchReady?: () => void;
 }) {
@@ -64,6 +79,7 @@ export function BattlefieldView({
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null }>>([]);
   const [partyInvites, setPartyInvites] = useState<QuickQueuePartyInvite[]>([]);
   const [partyStakeUpdates, setPartyStakeUpdates] = useState<QuickQueuePartyStakeUpdate[]>([]);
+  const [partyStakeCap, setPartyStakeCap] = useState<number | null>(null);
   const [partyStakeUpdateBackendMissing, setPartyStakeUpdateBackendMissing] = useState(false);
   const [partyInviteProfiles, setPartyInviteProfiles] = useState<Record<string, { username: string; avatarUrl: string | null }>>({});
   const [partyInviteActionUserId, setPartyInviteActionUserId] = useState<string | null>(null);
@@ -186,6 +202,10 @@ export function BattlefieldView({
       ) || null
     : null;
   const hostStakeChangePending = isPartyQueueMode && isPartyLeader && pendingOutgoingStakeUpdates.length > 0;
+  const currentUserStakeBalance = Math.max(Number(visibleBalance || 0), 0);
+  const effectiveStakeLimit = isPartyQueueMode && isPartyLeader
+    ? Math.max(Number(partyStakeCap ?? currentUserStakeBalance), 0)
+    : currentUserStakeBalance;
   const availablePartyFriends = friendsList.filter((friend) => !visiblePartyMembers.some((member) => member.id === friend.id));
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
@@ -402,6 +422,41 @@ export function BattlefieldView({
       window.clearInterval(interval);
     };
   }, [user?.id, partyStakeUpdateBackendMissing]);
+
+  useEffect(() => {
+    if (!user?.id || queueMode !== "party" || isPartyInviteGuest) {
+      setPartyStakeCap(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPartyStakeCap = async () => {
+      try {
+        const cap = await fetchQuickQueuePartyStakeCap(accountMode, selectedTeamSize);
+        if (!cancelled) {
+          setPartyStakeCap(Math.max(Number(cap || 0), 0));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPartyStakeCap(null);
+          if (!isPartyStakeUpdateBackendError(error)) {
+            console.error("Failed to load party stake cap:", error);
+          }
+        }
+      }
+    };
+
+    void loadPartyStakeCap();
+    const interval = window.setInterval(() => {
+      void loadPartyStakeCap();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [accountMode, isPartyInviteGuest, queueMode, selectedTeamSize, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !contextPartyStakeUpdates.length) {
@@ -879,18 +934,6 @@ export function BattlefieldView({
     }
   };
 
-  const isPartyStakeUpdateBackendError = (error: any) => {
-    const message = String(error?.message || "");
-    return (
-      error?.code === "42501" ||
-      error?.code === "PGRST205" ||
-      error?.code === "PGRST202" ||
-      message.includes("quick_queue_party_stake_updates") ||
-      message.includes("request_quick_queue_party_stake_update") ||
-      message.includes("respond_quick_queue_party_stake_update")
-    );
-  };
-
   const requestStakeChange = async (nextStakeAmount: number | null) => {
     if (isPartyInviteGuest) {
       return;
@@ -903,6 +946,15 @@ export function BattlefieldView({
 
     const previousStakeAmount = Number(selectedStakeAmount || 0);
     const nextAmount = Number(nextStakeAmount);
+    if (nextAmount > effectiveStakeLimit) {
+      addToast(
+        isPartyQueueMode && isPartyLeader
+          ? `That stake is above your party balance limit (${formatStakeLabel(effectiveStakeLimit)}).`
+          : `You do not have enough balance for ${formatStakeLabel(nextAmount)}.`,
+        "error"
+      );
+      return;
+    }
 
     if (
       queueMode === "party" &&
@@ -1225,15 +1277,33 @@ export function BattlefieldView({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => setQueueMode("solo")}
-                  className={`rounded-xl border p-4 text-left transition-colors ${queueMode === "solo" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"}`}
+                  onClick={() => {
+                    if (!isPartyInviteGuest) {
+                      setQueueMode("solo");
+                    }
+                  }}
+                  disabled={isPartyInviteGuest}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    queueMode === "solo"
+                      ? "border-esport-accent bg-esport-accent/10"
+                      : "border-esport-border bg-black/20 hover:border-white/20"
+                  } ${isPartyInviteGuest ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <div className="text-sm font-bold text-white">Solo Quick Match</div>
                   <div className="text-xs text-esport-text-muted mt-1">Find a random team and queue on your own.</div>
                 </button>
                 <button
-                  onClick={() => setQueueMode("party")}
-                  className={`rounded-xl border p-4 text-left transition-colors ${queueMode === "party" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"}`}
+                  onClick={() => {
+                    if (!isPartyInviteGuest) {
+                      setQueueMode("party");
+                    }
+                  }}
+                  disabled={isPartyInviteGuest}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    queueMode === "party"
+                      ? "border-esport-accent bg-esport-accent/10"
+                      : "border-esport-border bg-black/20 hover:border-white/20"
+                  } ${isPartyInviteGuest ? "opacity-80 cursor-not-allowed" : ""}`}
                 >
                   <div className="text-sm font-bold text-white">Party Quick Match</div>
                   <div className="text-xs text-esport-text-muted mt-1">Enter the random queue with your current squad or party.</div>
@@ -1267,16 +1337,26 @@ export function BattlefieldView({
                 </div>
               )}
 
+              {isPartyQueueMode && isPartyLeader && acceptedPartyMembers.length > 0 && effectiveStakeLimit < STAKE_OPTIONS[STAKE_OPTIONS.length - 1] && (
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-xs text-esport-text-muted">
+                  Some stake options are unavailable because a party member balance is below that amount.
+                </div>
+              )}
+
               <div className="mt-4 grid grid-cols-4 gap-2">
                 {STAKE_OPTIONS.map((amount) => {
                   const active = selectedStakeAmount === amount;
+                  const disabledForBalance = amount > effectiveStakeLimit;
                   return (
                     <button
                       key={amount}
                       type="button"
+                      disabled={disabledForBalance}
                       onClick={() => void requestStakeChange(amount)}
                         className={`rounded-xl border px-3 py-3 text-left transition-all ${
-                        active
+                        disabledForBalance
+                          ? "cursor-not-allowed border-white/10 bg-white/[0.03] opacity-45"
+                          : active
                           ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
                           : "border-esport-border bg-black/20 hover:border-white/20"
                       }`}
@@ -1328,8 +1408,14 @@ export function BattlefieldView({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div
-                onClick={() => setMatchType("ranked_5v5")}
-                className={`esport-card p-5 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "ranked_5v5" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
+                onClick={() => {
+                  if (!isPartyInviteGuest) {
+                    setMatchType("ranked_5v5");
+                  }
+                }}
+                className={`esport-card p-5 border relative overflow-hidden group transition-colors ${
+                  isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                } ${matchType === "ranked_5v5" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_5v5" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
                 <div className="flex items-center justify-between relative z-10">
@@ -1344,8 +1430,14 @@ export function BattlefieldView({
               </div>
 
               <div
-                onClick={() => setMatchType("ranked_2v2")}
-                className={`esport-card p-5 border relative overflow-hidden group cursor-pointer transition-colors ${matchType === "ranked_2v2" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
+                onClick={() => {
+                  if (!isPartyInviteGuest) {
+                    setMatchType("ranked_2v2");
+                  }
+                }}
+                className={`esport-card p-5 border relative overflow-hidden group transition-colors ${
+                  isPartyInviteGuest ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                } ${matchType === "ranked_2v2" ? "border-esport-accent" : "border-esport-border hover:border-white/20"}`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-r from-esport-accent/20 to-transparent transition-opacity ${matchType === "ranked_2v2" ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
                 <div className="flex items-center justify-between relative z-10">
@@ -1366,11 +1458,13 @@ export function BattlefieldView({
                   <div>
                     <h3 className="text-xl font-bold font-display uppercase">Party Members</h3>
                     <p className="text-sm text-esport-text-muted">
-                      Invite up to {maxPartyMembers} friend{maxPartyMembers === 1 ? "" : "s"} and wait for them to accept before starting queue.
+                      {isPartyInviteGuest
+                        ? "You joined this party as a guest. The party owner controls invites and queue configuration."
+                        : `Invite up to ${maxPartyMembers} friend${maxPartyMembers === 1 ? "" : "s"} and wait for them to accept before starting queue.`}
                     </p>
                   </div>
                   <div className="text-[10px] uppercase tracking-widest text-esport-text-muted">
-                    {(isPartyInviteGuest ? 1 : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
+                    {(isPartyInviteGuest ? visiblePartyMembers.filter((member) => member.status === "accepted" || member.status === "owner").length : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
                   </div>
                 </div>
 

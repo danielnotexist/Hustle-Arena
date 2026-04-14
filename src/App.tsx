@@ -1075,6 +1075,7 @@ export default function App() {
                         openModal={openModal}
                         user={user}
                         accountMode={accountMode}
+                        visibleBalance={visibleBalance}
                         refreshSession={refreshSession}
                         onMatchReady={() => {
                           setBattlefieldMenuOpen(true);
