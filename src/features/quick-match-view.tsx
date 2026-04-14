@@ -143,17 +143,21 @@ export function BattlefieldView({
   const displayedPartyMembers = [selfPartyMember, ...visiblePartyMembers];
   const isPartyInviteGuest = !!incomingPartyHost && selectedPartyMembers.length === 0;
   const isPartyLeader = queueMode === "party" && !isPartyInviteGuest;
+  const isPartyQueueMode = queueMode === "party";
   const contextPartyStakeUpdates = partyStakeUpdates.filter(
     (update) => update.mode === accountMode && update.team_size === selectedTeamSize
   );
-  const pendingOutgoingStakeUpdates = contextPartyStakeUpdates.filter(
-    (update) => update.host_user_id === user?.id && update.status === "pending"
-  );
-  const pendingIncomingStakeUpdate =
-    contextPartyStakeUpdates.find(
-      (update) => update.invitee_user_id === user?.id && update.status === "pending"
-    ) || null;
-  const hostStakeChangePending = pendingOutgoingStakeUpdates.length > 0;
+  const pendingOutgoingStakeUpdates = isPartyQueueMode
+    ? contextPartyStakeUpdates.filter(
+        (update) => update.host_user_id === user?.id && update.status === "pending"
+      )
+    : [];
+  const pendingIncomingStakeUpdate = isPartyQueueMode
+    ? contextPartyStakeUpdates.find(
+        (update) => update.invitee_user_id === user?.id && update.status === "pending"
+      ) || null
+    : null;
+  const hostStakeChangePending = isPartyQueueMode && isPartyLeader && pendingOutgoingStakeUpdates.length > 0;
   const availablePartyFriends = friendsList.filter((friend) => !visiblePartyMembers.some((member) => member.id === friend.id));
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
