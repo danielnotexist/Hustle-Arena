@@ -17,6 +17,7 @@ import {
   type QuickQueuePartyInvite,
   type QuickQueuePartyStakeUpdate,
   type QuickQueueStatus,
+  type SupportedGameMode,
 } from "../lib/supabase/matchmaking";
 import { fetchPublicProfileBasics } from "../lib/supabase/social";
 import {
@@ -30,6 +31,41 @@ import type { AccountMode } from "./types";
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
 const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
+type QuickMatchType = "ranked_5v5" | "ranked_2v2" | "ranked_team_ffa" | "ranked_ffa";
+
+const TEAM_SIZE_BY_MATCH_TYPE: Record<QuickMatchType, 2 | 5> = {
+  ranked_2v2: 2,
+  ranked_5v5: 5,
+  ranked_team_ffa: 5,
+  ranked_ffa: 5,
+};
+
+const GAME_MODE_BY_MATCH_TYPE: Record<QuickMatchType, SupportedGameMode> = {
+  ranked_2v2: "wingman",
+  ranked_5v5: "competitive",
+  ranked_team_ffa: "team_ffa",
+  ranked_ffa: "ffa",
+};
+
+const QUEUE_LABEL_BY_MATCH_TYPE: Record<QuickMatchType, string> = {
+  ranked_2v2: "WINGMAN 2V2",
+  ranked_5v5: "COMPETITIVE 5V5",
+  ranked_team_ffa: "TEAM FFA 5V5",
+  ranked_ffa: "FFA 5V5",
+};
+
+const backendStatusToMatchType = (teamSize: number, gameMode: string | null | undefined): QuickMatchType => {
+  if (teamSize === 2) {
+    return "ranked_2v2";
+  }
+  if (gameMode === "team_ffa") {
+    return "ranked_team_ffa";
+  }
+  if (gameMode === "ffa") {
+    return "ranked_ffa";
+  }
+  return "ranked_5v5";
+};
 
 const isPartyStakeUpdateBackendError = (error: any) => {
   const message = String(error?.message || "");
@@ -65,7 +101,7 @@ export function BattlefieldView({
   const requiresKyc = accountMode === "live";
   const [matchState, setMatchState] = useState<"idle" | "searching" | "ready_check" | "connecting">("idle");
   const [searchTime, setSearchTime] = useState(0);
-  const [matchType, setMatchType] = useState<"ranked_5v5" | "ranked_2v2">("ranked_5v5");
+  const [matchType, setMatchType] = useState<QuickMatchType>("ranked_5v5");
   const [queueMode, setQueueMode] = useState<"solo" | "party">("solo");
   const [playersJoined, setPlayersJoined] = useState(0);
   const [playersNeeded, setPlayersNeeded] = useState(0);
@@ -100,8 +136,9 @@ export function BattlefieldView({
   const readyCheckCompletionSoundRef = useRef<string | null>(null);
   const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
 
-  const selectedTeamSize = matchType === "ranked_2v2" ? 2 : 5;
-  const selectedQueueLabel = matchType === "ranked_2v2" ? "WINGMAN 2V2" : "COMPETITIVE 5V5";
+  const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
+  const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
+  const selectedQueueLabel = QUEUE_LABEL_BY_MATCH_TYPE[matchType];
   const maxPartyMembers = selectedTeamSize - 1;
   const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
   const hasCurrentUserAccepted = !!user?.id && acceptedUserIds.includes(user.id);
@@ -237,7 +274,7 @@ export function BattlefieldView({
       const savedState = JSON.parse(raw) as {
         userId?: string;
         accountMode?: AccountMode;
-        matchType?: "ranked_5v5" | "ranked_2v2";
+        matchType?: QuickMatchType;
         queueMode?: "solo" | "party";
         selectedStakeAmount?: number | null;
         matchState?: "idle" | "searching" | "ready_check" | "connecting";
@@ -567,7 +604,7 @@ export function BattlefieldView({
         }
 
         const backendStakeAmount = Number(status.stake_amount || 0);
-        const backendMatchType = status.team_size === 2 ? "ranked_2v2" : "ranked_5v5";
+        const backendMatchType = backendStatusToMatchType(status.team_size, status.game_mode);
         const backendQueueMode = status.queue_mode === "party" ? "party" : "solo";
 
         if (
@@ -906,7 +943,13 @@ export function BattlefieldView({
       const requestVersion = ++queueRequestVersionRef.current;
       setSearchTime(0);
       setMatchState("searching");
-      const status = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
+      const status = await quickQueueJoinOrMatch(
+        accountMode,
+        selectedTeamSize,
+        queueMode,
+        selectedStakeAmount,
+        selectedGameMode
+      );
       if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
         applyQueueStatus(status);
       }
@@ -1022,6 +1065,9 @@ export function BattlefieldView({
       return;
     }
     setQueueMode(mode);
+    if (mode === "party" && (matchType === "ranked_team_ffa" || matchType === "ranked_ffa")) {
+      setMatchType("ranked_5v5");
+    }
     setWizardStep(2);
   };
 
@@ -1152,6 +1198,9 @@ export function BattlefieldView({
     }
     if (queueMode !== "party") {
       setQueueMode("party");
+      if (matchType === "ranked_team_ffa" || matchType === "ranked_ffa") {
+        setMatchType("ranked_5v5");
+      }
     }
     await togglePartyMember(friendId);
   };
@@ -1205,7 +1254,13 @@ export function BattlefieldView({
       try {
         if (!selectedStakeAmount) return;
         const requestVersion = queueRequestVersionRef.current;
-        const nextStatus = await quickQueueJoinOrMatch(accountMode, selectedTeamSize, queueMode, selectedStakeAmount);
+        const nextStatus = await quickQueueJoinOrMatch(
+          accountMode,
+          selectedTeamSize,
+          queueMode,
+          selectedStakeAmount,
+          selectedGameMode
+        );
         if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
           applyQueueStatus(nextStatus);
         }
@@ -1224,7 +1279,7 @@ export function BattlefieldView({
       window.clearInterval(interval);
       pollingRef.current = null;
     };
-  }, [matchState, accountMode, selectedTeamSize, queueMode, selectedStakeAmount]);
+  }, [matchState, accountMode, selectedTeamSize, queueMode, selectedStakeAmount, selectedGameMode]);
 
   if (requiresKyc && !isKycVerified) {
     return (
@@ -1399,6 +1454,47 @@ export function BattlefieldView({
                       {selectedQueueLabel} - {formatStakeLabel(selectedStakeAmount)}
                     </div>
                   </div>
+
+                  {queueMode === "solo" && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setMatchType("ranked_2v2")}
+                        className={`rounded-xl border p-3 text-left transition-colors ${
+                          matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMatchType("ranked_5v5")}
+                        className={`rounded-xl border p-3 text-left transition-colors ${
+                          matchType === "ranked_5v5" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="text-sm font-bold uppercase text-white">Competitive 5v5</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMatchType("ranked_team_ffa")}
+                        className={`rounded-xl border p-3 text-left transition-colors ${
+                          matchType === "ranked_team_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="text-sm font-bold uppercase text-white">Team FFA 5v5</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMatchType("ranked_ffa")}
+                        className={`rounded-xl border p-3 text-left transition-colors ${
+                          matchType === "ranked_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="text-sm font-bold uppercase text-white">FFA 5v5</div>
+                      </button>
+                    </div>
+                  )}
 
                   {queueMode === "party" && (
                     <>

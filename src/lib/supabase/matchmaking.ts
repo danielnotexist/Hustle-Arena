@@ -145,6 +145,7 @@ export interface MyQuickQueueStatus extends QuickQueueStatus {
   team_size: 2 | 5;
   queue_mode: "solo" | "party";
   stake_amount: number;
+  game_mode: SupportedGameMode | null;
 }
 
 export interface QuickQueuePartyInvite {
@@ -706,12 +707,19 @@ export async function recordMatchPlayerStats(input: {
   }
 }
 
-export async function quickQueueJoinOrMatch(mode: LobbyMode, teamSize: 2 | 5, queueMode: "solo" | "party", stakeAmount: number) {
+export async function quickQueueJoinOrMatch(
+  mode: LobbyMode,
+  teamSize: 2 | 5,
+  queueMode: "solo" | "party",
+  stakeAmount: number,
+  gameMode: SupportedGameMode
+) {
   const { data, error } = await supabase.rpc("quick_queue_join_or_match", {
     p_mode: mode,
     p_team_size: teamSize,
     p_queue_mode: queueMode,
     p_stake_amount: stakeAmount,
+    p_game_mode: gameMode,
   });
 
   if (error) {
