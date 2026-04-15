@@ -73,11 +73,32 @@ export async function fetchPublicProfileBasics(userIds: string[]) {
     return new Map<string, PublicProfileBasic>();
   }
 
-  const { data, error } = await supabase.rpc("get_public_profile_basics", {
-    p_user_ids: uniqueUserIds,
-  });
+  const executeFetch = async () =>
+    supabase.rpc("get_public_profile_basics", {
+      p_user_ids: uniqueUserIds,
+    });
+
+  let { data, error } = await executeFetch();
+
+  const isTransientGatewayFailure =
+    !!error &&
+    (
+      String(error?.message || "").includes("NetworkError when attempting to fetch resource") ||
+      String(error?.message || "").includes("Failed to fetch") ||
+      String(error?.details || "").includes("NetworkError when attempting to fetch resource") ||
+      String(error?.code || "") === "502"
+    );
+
+  if (isTransientGatewayFailure) {
+    const retry = await executeFetch();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
+    if (isTransientGatewayFailure) {
+      return new Map<string, PublicProfileBasic>();
+    }
     throw error;
   }
 

@@ -135,6 +135,7 @@ export function BattlefieldView({
   const readyCheckAcceptedCountRef = useRef(0);
   const readyCheckCompletionSoundRef = useRef<string | null>(null);
   const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
+  const unsupportedQueueModeToastRef = useRef<string | null>(null);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -860,6 +861,9 @@ export function BattlefieldView({
   const formatStakeLabel = (amount: number | null | undefined) =>
     amount ? `${Number(amount).toFixed(Number(amount) >= 100 ? 0 : 0)} USDT` : "No stake";
 
+  const isUnsupportedQuickQueueModeError = (error: any) =>
+    String(error?.message || "").includes("latest Supabase matchmaking migration");
+
   const isPartyInviteBackendError = (error: any) => {
     const message = String(error?.message || "");
     return (
@@ -956,7 +960,10 @@ export function BattlefieldView({
       addToast("Searching for real players in queue...", "info");
     } catch (error: any) {
       console.error(error);
-      setMatchState("idle");
+      resetQuickQueueState("idle");
+      if (isUnsupportedQuickQueueModeError(error)) {
+        unsupportedQueueModeToastRef.current = `${queueMode}:${selectedGameMode}`;
+      }
       addToast(error?.message || "Failed to start quick queue.", "error");
     }
   };
@@ -1264,7 +1271,16 @@ export function BattlefieldView({
         if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
           applyQueueStatus(nextStatus);
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (isUnsupportedQuickQueueModeError(error)) {
+          const errorKey = `${queueMode}:${selectedGameMode}`;
+          if (unsupportedQueueModeToastRef.current !== errorKey) {
+            unsupportedQueueModeToastRef.current = errorKey;
+            addToast(error.message || "This quick queue mode is not available yet.", "error");
+          }
+          resetQuickQueueState("idle");
+          return;
+        }
         console.error("Quick queue poll failed:", error);
       }
     };
