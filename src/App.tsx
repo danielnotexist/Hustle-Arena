@@ -145,6 +145,7 @@ export default function App() {
     shouldUseSupabase ? null : false
   );
   const {
+    authProvider,
     isLoggedIn,
     isAdmin,
     user,
@@ -559,8 +560,24 @@ export default function App() {
   }, [user?.email, user?.id, user?.username]);
 
   const handleLogout = async () => {
-    await signOut(auth);
-    addToast("Logged out successfully", "info");
+    try {
+      if (authProvider === "supabase" || shouldUseSupabase) {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          throw error;
+        }
+        setHasSupabaseSession(false);
+      } else {
+        await signOut(auth);
+      }
+
+      setPublicProfileState(null);
+      setNotificationsOpen(false);
+      addToast("Logged out successfully", "info");
+    } catch (error: any) {
+      console.error("Logout failed:", error);
+      addToast(error?.message || "Failed to log out.", "error");
+    }
   };
 
   const openPublicProfilePage = async (userId: string) => {
@@ -872,7 +889,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
+              <div className="relative flex items-center gap-3 p-2 pr-24 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
@@ -905,9 +922,30 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Settings size={16} className="text-esport-text-muted hover:text-white transition-colors" />
-                  <LogOut size={16} className="text-esport-text-muted hover:text-esport-danger transition-colors" onClick={handleLogout} />
+                <div className="absolute right-2 top-2 flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+                  <button
+                    type="button"
+                    aria-label="Open profile settings"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPublicProfileState(null);
+                      setActiveTab("Profile");
+                    }}
+                    className="rounded-lg p-1.5 text-esport-text-muted transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    <Settings size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Log out"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleLogout();
+                    }}
+                    className="rounded-lg p-1.5 text-esport-text-muted transition-colors hover:bg-rose-400/10 hover:text-esport-danger"
+                  >
+                    <LogOut size={15} />
+                  </button>
                 </div>
               </div>
             </div>
