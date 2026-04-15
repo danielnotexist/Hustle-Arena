@@ -924,7 +924,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="absolute right-1.5 top-1 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+                <div className="absolute right-0 top-0 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
                   <button
                     type="button"
                     aria-label="Open profile settings"
