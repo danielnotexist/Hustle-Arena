@@ -33,7 +33,7 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
-import { supabase } from "./lib/supabase";
+import { isSupabaseAbortError, supabase } from "./lib/supabase";
 import {
   fetchMyActiveLobby,
   fetchMyReconnectableMatch,
@@ -172,12 +172,22 @@ export default function App() {
     }
 
     let isCancelled = false;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!isCancelled) {
-        setHasSupabaseSession(!!data.session?.user);
-        setAuthBootstrapComplete(true);
-      }
-    });
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!isCancelled) {
+          setHasSupabaseSession(!!data.session?.user);
+          setAuthBootstrapComplete(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (isSupabaseAbortError(error)) {
+          return;
+        }
+        if (!isCancelled) {
+          setAuthBootstrapComplete(true);
+        }
+      });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isCancelled) {

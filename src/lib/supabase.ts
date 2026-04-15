@@ -16,3 +16,17 @@ export const supabase = createClient(
     },
   }
 );
+
+export function isSupabaseAbortError(error: unknown) {
+  const message = String((error as { message?: string } | null)?.message || '');
+  const details = String((error as { details?: string } | null)?.details || '');
+  const hint = String((error as { hint?: string } | null)?.hint || '');
+
+  return (
+    message.includes('AbortError') ||
+    message.includes('The operation was aborted') ||
+    message.includes('Request was aborted') ||
+    details.includes('Request was aborted') ||
+    hint.includes('Request was aborted')
+  );
+}

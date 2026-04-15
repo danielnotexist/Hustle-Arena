@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { isSupabaseAbortError, supabase } from "../lib/supabase";
 import {
   fetchExtendedProfile,
   fetchMyProfile,
@@ -29,8 +29,17 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       return;
     }
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const session = sessionData.session;
+    let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      session = sessionData.session;
+    } catch (error) {
+      if (isSupabaseAbortError(error)) {
+        return;
+      }
+      throw error;
+    }
 
     if (!session?.user) {
       if (!isCancelled) {
@@ -66,6 +75,9 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       setProfileData(mapSupabaseProfileToProfileData(fullProfile));
       setAccountMode(nextUser.accountMode || "live");
     } catch (error) {
+      if (isSupabaseAbortError(error)) {
+        return;
+      }
       console.error("Supabase session hydrate error:", error);
       if (!isCancelled) {
         setIsLoggedIn(false);
