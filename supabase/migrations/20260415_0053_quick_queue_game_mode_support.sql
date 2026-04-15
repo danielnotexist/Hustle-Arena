@@ -670,6 +670,8 @@ $$;
 
 grant execute on function public.quick_queue_accept_match(uuid, boolean) to authenticated;
 
+drop function if exists public.get_my_quick_queue_status(public.ha_mode);
+
 create or replace function public.get_my_quick_queue_status(
   p_mode public.ha_mode
 )
