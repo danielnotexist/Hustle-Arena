@@ -6,6 +6,8 @@ export type TeamSide = "T" | "CT" | "UNASSIGNED";
 export type MatchStatus = "pending" | "live" | "finished" | "interrupted" | "cancelled";
 export type SupportedGameMode = "wingman" | "competitive" | "team_ffa" | "ffa";
 
+let quickQueueRpcSupportsGameMode: boolean | null = null;
+
 export interface MatchmakingLobbyMember {
   user_id: string;
   team_side: TeamSide;
@@ -714,6 +716,40 @@ export async function quickQueueJoinOrMatch(
   stakeAmount: number,
   gameMode: SupportedGameMode
 ) {
+  const canUseLegacySignature =
+    (teamSize === 2 && gameMode === "wingman") ||
+    (teamSize === 5 && gameMode === "competitive");
+
+  const isMissingRpcSignature = (error: any) => {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    const details = String(error?.details || "");
+    const hint = String(error?.hint || "");
+    const combined = `${message} ${details} ${hint}`;
+
+    return (
+      code === "PGRST202" ||
+      combined.includes("Could not find the function public.quick_queue_join_or_match") ||
+      combined.includes("Searched for the function public.quick_queue_join_or_match")
+    );
+  };
+
+  const legacyPayload = {
+    p_mode: mode,
+    p_team_size: teamSize,
+    p_queue_mode: queueMode,
+    p_stake_amount: stakeAmount,
+  };
+
+  if (quickQueueRpcSupportsGameMode === false && canUseLegacySignature) {
+    const legacyResult = await supabase.rpc("quick_queue_join_or_match", legacyPayload);
+    if (legacyResult.error) {
+      throw legacyResult.error;
+    }
+    const legacyRow = Array.isArray(legacyResult.data) ? legacyResult.data[0] : legacyResult.data;
+    return (legacyRow || null) as QuickQueueStatus | null;
+  }
+
   const payloadWithGameMode = {
     p_mode: mode,
     p_team_size: teamSize,
@@ -724,20 +760,16 @@ export async function quickQueueJoinOrMatch(
 
   let { data, error } = await supabase.rpc("quick_queue_join_or_match", payloadWithGameMode);
 
-  const isMissingGameModeSignature =
-    error?.code === "PGRST202" &&
-    String(error?.details || "").includes("p_game_mode");
-
   // Backward-compatible fallback for environments that still run the old RPC signature.
-  if (isMissingGameModeSignature) {
-    const fallback = await supabase.rpc("quick_queue_join_or_match", {
-      p_mode: mode,
-      p_team_size: teamSize,
-      p_queue_mode: queueMode,
-      p_stake_amount: stakeAmount,
-    });
+  if (error && isMissingRpcSignature(error) && canUseLegacySignature) {
+    quickQueueRpcSupportsGameMode = false;
+    const fallback = await supabase.rpc("quick_queue_join_or_match", legacyPayload);
     data = fallback.data;
     error = fallback.error;
+  } else if (!error) {
+    quickQueueRpcSupportsGameMode = true;
+  } else if (error && isMissingRpcSignature(error) && !canUseLegacySignature) {
+    throw new Error("This quick queue mode needs the latest Supabase matchmaking migration before it can be used.");
   }
 
   if (error) {
