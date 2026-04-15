@@ -1,4 +1,4 @@
-import { supabase } from "../supabase";
+import { isSupabaseTransientNetworkError, supabase } from "../supabase";
 
 export type LobbyMode = "demo" | "live";
 export type LobbyKind = "public" | "custom";
@@ -888,13 +888,25 @@ export async function respondQuickQueuePartyInvite(inviteId: number, action: "ac
 }
 
 export async function fetchQuickQueuePartyStakeUpdates(userId: string) {
-  const { data, error } = await supabase
-    .from("quick_queue_party_stake_updates")
-    .select("id, host_user_id, invitee_user_id, mode, team_size, previous_stake_amount, new_stake_amount, status, created_at, updated_at, responded_at")
-    .or(`host_user_id.eq.${userId},invitee_user_id.eq.${userId}`)
-    .order("updated_at", { ascending: false });
+  const executeFetch = async () =>
+    supabase
+      .from("quick_queue_party_stake_updates")
+      .select("id, host_user_id, invitee_user_id, mode, team_size, previous_stake_amount, new_stake_amount, status, created_at, updated_at, responded_at")
+      .or(`host_user_id.eq.${userId},invitee_user_id.eq.${userId}`)
+      .order("updated_at", { ascending: false });
+
+  let { data, error } = await executeFetch();
+
+  if (isSupabaseTransientNetworkError(error)) {
+    const retry = await executeFetch();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
+    if (isSupabaseTransientNetworkError(error)) {
+      return [] as QuickQueuePartyStakeUpdate[];
+    }
     throw error;
   }
 
@@ -902,12 +914,24 @@ export async function fetchQuickQueuePartyStakeUpdates(userId: string) {
 }
 
 export async function fetchQuickQueuePartyStakeCap(mode: LobbyMode, teamSize: 2 | 5) {
-  const { data, error } = await supabase.rpc("get_quick_queue_party_stake_cap", {
-    p_mode: mode,
-    p_team_size: teamSize,
-  });
+  const executeFetch = async () =>
+    supabase.rpc("get_quick_queue_party_stake_cap", {
+      p_mode: mode,
+      p_team_size: teamSize,
+    });
+
+  let { data, error } = await executeFetch();
+
+  if (isSupabaseTransientNetworkError(error)) {
+    const retry = await executeFetch();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
+    if (isSupabaseTransientNetworkError(error)) {
+      return 0;
+    }
     throw error;
   }
 

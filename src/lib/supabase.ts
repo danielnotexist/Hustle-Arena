@@ -30,3 +30,17 @@ export function isSupabaseAbortError(error: unknown) {
     hint.includes('Request was aborted')
   );
 }
+
+export function isSupabaseTransientNetworkError(error: unknown) {
+  const message = String((error as { message?: string } | null)?.message || '');
+  const details = String((error as { details?: string } | null)?.details || '');
+  const code = String((error as { code?: string | number } | null)?.code || '');
+
+  return (
+    message.includes('NetworkError when attempting to fetch resource') ||
+    message.includes('Failed to fetch') ||
+    message.includes('Load failed') ||
+    details.includes('NetworkError when attempting to fetch resource') ||
+    code === '502'
+  );
+}

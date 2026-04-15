@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock, Lock, MessageSquare, Search, Server, ShieldAlert, Sword, Target, Users } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { isSupabaseTransientNetworkError, supabase } from "../lib/supabase";
 import {
   fetchMyActiveLobby,
   fetchQuickQueuePartyStakeCap,
@@ -446,6 +446,8 @@ export function BattlefieldView({
           setPartyStakeUpdateBackendMissing(true);
           setPartyStakeUpdates([]);
           console.warn("Party stake update backend is not available yet.", error);
+        } else if (!cancelled && isSupabaseTransientNetworkError(error)) {
+          setPartyStakeUpdates([]);
         } else {
           console.error("Failed to load party stake updates:", error);
         }
@@ -480,7 +482,7 @@ export function BattlefieldView({
       } catch (error) {
         if (!cancelled) {
           setPartyStakeCap(null);
-          if (!isPartyStakeUpdateBackendError(error)) {
+          if (!isPartyStakeUpdateBackendError(error) && !isSupabaseTransientNetworkError(error)) {
             console.error("Failed to load party stake cap:", error);
           }
         }
