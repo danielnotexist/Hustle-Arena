@@ -99,10 +99,6 @@ begin
     raise exception '5v5 quick queue supports competitive, team_ffa, or ffa';
   end if;
 
-  if v_queue_mode = 'party' and v_game_mode not in ('wingman', 'competitive') then
-    raise exception 'Party queue currently supports wingman or competitive only';
-  end if;
-
   perform public.assert_user_can_access_mode(v_user_id, p_mode);
 
   update public.quick_queue_ready_checks rc

@@ -1072,9 +1072,6 @@ export function BattlefieldView({
       return;
     }
     setQueueMode(mode);
-    if (mode === "party" && (matchType === "ranked_team_ffa" || matchType === "ranked_ffa")) {
-      setMatchType("ranked_5v5");
-    }
     setWizardStep(2);
   };
 
@@ -1205,9 +1202,6 @@ export function BattlefieldView({
     }
     if (queueMode !== "party") {
       setQueueMode("party");
-      if (matchType === "ranked_team_ffa" || matchType === "ranked_ffa") {
-        setMatchType("ranked_5v5");
-      }
     }
     await togglePartyMember(friendId);
   };
@@ -1531,6 +1525,17 @@ export function BattlefieldView({
                         <button
                           type="button"
                           onClick={() => {
+                            if (!isPartyInviteGuest) setMatchType("ranked_2v2");
+                          }}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
+                        >
+                          <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
                             if (!isPartyInviteGuest) setMatchType("ranked_5v5");
                           }}
                           className={`rounded-xl border p-3 text-left transition-colors ${
@@ -1542,13 +1547,24 @@ export function BattlefieldView({
                         <button
                           type="button"
                           onClick={() => {
-                            if (!isPartyInviteGuest) setMatchType("ranked_2v2");
+                            if (!isPartyInviteGuest) setMatchType("ranked_team_ffa");
                           }}
                           className={`rounded-xl border p-3 text-left transition-colors ${
-                            matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                            matchType === "ranked_team_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
                           } ${isPartyInviteGuest ? "opacity-60" : ""}`}
                         >
-                          <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
+                          <div className="text-sm font-bold uppercase text-white">Team FFA 5v5</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isPartyInviteGuest) setMatchType("ranked_ffa");
+                          }}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            matchType === "ranked_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
+                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
+                        >
+                          <div className="text-sm font-bold uppercase text-white">FFA 5v5</div>
                         </button>
                       </div>
 
