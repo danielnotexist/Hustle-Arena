@@ -62,6 +62,7 @@ export function UserProfileView({
   topUpDemoBalance,
   addToast,
   openModal,
+  initialTab = "overview",
 }: {
   user: any;
   stats: UserStats;
@@ -73,9 +74,10 @@ export function UserProfileView({
   topUpDemoBalance: (amount: number) => Promise<void>;
   addToast: any;
   openModal: any;
+  initialTab?: "overview" | "matches" | "highlights" | "settings";
 }) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [isEditing, setIsEditing] = useState(initialTab === "settings");
   const [editForm, setEditForm] = useState(profileData);
   const [demoTopUpAmount, setDemoTopUpAmount] = useState("");
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
@@ -84,6 +86,11 @@ export function UserProfileView({
   useEffect(() => {
     setEditForm(profileData);
   }, [profileData]);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setIsEditing(initialTab === "settings");
+  }, [initialTab]);
 
   const readImageAsDataUrl = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {

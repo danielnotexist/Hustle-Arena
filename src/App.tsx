@@ -119,6 +119,7 @@ export default function App() {
     avatarUrl: string;
     coverUrl: string;
   } | null>(null);
+  const [profileInitialTab, setProfileInitialTab] = useState<"overview" | "matches" | "highlights" | "settings">("overview");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{
@@ -572,6 +573,7 @@ export default function App() {
       }
 
       setPublicProfileState(null);
+      setProfileInitialTab("overview");
       setNotificationsOpen(false);
       addToast("Logged out successfully", "info");
     } catch (error: any) {
@@ -889,7 +891,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="relative flex items-center gap-3 p-2 pr-24 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setActiveTab("Profile"); }}>
+              <div className="relative flex items-center gap-3 p-2 pr-24 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
@@ -929,6 +931,7 @@ export default function App() {
                     onClick={(event) => {
                       event.stopPropagation();
                       setPublicProfileState(null);
+                      setProfileInitialTab("settings");
                       setActiveTab("Profile");
                     }}
                     className="rounded-lg p-1.5 text-esport-text-muted transition-colors hover:bg-white/5 hover:text-white"
@@ -1122,6 +1125,7 @@ export default function App() {
                           topUpDemoBalance={topUpDemoBalance}
                           addToast={addToast}
                           openModal={openModal}
+                          initialTab={profileInitialTab}
                         />
                       )
                     )}
