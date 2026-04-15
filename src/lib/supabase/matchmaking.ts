@@ -714,13 +714,31 @@ export async function quickQueueJoinOrMatch(
   stakeAmount: number,
   gameMode: SupportedGameMode
 ) {
-  const { data, error } = await supabase.rpc("quick_queue_join_or_match", {
+  const payloadWithGameMode = {
     p_mode: mode,
     p_team_size: teamSize,
     p_queue_mode: queueMode,
     p_stake_amount: stakeAmount,
     p_game_mode: gameMode,
-  });
+  };
+
+  let { data, error } = await supabase.rpc("quick_queue_join_or_match", payloadWithGameMode);
+
+  const isMissingGameModeSignature =
+    error?.code === "PGRST202" &&
+    String(error?.details || "").includes("p_game_mode");
+
+  // Backward-compatible fallback for environments that still run the old RPC signature.
+  if (isMissingGameModeSignature) {
+    const fallback = await supabase.rpc("quick_queue_join_or_match", {
+      p_mode: mode,
+      p_team_size: teamSize,
+      p_queue_mode: queueMode,
+      p_stake_amount: stakeAmount,
+    });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     throw error;
