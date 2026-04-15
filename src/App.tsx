@@ -891,7 +891,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="relative flex items-center gap-3 p-2 pr-24 rounded-xl hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
+              <div className="relative flex items-center gap-3 rounded-xl px-2.5 pb-2.5 pt-3 pr-20 hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
@@ -924,7 +924,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="absolute right-2 top-2 flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+                <div className="absolute right-1.5 top-1 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
                   <button
                     type="button"
                     aria-label="Open profile settings"
@@ -934,7 +934,7 @@ export default function App() {
                       setProfileInitialTab("settings");
                       setActiveTab("Profile");
                     }}
-                    className="rounded-lg p-1.5 text-esport-text-muted transition-colors hover:bg-white/5 hover:text-white"
+                    className="rounded-lg p-1 text-esport-text-muted transition-colors hover:bg-white/5 hover:text-white"
                   >
                     <Settings size={15} />
                   </button>
@@ -945,7 +945,7 @@ export default function App() {
                       event.stopPropagation();
                       void handleLogout();
                     }}
-                    className="rounded-lg p-1.5 text-esport-text-muted transition-colors hover:bg-rose-400/10 hover:text-esport-danger"
+                    className="rounded-lg p-1 text-esport-text-muted transition-colors hover:bg-rose-400/10 hover:text-esport-danger"
                   >
                     <LogOut size={15} />
                   </button>
