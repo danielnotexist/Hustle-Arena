@@ -1514,6 +1514,19 @@ export function BattlefieldView({
 
                   {queueMode === "party" && (
                     <>
+                      {isPartyInviteGuest && (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void leaveJoinedParty()}
+                            disabled={incomingInviteActionId === acceptedIncomingPartyInvite?.id}
+                            className="rounded-xl border border-rose-300/30 bg-rose-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-rose-300/60 disabled:opacity-50"
+                          >
+                            {incomingInviteActionId === acceptedIncomingPartyInvite?.id ? "Leaving..." : "Leave Party"}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="grid gap-3 sm:grid-cols-2">
                         <button
                           type="button"
