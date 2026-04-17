@@ -37,65 +37,6 @@ const MOTD_BY_MODE: Record<AccountMode, { title: string; body: string; badge: st
   },
 };
 
-const fallbackRecentMatches: DashboardMatchSummary[] = [
-  {
-    id: "fallback-match-1",
-    mode: "demo",
-    name: "Mirage High Roller",
-    gameMode: "competitive",
-    selectedMap: "Mirage",
-    stakeAmount: 1000,
-    status: "finished",
-    startedAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
-    endedAt: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-    winningSide: "CT",
-    winningScore: 13,
-    losingScore: 10,
-  },
-  {
-    id: "fallback-match-2",
-    mode: "demo",
-    name: "Dust II Prime Clash",
-    gameMode: "wingman",
-    selectedMap: "Dust II",
-    stakeAmount: 500,
-    status: "finished",
-    startedAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-    endedAt: new Date(Date.now() - 19 * 60 * 1000).toISOString(),
-    winningSide: "T",
-    winningScore: 9,
-    losingScore: 7,
-  },
-  {
-    id: "fallback-match-3",
-    mode: "demo",
-    name: "Anubis Stake Room",
-    gameMode: "competitive",
-    selectedMap: "Anubis",
-    stakeAmount: 300,
-    status: "finished",
-    startedAt: new Date(Date.now() - 58 * 60 * 1000).toISOString(),
-    endedAt: new Date(Date.now() - 41 * 60 * 1000).toISOString(),
-    winningSide: "DRAW",
-    winningScore: 12,
-    losingScore: 12,
-  },
-];
-
-const fallbackServers = [
-  { id: "server-1", name: "Mirage East", map: "Mirage", players: 8, maxPlayers: 10, status: "Filling", stake: 100, modeLabel: "5v5" },
-  { id: "server-2", name: "Wingman West", map: "Inferno", players: 2, maxPlayers: 4, status: "Ready Check", stake: 25, modeLabel: "2v2" },
-  { id: "server-3", name: "Dust Rush", map: "Dust II", players: 6, maxPlayers: 10, status: "Open", stake: 5, modeLabel: "5v5" },
-];
-
-const fallbackLeaders = [
-  { user_id: "leader-1", username: "PrimeSharpshot", win_rate: "82%", combat_rating: 2190, avatar_url: null, level: 28, rank: "Radiant" },
-  { user_id: "leader-2", username: "LobbyCrusher", win_rate: "78%", combat_rating: 2115, avatar_url: null, level: 24, rank: "Immortal" },
-  { user_id: "leader-3", username: "MapController", win_rate: "74%", combat_rating: 2082, avatar_url: null, level: 21, rank: "Ascendant" },
-  { user_id: "leader-4", username: "StakeHunter", win_rate: "72%", combat_rating: 2056, avatar_url: null, level: 19, rank: "Diamond" },
-  { user_id: "leader-5", username: "ClutchSignal", win_rate: "69%", combat_rating: 1998, avatar_url: null, level: 18, rank: "Diamond" },
-];
-
 export function SidebarItem({ icon, label, active, onClick, highlight }: any) {
   return (
     <div
@@ -131,9 +72,9 @@ export function DashboardView({
     const loadDashboard = async () => {
       if (!isSupabaseConfigured()) {
         if (!cancelled) {
-          setRecentMatches(fallbackRecentMatches);
+          setRecentMatches([]);
           setLiveServers([]);
-          setLeaders(fallbackLeaders);
+          setLeaders([]);
           setLoading(false);
         }
         return;
@@ -143,9 +84,9 @@ export function DashboardView({
         const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData.session?.user) {
           if (!cancelled) {
-            setRecentMatches(fallbackRecentMatches);
+            setRecentMatches([]);
             setLiveServers([]);
-            setLeaders(fallbackLeaders);
+            setLeaders([]);
           }
           return;
         }
@@ -168,9 +109,9 @@ export function DashboardView({
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
         if (!cancelled) {
-          setRecentMatches(fallbackRecentMatches);
+          setRecentMatches([]);
           setLiveServers([]);
-          setLeaders(fallbackLeaders);
+          setLeaders([]);
         }
       } finally {
         if (!cancelled) {
@@ -215,14 +156,14 @@ export function DashboardView({
     {
       label: "Top Stake",
       value: `${highestStake || 0} USDT`,
-      caption: "latest high roller",
+      caption: recentMatches.length ? "latest high roller" : "no finished matches yet",
       icon: <Crown size={18} />,
       accent: "text-amber-300",
     },
     {
       label: "Top Win Rate",
       value: leaders[0]?.win_rate || stats?.winRate || "0%",
-      caption: leaders[0]?.username || "waiting for data",
+      caption: leaders[0]?.username || "no leaderboard data yet",
       icon: <Trophy size={18} />,
       accent: "text-emerald-300",
     },
@@ -321,7 +262,11 @@ export function DashboardView({
             </div>
           </div>
           <div className="space-y-3">
-            {(recentMatches.length ? recentMatches : fallbackRecentMatches).map((match) => (
+            {recentMatches.length === 0 ? (
+              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+                No finished matches yet.
+              </div>
+            ) : recentMatches.map((match) => (
               <button
                 key={match.id}
                 type="button"
@@ -381,7 +326,7 @@ export function DashboardView({
                     stake: Number(lobby.stake_amount || 0),
                     modeLabel: `${lobby.team_size}v${lobby.team_size}`,
                   }))
-                : fallbackServers
+                : []
               ).map((server) => (
                 <div key={server.id} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-4">
@@ -407,6 +352,11 @@ export function DashboardView({
                   </div>
                 </div>
               ))}
+              {liveServers.length === 0 && (
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+                  No open server rooms right now.
+                </div>
+              )}
             </div>
           </div>
 
@@ -419,7 +369,7 @@ export function DashboardView({
               <Trophy className="h-5 w-5 text-amber-300" />
             </div>
             <div className="mt-5 space-y-3">
-              {(leaders.length ? leaders : fallbackLeaders).map((player, index) => {
+              {leaders.map((player, index) => {
                 const displayName = player.username || `Player ${player.user_id.slice(0, 8)}`;
                 const avatar =
                   player.avatar_url ||
@@ -448,6 +398,11 @@ export function DashboardView({
                   </button>
                 );
               })}
+              {leaders.length === 0 && (
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+                  No leaderboard data yet.
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -462,17 +417,8 @@ export function DashboardView({
             </div>
             <MessageSquareQuote className="h-5 w-5 text-esport-accent" />
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {[
-              "Mirage tables are filling fastest in the 100 USDT pool.",
-              "Wingman rooms are closing quicker than 5v5 during the current cycle.",
-              "Top leaderboard players are maintaining a 69%+ win rate today.",
-            ].map((item, index) => (
-              <div key={item} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Feed {index + 1}</div>
-                <div className="mt-3 text-sm leading-relaxed text-white/90">{item}</div>
-              </div>
-            ))}
+          <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+            Arena feed will populate automatically once real matches, rooms, and leaderboard activity start coming in.
           </div>
         </section>
 
