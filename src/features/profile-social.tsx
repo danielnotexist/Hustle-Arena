@@ -34,6 +34,7 @@ import {
   Zap,
 } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { COUNTRY_OPTIONS, normalizeSelectableCountry } from "../lib/countries";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   addProfileComment,
@@ -291,7 +292,10 @@ export function UserProfileView({
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
 
   useEffect(() => {
-    setEditForm(profileData);
+    setEditForm({
+      ...profileData,
+      country: normalizeSelectableCountry(profileData.country),
+    });
   }, [profileData]);
 
   useEffect(() => {
@@ -373,15 +377,21 @@ export function UserProfileView({
 
   const handleSave = async () => {
     if (!user?.id) return;
+    const normalizedProfile = {
+      ...editForm,
+      country: normalizeSelectableCountry(editForm.country),
+    };
+
     try {
       if (isSupabaseConfigured()) {
-        await updateProfileBasics(user.id, editForm);
+        await updateProfileBasics(user.id, normalizedProfile);
       } else {
         await setDoc(doc(db, "users", user.id), {
-          ...editForm
+          ...normalizedProfile
         }, { merge: true });
       }
-      setProfileData(editForm);
+      setProfileData(normalizedProfile);
+      setEditForm(normalizedProfile);
       setIsEditing(false);
       addToast("Profile updated successfully!", "success");
     } catch (error) {
@@ -695,12 +705,20 @@ export function UserProfileView({
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Country</label>
-                    <input 
-                      type="text"
+                    <select
                       value={editForm.country}
                       onChange={(e) => setEditForm({...editForm, country: e.target.value})}
                       className="w-full bg-black/50 border border-esport-border rounded-lg p-3 text-white focus:border-esport-accent outline-none transition-colors"
-                    />
+                    >
+                      {COUNTRY_OPTIONS.map((country) => (
+                        <option key={country} value={country} className="bg-esport-panel text-white">
+                          {country}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-esport-text-muted">
+                      Choose your country from the supported list.
+                    </p>
                   </div>
                     <div>
                       <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Avatar URL</label>

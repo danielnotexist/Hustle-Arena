@@ -1,4 +1,5 @@
 import type { AccountMode, ArenaUser, ProfileData, UserStats, WalletSnapshot } from "../../features/types";
+import { normalizeSelectableCountry } from "../countries";
 import { supabase } from "../supabase";
 import type { MyProfileRpcRow, SupabaseProfileRecord, SupabaseWalletRecord } from "./types";
 
@@ -56,7 +57,7 @@ export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | M
 export function mapSupabaseProfileToProfileData(profile: Partial<SupabaseProfileRecord>): ProfileData {
   return {
     bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
-    country: profile.country || "Israel",
+    country: normalizeSelectableCountry(profile.country),
     twitter: profile.twitter || "",
     twitch: profile.twitch || "",
     avatarUrl: profile.avatar_url || "",
@@ -106,7 +107,7 @@ export async function updateProfileBasics(userId: string, profile: ProfileData) 
     .from("profiles")
     .update({
       bio: profile.bio,
-      country: profile.country,
+      country: normalizeSelectableCountry(profile.country),
       twitter: profile.twitter,
       twitch: profile.twitch,
       avatar_url: profile.avatarUrl?.trim() || null,
