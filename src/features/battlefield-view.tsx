@@ -431,6 +431,8 @@ export function CustomLobbyView({
   const [recentMatches, setRecentMatches] = useState<RecentMatchSummary[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
+  const [selectedWinningRounds, setSelectedWinningRounds] = useState(13);
+  const [selectedLosingRounds, setSelectedLosingRounds] = useState(3);
   const [clockTick, setClockTick] = useState(() => Date.now());
   const [matchResultPopup, setMatchResultPopup] = useState<{
     id: number;
@@ -438,6 +440,8 @@ export function CustomLobbyView({
     body: string;
     isWinner: boolean;
     amount: number;
+    scoreFor?: number;
+    scoreAgainst?: number;
   } | null>(null);
   const [showJoiningLobbyState, setShowJoiningLobbyState] = useState(showJoinTransition);
   const [addingFriendIds, setAddingFriendIds] = useState<Record<string, boolean>>({});
@@ -608,6 +612,8 @@ export function CustomLobbyView({
         const safePayoutAmount = Number.isFinite(payoutAmount) ? payoutAmount : 0;
         const amount = Math.abs(safePayoutAmount);
         const isWinner = Boolean(metadata.winner ?? (safePayoutAmount > 0));
+        const scoreFor = Number(metadata.score_for ?? 0);
+        const scoreAgainst = Number(metadata.score_against ?? 0);
 
         await markNotificationRead(nextNotice.id);
 
@@ -623,6 +629,8 @@ export function CustomLobbyView({
             : `You lose ${amount.toFixed(2)} USDT staked on this server, better luck next time!`),
           isWinner,
           amount,
+          scoreFor: Number.isFinite(scoreFor) ? scoreFor : 0,
+          scoreAgainst: Number.isFinite(scoreAgainst) ? scoreAgainst : 0,
         });
 
         try {
@@ -1017,8 +1025,17 @@ export function CustomLobbyView({
 
   const handleCompleteDemoMatch = async () => {
     if (!activeMatch) return;
+    if (selectedWinningRounds <= selectedLosingRounds) {
+      addToast("Winning rounds must be higher than losing rounds.", "error");
+      return;
+    }
     try {
-      await completeDemoMatchForTesting(activeMatch.id, selectedWinningSide);
+      await completeDemoMatchForTesting(
+        activeMatch.id,
+        selectedWinningSide,
+        selectedWinningRounds,
+        selectedLosingRounds,
+      );
       await refreshSession();
       await loadState();
       addToast("Demo match completed.", "success");
@@ -1480,6 +1497,26 @@ export function CustomLobbyView({
                           <option value="T">Team T wins</option>
                           <option value="CT">Team CT wins</option>
                         </select>
+                        <div className="flex items-center gap-2 rounded-lg border border-esport-border bg-black/20 px-3 py-2">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-esport-text-muted">Score</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={16}
+                            value={selectedWinningRounds}
+                            onChange={(e) => setSelectedWinningRounds(Math.max(1, Number(e.target.value || 13)))}
+                            className="w-14 bg-transparent text-sm text-white outline-none"
+                          />
+                          <span className="text-esport-text-muted">-</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={15}
+                            value={selectedLosingRounds}
+                            onChange={(e) => setSelectedLosingRounds(Math.max(0, Number(e.target.value || 0)))}
+                            className="w-14 bg-transparent text-sm text-white outline-none"
+                          />
+                        </div>
                         <button onClick={handleCompleteDemoMatch} className="esport-btn-primary">Complete Demo Match</button>
                       </>
                     )}
@@ -1543,6 +1580,11 @@ export function CustomLobbyView({
                 <p className="mt-2 text-sm text-white/80">
                   Stake settled: {matchResultPopup.amount.toFixed(2)} USDT
                 </p>
+                {typeof matchResultPopup.scoreFor === "number" && typeof matchResultPopup.scoreAgainst === "number" && (
+                  <p className="mt-2 text-sm font-bold uppercase tracking-[0.18em] text-white/75">
+                    Final score {matchResultPopup.scoreFor} - {matchResultPopup.scoreAgainst}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => setMatchResultPopup(null)}

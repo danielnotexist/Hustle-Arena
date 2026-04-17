@@ -112,6 +112,13 @@ export interface RecentMatchSummary {
   losingScore: number;
 }
 
+export interface UserMatchHistoryItem extends RecentMatchSummary {
+  userId: string;
+  teamSide: TeamSide;
+  isWinner: boolean;
+  payoutAmount: number;
+}
+
 export interface ReconnectableMatch {
   match_id: string;
   lobby_id: string;
@@ -465,7 +472,7 @@ export async function fetchMyActiveMatch(lobbyId: string) {
 export async function fetchRecentMatches(mode: LobbyMode, limit = 6) {
   const { data, error } = await supabase
     .from("matches")
-    .select("id, mode, status, started_at, ended_at, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players(team_side, is_winner, round_score)")
+    .select("id, mode, status, started_at, ended_at, winning_side, score_t, score_ct, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players(team_side, is_winner, round_score)")
     .eq("mode", mode)
     .in("status", ["finished", "cancelled", "interrupted"])
     .order("created_at", { ascending: false })
@@ -477,13 +484,22 @@ export async function fetchRecentMatches(mode: LobbyMode, limit = 6) {
 
   return ((data || []) as Array<any>).map((match) => {
     const players = Array.isArray(match.match_players) ? match.match_players : [];
-    const tScore = players
+    const fallbackTScore = players
       .filter((player) => player.team_side === "T")
       .reduce((sum, player) => sum + Number(player.round_score || 0), 0);
-    const ctScore = players
+    const fallbackCtScore = players
       .filter((player) => player.team_side === "CT")
       .reduce((sum, player) => sum + Number(player.round_score || 0), 0);
-    const winningSide: "T" | "CT" | "DRAW" = tScore === ctScore ? "DRAW" : tScore > ctScore ? "T" : "CT";
+    const tScore = Number.isFinite(Number(match.score_t)) ? Number(match.score_t) : fallbackTScore;
+    const ctScore = Number.isFinite(Number(match.score_ct)) ? Number(match.score_ct) : fallbackCtScore;
+    const winningSide: "T" | "CT" | "DRAW" =
+      match.winning_side === "T" || match.winning_side === "CT"
+        ? match.winning_side
+        : tScore === ctScore
+          ? "DRAW"
+          : tScore > ctScore
+            ? "T"
+            : "CT";
 
     return {
       id: match.id,
@@ -623,10 +639,17 @@ export async function kickLobbyMember(lobbyId: string, userId: string) {
   }
 }
 
-export async function completeDemoMatchForTesting(matchId: string, winningSide: "T" | "CT") {
+export async function completeDemoMatchForTesting(
+  matchId: string,
+  winningSide: "T" | "CT",
+  winningRounds = 13,
+  losingRounds = 3,
+) {
   const { error } = await supabase.rpc("complete_demo_match_for_testing", {
     p_match_id: matchId,
     p_winning_side: winningSide,
+    p_winning_rounds: winningRounds,
+    p_losing_rounds: losingRounds,
   });
 
   if (error) {
@@ -885,6 +908,64 @@ export async function respondQuickQueuePartyInvite(inviteId: number, action: "ac
   }
 
   return (data || action) as string;
+}
+
+export async function fetchUserMatchHistory(userId: string, mode: LobbyMode, limit = 10) {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id, mode, status, started_at, ended_at, winning_side, score_t, score_ct, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players!inner(user_id, team_side, is_winner, payout_amount, round_score)")
+    .eq("mode", mode)
+    .eq("match_players.user_id", userId)
+    .in("status", ["finished", "cancelled", "interrupted"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as Array<any>).map((match) => {
+    const player = Array.isArray(match.match_players) ? match.match_players[0] : match.match_players;
+    const fallbackTScore = Array.isArray(match.match_players)
+      ? match.match_players
+          .filter((row: any) => row.team_side === "T")
+          .reduce((sum: number, row: any) => sum + Number(row.round_score || 0), 0)
+      : 0;
+    const fallbackCtScore = Array.isArray(match.match_players)
+      ? match.match_players
+          .filter((row: any) => row.team_side === "CT")
+          .reduce((sum: number, row: any) => sum + Number(row.round_score || 0), 0)
+      : 0;
+    const tScore = Number.isFinite(Number(match.score_t)) ? Number(match.score_t) : fallbackTScore;
+    const ctScore = Number.isFinite(Number(match.score_ct)) ? Number(match.score_ct) : fallbackCtScore;
+    const winningSide: "T" | "CT" | "DRAW" =
+      match.winning_side === "T" || match.winning_side === "CT"
+        ? match.winning_side
+        : tScore === ctScore
+          ? "DRAW"
+          : tScore > ctScore
+            ? "T"
+            : "CT";
+
+    return {
+      id: match.id,
+      userId,
+      mode: match.mode,
+      name: match.lobbies?.name || "Arena Match",
+      gameMode: match.lobbies?.game_mode || "competitive",
+      selectedMap: match.lobbies?.selected_map || "-",
+      stakeAmount: Number(match.lobbies?.stake_amount || 0),
+      status: match.status,
+      startedAt: match.started_at,
+      endedAt: match.ended_at,
+      winningSide,
+      winningScore: Math.max(tScore, ctScore),
+      losingScore: Math.min(tScore, ctScore),
+      teamSide: (player?.team_side || "UNASSIGNED") as TeamSide,
+      isWinner: Boolean(player?.is_winner),
+      payoutAmount: Number(player?.payout_amount || 0),
+    } satisfies UserMatchHistoryItem;
+  });
 }
 
 export async function fetchQuickQueuePartyStakeUpdates(userId: string) {

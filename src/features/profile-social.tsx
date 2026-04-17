@@ -46,7 +46,7 @@ import {
   respondFriendRequest as respondFriendRequestRpc,
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
-import { joinMatchmakingLobby } from "../lib/supabase/matchmaking";
+import { fetchUserMatchHistory, joinMatchmakingLobby, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
 import { playChatMessageSound } from "../lib/sound";
@@ -75,6 +75,108 @@ function formatCommentTimestamp(value: string) {
   }
 
   return new Date(value).toLocaleDateString();
+}
+
+function formatMatchHistoryTimestamp(value?: string | null) {
+  if (!value) {
+    return "Recently";
+  }
+
+  const deltaMs = Date.now() - new Date(value).getTime();
+  const hours = Math.max(1, Math.floor(deltaMs / 3600000));
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) {
+    return `${days}d ago`;
+  }
+
+  return new Date(value).toLocaleDateString();
+}
+
+function MatchHistorySection({
+  profileUserId,
+  accountMode,
+  emptyLabel,
+}: {
+  profileUserId: string;
+  accountMode: AccountMode;
+  emptyLabel: string;
+}) {
+  const [matches, setMatches] = useState<UserMatchHistoryItem[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMatches = async () => {
+      setLoadingMatches(true);
+      try {
+        const rows = await fetchUserMatchHistory(profileUserId, accountMode, 8);
+        if (!cancelled) {
+          setMatches(rows);
+        }
+      } catch (error) {
+        console.error("Failed to load profile match history:", error);
+        if (!cancelled) {
+          setMatches([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingMatches(false);
+        }
+      }
+    };
+
+    void loadMatches();
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUserId, accountMode]);
+
+  if (loadingMatches) {
+    return (
+      <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center text-sm text-esport-text-muted">
+        Loading match history...
+      </div>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center text-sm text-esport-text-muted">
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {matches.map((match) => (
+        <div key={match.id} className="flex items-center justify-between p-4 bg-white/5 border border-esport-border rounded-lg hover:border-esport-accent/50 transition-colors">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded flex items-center justify-center font-bold ${match.isWinner ? 'bg-esport-success/20 text-esport-success' : 'bg-esport-danger/20 text-esport-danger'}`}>
+              {match.isWinner ? 'WIN' : 'LOSS'}
+            </div>
+            <div>
+              <div className="font-bold text-white">{match.name}</div>
+              <div className="text-xs text-esport-text-muted">
+                {String(match.gameMode).toUpperCase()} · {match.selectedMap} · {formatMatchHistoryTimestamp(match.endedAt || match.startedAt)}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-bold text-white">{match.winningScore} - {match.losingScore}</div>
+            <div className={`text-xs font-bold ${match.payoutAmount >= 0 ? "text-esport-success" : "text-esport-danger"}`}>
+              {match.payoutAmount >= 0 ? "+" : ""}{match.payoutAmount.toFixed(2)} USDT
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ProfileCommentsSection({
@@ -669,6 +771,12 @@ export function UserProfileView({
             {activeTab === 'matches' && (
               <div>
                 <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Match History</h3>
+                <MatchHistorySection
+                  profileUserId={user?.id}
+                  accountMode={accountMode}
+                  emptyLabel="No completed matches yet."
+                />
+                {false && (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map(i => (
                     <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-esport-border rounded-lg hover:border-esport-accent/50 transition-colors cursor-pointer">
@@ -688,6 +796,7 @@ export function UserProfileView({
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             )}
 
@@ -819,6 +928,7 @@ export function PublicProfileView({
   displayName,
   avatarUrl,
   coverUrl,
+  accountMode,
   currentUser,
   addToast,
   onOpenPublicProfile,
@@ -827,6 +937,7 @@ export function PublicProfileView({
   displayName: string;
   avatarUrl: string;
   coverUrl: string;
+  accountMode: AccountMode;
   currentUser?: any;
   addToast: (message: string, type?: "success" | "error" | "info") => void;
   onOpenPublicProfile?: (userId: string) => void | Promise<void>;
@@ -942,9 +1053,11 @@ export function PublicProfileView({
             {activeTab === "matches" && (
               <div>
                 <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Match History</h3>
-                <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center text-sm text-esport-text-muted">
-                  Public match history will appear here.
-                </div>
+                <MatchHistorySection
+                  profileUserId={profile.id}
+                  accountMode={accountMode}
+                  emptyLabel="Public match history will appear here once matches are completed."
+                />
               </div>
             )}
 
