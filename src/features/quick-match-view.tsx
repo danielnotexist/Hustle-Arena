@@ -79,6 +79,26 @@ const isPartyStakeUpdateBackendError = (error: any) => {
   );
 };
 
+type PersistedQuickQueueState = {
+  userId?: string;
+  accountMode?: AccountMode;
+  matchType?: QuickMatchType;
+  queueMode?: "solo" | "party";
+  selectedStakeAmount?: number | null;
+  matchState?: "idle" | "searching" | "ready_check" | "connecting";
+  searchTime?: number;
+  playersJoined?: number;
+  playersNeeded?: number;
+  estimatedWaitSeconds?: number;
+  matchedLobbyId?: string | null;
+  readyCheckId?: string | null;
+  participantUserIds?: string[];
+  acceptedUserIds?: string[];
+  partyInvites?: QuickQueuePartyInvite[];
+  partyInviteProfiles?: Record<string, { username: string; avatarUrl: string | null }>;
+  wizardStep?: 1 | 2 | 3;
+};
+
 export function BattlefieldView({
   addToast,
   openModal,
@@ -136,6 +156,7 @@ export function BattlefieldView({
   const readyCheckCompletionSoundRef = useRef<string | null>(null);
   const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
   const unsupportedQueueModeToastRef = useRef<string | null>(null);
+  const restoredQuickQueueStateRef = useRef(false);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -269,30 +290,18 @@ export function BattlefieldView({
     try {
       const raw = window.localStorage.getItem(QUICK_QUEUE_STATE_STORAGE_KEY);
       if (!raw) {
+        restoredQuickQueueStateRef.current = false;
         return;
       }
 
-      const savedState = JSON.parse(raw) as {
-        userId?: string;
-        accountMode?: AccountMode;
-        matchType?: QuickMatchType;
-        queueMode?: "solo" | "party";
-        selectedStakeAmount?: number | null;
-        matchState?: "idle" | "searching" | "ready_check" | "connecting";
-        searchTime?: number;
-        playersJoined?: number;
-        playersNeeded?: number;
-        estimatedWaitSeconds?: number;
-        matchedLobbyId?: string | null;
-        readyCheckId?: string | null;
-        participantUserIds?: string[];
-        acceptedUserIds?: string[];
-      };
+      const savedState = JSON.parse(raw) as PersistedQuickQueueState;
 
       if (savedState.userId !== user.id || savedState.accountMode !== accountMode) {
+        restoredQuickQueueStateRef.current = false;
         return;
       }
 
+      restoredQuickQueueStateRef.current = true;
       if (savedState.matchType) {
         setMatchType(savedState.matchType);
       }
@@ -301,6 +310,15 @@ export function BattlefieldView({
       }
       if (typeof savedState.selectedStakeAmount !== "undefined") {
         setSelectedStakeAmount(savedState.selectedStakeAmount);
+      }
+      if (savedState.partyInvites) {
+        setPartyInvites(savedState.partyInvites);
+      }
+      if (savedState.partyInviteProfiles) {
+        setPartyInviteProfiles(savedState.partyInviteProfiles);
+      }
+      if (savedState.wizardStep) {
+        setWizardStep(savedState.wizardStep);
       }
       if (savedState.matchState && savedState.matchState !== "idle") {
         setMatchState(savedState.matchState);
@@ -315,6 +333,7 @@ export function BattlefieldView({
         setReadyCheckDisplayOrder(savedState.participantUserIds || []);
       }
     } catch (error) {
+      restoredQuickQueueStateRef.current = false;
       console.error("Failed to restore quick queue state:", error);
     }
   }, [user?.id, accountMode]);
@@ -324,7 +343,10 @@ export function BattlefieldView({
       return;
     }
 
-    if (matchState === "idle") {
+    const shouldPersistQuickQueueState =
+      matchState !== "idle" || queueMode === "party" || wizardStep > 1 || partyInvites.length > 0;
+
+    if (!shouldPersistQuickQueueState) {
       window.localStorage.removeItem(QUICK_QUEUE_STATE_STORAGE_KEY);
       return;
     }
@@ -346,6 +368,9 @@ export function BattlefieldView({
         readyCheckId,
         participantUserIds,
         acceptedUserIds,
+        partyInvites,
+        partyInviteProfiles,
+        wizardStep,
       })
     );
   }, [
@@ -363,6 +388,9 @@ export function BattlefieldView({
     readyCheckId,
     participantUserIds,
     acceptedUserIds,
+    partyInvites,
+    partyInviteProfiles,
+    wizardStep,
   ]);
 
   useEffect(() => {
@@ -569,7 +597,9 @@ export function BattlefieldView({
   }, [acceptedIncomingPartyInvite]);
 
   useEffect(() => {
-    setWizardStep(1);
+    if (!restoredQuickQueueStateRef.current) {
+      setWizardStep(1);
+    }
   }, [user?.id, accountMode]);
 
   useEffect(() => {
