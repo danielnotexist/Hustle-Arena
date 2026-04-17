@@ -1112,6 +1112,9 @@ export default function App() {
                           displayName={publicProfileState.displayName}
                           avatarUrl={publicProfileState.avatarUrl}
                           coverUrl={publicProfileState.coverUrl}
+                          currentUser={user}
+                          addToast={addToast}
+                          onOpenPublicProfile={openPublicProfilePage}
                         />
                       ) : (
                         <UserProfileView

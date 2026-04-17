@@ -57,6 +57,17 @@ export interface PublicProfileDetails extends PublicProfileBasic {
   last_active_at?: string | null;
 }
 
+export interface ProfileComment {
+  id: number;
+  profile_user_id: string;
+  author_user_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  author_username: string | null;
+  author_avatar_url: string | null;
+}
+
 export interface PublicApexLeaderboardEntry {
   user_id: string;
   username: string | null;
@@ -167,6 +178,42 @@ export async function fetchPublicProfileDetails(userId: string) {
 
   const row = Array.isArray(data) ? data[0] : data;
   return (row as PublicProfileDetails | null) || null;
+}
+
+export async function fetchProfileComments(profileUserId: string, limit = 50) {
+  const { data, error } = await supabase.rpc("get_profile_comments", {
+    p_profile_user_id: profileUserId,
+    p_limit: limit,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []) as ProfileComment[];
+}
+
+export async function addProfileComment(profileUserId: string, body: string) {
+  const { data, error } = await supabase.rpc("add_profile_comment", {
+    p_profile_user_id: profileUserId,
+    p_body: body,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return Number(data || 0);
+}
+
+export async function deleteProfileComment(commentId: number) {
+  const { error } = await supabase.rpc("delete_profile_comment", {
+    p_comment_id: commentId,
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function fetchPublicApexLeaderboard(limit = 10) {

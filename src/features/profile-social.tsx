@@ -36,8 +36,12 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured } from "../lib/env";
 import {
+  addProfileComment,
+  deleteProfileComment,
+  fetchProfileComments,
   fetchPublicProfileBasics,
   findPublicProfileByUsername,
+  type ProfileComment,
   respondFriendRequest as respondFriendRequestRpc,
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
@@ -50,6 +54,209 @@ import { cn } from "./shared-ui";
 import type { AccountMode, Mission, UserStats, WalletSnapshot } from "./types";
 import { DynamicImage, KYCForm } from "./landing-auth";
 import { CustomLobbyView } from "./battlefield-view";
+
+function formatCommentTimestamp(value: string) {
+  const deltaMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(1, Math.floor(deltaMs / 60000));
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) {
+    return `${days}d ago`;
+  }
+
+  return new Date(value).toLocaleDateString();
+}
+
+function ProfileCommentsSection({
+  profileUserId,
+  currentUser,
+  addToast,
+  allowPosting,
+  onOpenPublicProfile,
+}: {
+  profileUserId: string;
+  currentUser?: { id?: string; username?: string; avatarUrl?: string | null } | null;
+  addToast: (message: string, type?: "success" | "error" | "info") => void;
+  allowPosting: boolean;
+  onOpenPublicProfile?: (userId: string) => void | Promise<void>;
+}) {
+  const [comments, setComments] = useState<ProfileComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<number | null>(null);
+
+  const loadComments = async () => {
+    setLoadingComments(true);
+    try {
+      const rows = await fetchProfileComments(profileUserId, 50);
+      setComments(rows);
+    } catch (error) {
+      console.error("Failed to load profile comments:", error);
+      addToast("Failed to load profile comments.", "error");
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadComments();
+  }, [profileUserId]);
+
+  const handleSubmitComment = async () => {
+    const body = commentDraft.trim();
+    if (!body) {
+      addToast("Comment cannot be empty.", "error");
+      return;
+    }
+
+    setSubmittingComment(true);
+    try {
+      await addProfileComment(profileUserId, body);
+      setCommentDraft("");
+      await loadComments();
+      addToast("Comment posted.", "success");
+    } catch (error: any) {
+      console.error("Failed to post profile comment:", error);
+      addToast(error?.message || "Failed to post comment.", "error");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    setDeletingCommentId(commentId);
+    try {
+      await deleteProfileComment(commentId);
+      setComments((current) => current.filter((comment) => comment.id !== commentId));
+      addToast("Comment removed.", "success");
+    } catch (error: any) {
+      console.error("Failed to delete profile comment:", error);
+      addToast(error?.message || "Failed to remove comment.", "error");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="font-display font-bold uppercase tracking-wider text-white">Comments</h3>
+        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">
+          {comments.length} total
+        </div>
+      </div>
+
+      {allowPosting && (
+        <div className="mb-5 rounded-xl border border-esport-border bg-white/5 p-4">
+          <div className="flex items-start gap-3">
+            <img
+              src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.username || "Player")}&background=1f2937&color=ffffff&size=96`}
+              alt={currentUser?.username || "You"}
+              className="h-11 w-11 rounded-2xl border border-white/15 object-cover"
+            />
+            <div className="flex-1 space-y-3">
+              <textarea
+                value={commentDraft}
+                onChange={(event) => setCommentDraft(event.target.value.slice(0, 500))}
+                placeholder="Leave a public comment on this profile..."
+                className="min-h-[110px] w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-esport-text-muted focus:border-esport-accent/50"
+              />
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-esport-text-muted">
+                  {commentDraft.trim().length}/500
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleSubmitComment()}
+                  disabled={submittingComment || !commentDraft.trim()}
+                  className="esport-btn-primary px-5 py-2.5 text-xs disabled:opacity-50"
+                >
+                  {submittingComment ? "Posting..." : "Post Comment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {loadingComments ? (
+          <div className="rounded-xl border border-esport-border bg-white/5 p-8 text-center text-sm text-esport-text-muted">
+            Loading comments...
+          </div>
+        ) : comments.length === 0 ? (
+          <div className="rounded-xl border border-esport-border bg-white/5 p-8 text-center">
+            <MessageSquare className="mx-auto mb-3 h-12 w-12 text-esport-text-muted opacity-50" />
+            <div className="font-bold mb-1">No comments yet</div>
+            <div className="text-sm text-esport-text-muted">
+              {allowPosting ? "Be the first to leave a comment on this profile." : "No one has left a comment on your profile yet."}
+            </div>
+          </div>
+        ) : (
+          comments.map((comment) => {
+            const canDelete =
+              currentUser?.id === comment.author_user_id || currentUser?.id === profileUserId;
+            const authorName =
+              comment.author_username?.trim() || `Player ${comment.author_user_id.slice(0, 8)}`;
+            const authorAvatar =
+              comment.author_avatar_url ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=1f2937&color=ffffff&size=96`;
+
+            return (
+              <div key={comment.id} className="rounded-xl border border-esport-border bg-white/5 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <img
+                      src={authorAvatar}
+                      alt={authorName}
+                      className="h-11 w-11 rounded-2xl border border-white/15 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        disabled={!onOpenPublicProfile}
+                        onClick={() => onOpenPublicProfile?.(comment.author_user_id)}
+                        className="text-left text-sm font-bold text-white transition-colors hover:text-esport-accent disabled:pointer-events-none"
+                      >
+                        {authorName}
+                      </button>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
+                        {formatCommentTimestamp(comment.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteComment(comment.id)}
+                      disabled={deletingCommentId === comment.id}
+                      className="rounded-lg border border-rose-300/25 bg-rose-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-rose-200 transition-colors hover:border-rose-300/50 disabled:opacity-50"
+                    >
+                      {deletingCommentId === comment.id ? "Removing..." : "Delete"}
+                    </button>
+                  )}
+                </div>
+                <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-white/90">
+                  {comment.body}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function UserProfileView({
   user,
@@ -439,13 +646,12 @@ export function UserProfileView({
                 </div>
                 
                 <div>
-                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Guestbook</h3>
-                  <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center">
-                    <MessageSquare className="w-12 h-12 text-esport-text-muted mx-auto mb-3 opacity-50" />
-                    <div className="font-bold mb-1">No messages yet</div>
-                    <div className="text-sm text-esport-text-muted mb-4">Be the first to leave a message on this profile.</div>
-                    <button className="esport-btn-secondary mx-auto text-sm py-2">Sign Guestbook</button>
-                  </div>
+                  <ProfileCommentsSection
+                    profileUserId={user?.id}
+                    currentUser={user}
+                    addToast={addToast}
+                    allowPosting={false}
+                  />
                 </div>
               </div>
             )}
@@ -595,11 +801,17 @@ export function PublicProfileView({
   displayName,
   avatarUrl,
   coverUrl,
+  currentUser,
+  addToast,
+  onOpenPublicProfile,
 }: {
   profile: any;
   displayName: string;
   avatarUrl: string;
   coverUrl: string;
+  currentUser?: any;
+  addToast: (message: string, type?: "success" | "error" | "info") => void;
+  onOpenPublicProfile?: (userId: string) => void | Promise<void>;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "highlights">("overview");
 
@@ -698,12 +910,13 @@ export function PublicProfileView({
                 </div>
 
                 <div>
-                  <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-white">Guestbook</h3>
-                  <div className="bg-white/5 border border-esport-border rounded-xl p-8 text-center">
-                    <MessageSquare className="w-12 h-12 text-esport-text-muted mx-auto mb-3 opacity-50" />
-                    <div className="font-bold mb-1">No messages yet</div>
-                    <div className="text-sm text-esport-text-muted">Guestbook is not open on public profiles yet.</div>
-                  </div>
+                  <ProfileCommentsSection
+                    profileUserId={profile.id}
+                    currentUser={currentUser}
+                    addToast={addToast}
+                    allowPosting={!!currentUser?.id}
+                    onOpenPublicProfile={onOpenPublicProfile}
+                  />
                 </div>
               </div>
             )}
