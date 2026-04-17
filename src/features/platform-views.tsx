@@ -723,6 +723,11 @@ export function SyndicatesView({ addToast }: any) {
 
 export function HustlePrimeView() {
   const [activeTab, setActiveTab] = useState('serious');
+  const primeSavingsExamples = [
+    "If you usually pay $8 in platform fees each week, Prime can offset about $32 in monthly fees on its own.",
+    "At the yearly rate, $180 replaces what would otherwise be $360 billed month-to-month, saving $180 before fee savings are even counted.",
+    "For active players, better match balance plus zero fees means more of every win stays in your account instead of being shaved off by charges.",
+  ];
   
   return (
     <div className="min-h-screen bg-esport-bg text-white pb-24 font-sans">
@@ -740,8 +745,9 @@ export function HustlePrimeView() {
             Dominate the Arena<br />with HUSTLE PRIME
           </h1>
           
-          <div className="text-2xl font-bold mb-2">$7.99/month</div>
-          <div className="text-sm text-esport-text-muted mb-8">Per month billed annually, not including taxes • Cancel anytime</div>
+          <div className="text-2xl font-bold mb-2">$30/month or $180/year</div>
+          <div className="text-sm text-esport-text-muted mb-3">VIP matchmaking access with 129 tickrate servers, smarter balancing, and zero platform fees.</div>
+          <div className="text-sm text-esport-accent font-bold mb-8">Choose annual billing and save $180 per year compared with paying $30 month-to-month.</div>
           
           <button className="esport-btn-primary py-3 px-8 text-lg mb-4 mx-auto block">
             UPGRADE TO PRIME
@@ -785,12 +791,12 @@ export function HustlePrimeView() {
           <div>
             <h3 className="text-3xl font-bold mb-4 font-display uppercase tracking-tight">Experience elite-tier<br />matchmaking</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-bold mb-6">
-              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Priority Queue Access</span>
-              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Verified-Only Arenas</span>
-              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Advanced Player Avoidance</span>
+              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> 129 Tickrate Servers</span>
+              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> More Balanced Matches</span>
+              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Zero Platform Fees</span>
             </div>
             <p className="text-esport-text-muted leading-relaxed">
-              Take control of your match experience, ensuring that every game respects your preferences for a more balanced and fairer competition. You'll enjoy more competitive and serious games, making every move and bullet count.
+              HUSTLE PRIME is built for players who want premium competitive conditions every session. You get access to 129 tickrate servers for a cleaner feel, tighter hit registration, and a more responsive match environment, while our higher-priority balancing rules work to produce fairer lobbies from the start.
             </p>
           </div>
           <div className="relative rounded-xl overflow-hidden border border-esport-border aspect-video bg-esport-card">
@@ -829,10 +835,10 @@ export function HustlePrimeView() {
             <h3 className="text-3xl font-bold mb-4 font-display uppercase tracking-tight">Customize Your Battleground</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-bold mb-6">
               <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Map Selection</span>
-              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> Captain Priority</span>
+              <span className="flex items-center gap-2 text-esport-accent"><div className="w-1.5 h-1.5 rounded-full bg-esport-accent" /> VIP Queue Rules</span>
             </div>
             <p className="text-esport-text-muted leading-relaxed">
-              Choose the game settings that work best for you. Pick your favorite maps and, as captain, the optimal server and the starting side. It's all about playing your way and focusing on your gameplay.
+              Prime gives you more control over the conditions around every match. Lock in preferred battlegrounds, benefit from VIP queue handling, and keep your competitive sessions focused on quality instead of friction.
             </p>
           </div>
         </div>
@@ -870,23 +876,49 @@ export function HustlePrimeView() {
               <div className="w-12 h-12 mx-auto bg-white/5 rounded-lg flex items-center justify-center mb-4 border border-esport-border">
                 <MessageSquare className="w-6 h-6 text-white" />
               </div>
-              <h4 className="font-bold mb-2">Priority Support</h4>
-              <p className="text-xs text-esport-text-muted">Fast-track your requests as we prioritize your support tickets.</p>
+              <h4 className="font-bold mb-2">Zero-Fee Access</h4>
+              <p className="text-xs text-esport-text-muted">Prime subscribers play without platform fees, keeping more winnings and more usable balance in rotation.</p>
             </div>
             <div className="esport-card p-6 text-center esport-card-hover">
               <div className="w-12 h-12 mx-auto bg-white/5 rounded-lg flex items-center justify-center mb-4 border border-esport-border">
                 <User className="w-6 h-6 text-white" />
               </div>
-              <h4 className="font-bold mb-2">Identity Refresh</h4>
-              <p className="text-xs text-esport-text-muted">Refresh your nickname every 3 months at no extra cost.</p>
+              <h4 className="font-bold mb-2">Balanced Lobby Rules</h4>
+              <p className="text-xs text-esport-text-muted">Prime matchmaking gives stronger weight to creating fairer skill distributions and more competitive sessions.</p>
             </div>
             <div className="esport-card p-6 text-center esport-card-hover">
               <div className="w-12 h-12 mx-auto bg-white/5 rounded-lg flex items-center justify-center mb-4 border border-esport-border">
                 <PlayCircle className="w-6 h-6 text-white" />
               </div>
-              <h4 className="font-bold mb-2">Match Highlights</h4>
-              <p className="text-xs text-esport-text-muted">Relive your epic in-game actions—no client needed!</p>
+              <h4 className="font-bold mb-2">Server Performance</h4>
+              <p className="text-xs text-esport-text-muted">Premium 129 tickrate capacity delivers a sharper competitive feel for players who care about consistency.</p>
             </div>
+          </div>
+        </div>
+
+        <div className="esport-card p-8 mb-32">
+          <div className="grid md:grid-cols-[1.15fr_0.85fr] gap-8 items-start">
+            <div>
+              <h3 className="text-2xl font-bold mb-3 font-display uppercase tracking-tight">Why Prime saves active players money</h3>
+              <p className="text-sm leading-relaxed text-esport-text-muted">
+                HUSTLE PRIME is not just a cosmetic subscription. The value comes from removing recurring platform fees while upgrading the quality of the matches you play most. If you queue often, the subscription can start paying for itself by protecting your balance from fee drag and giving you a better competitive environment at the same time.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-esport-accent/30 bg-esport-accent/10 p-5">
+              <div className="text-xs font-bold uppercase tracking-[0.22em] text-esport-accent mb-2">Savings Snapshot</div>
+              <div className="text-3xl font-display font-bold text-white mb-2">$180 saved yearly</div>
+              <p className="text-sm text-esport-text-muted">
+                Annual Prime is effectively 50% off the month-to-month rate, before you even account for the fees you stop paying as a VIP member.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3">
+            {primeSavingsExamples.map((example) => (
+              <div key={example} className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/5 px-4 py-3">
+                <CheckCircle2 className="w-5 h-5 text-esport-accent mt-0.5 shrink-0" />
+                <p className="text-sm text-white/90">{example}</p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -937,7 +969,7 @@ export function HustlePrimeView() {
                   </th>
                   <th className="p-4 border-b border-esport-border text-center">
                     <div className="font-bold mb-1">HUSTLE PRIME</div>
-                    <div className="text-xs text-esport-accent mb-2">$7.99/month</div>
+                    <div className="text-xs text-esport-accent mb-2">$30/month or $180/year</div>
                     <button className="text-xs bg-esport-accent text-white font-bold px-3 py-1 rounded hover:bg-esport-accent-hover transition-colors tracking-wider">UPGRADE</button>
                   </th>
                 </tr>
@@ -951,9 +983,9 @@ export function HustlePrimeView() {
                   { name: 'Guaranteed Veteran-Only Lobbies', desc: 'Veteran subscribers can toggle Veteran Only to be matched exclusively with veteran accounts.', badge: 'NEW', free: false, plus: true, prime: true },
                   { name: 'Verified-Only Arenas', desc: 'Verified players can toggle Verified Only to be matched exclusively with verified accounts.', free: false, plus: true, prime: true },
                   { name: 'Map selection', desc: 'Select 5 maps you prefer to play on.', free: false, plus: true, prime: true },
-                  { name: 'Prime Bounties', desc: 'Complete missions and earn rare Skins and Points.', free: false, plus: false, prime: true },
-                  { name: 'Elite Leaderboards', desc: 'Climb the new Prime ladders available each week and win your share of Points and skins.', free: false, plus: false, prime: true },
-                  { name: 'Match highlights', desc: 'Relive your epic in-game actions—no client needed! Key highlights are auto-captured for easy viewing and sharing.', free: false, plus: false, prime: true },
+                  { name: '129 tickrate servers', desc: 'Access premium server allocation for a sharper, more responsive competitive feel.', free: false, plus: false, prime: true },
+                  { name: 'Balanced match priority', desc: 'Prime queues give more weight to fair skill spread and stronger lobby quality controls.', free: false, plus: false, prime: true },
+                  { name: 'Zero platform fees', desc: 'Prime members do not pay platform fees, helping frequent players keep more of every session.', free: false, plus: false, prime: true },
                 ].map((feature, i) => (
                   <tr key={i} className="border-b border-esport-border/50 hover:bg-white/5 transition-colors">
                     <td className="p-4">
@@ -1021,11 +1053,11 @@ export function HustlePrimeView() {
             </h2>
             
             <div className="flex flex-wrap items-center justify-center gap-4 text-sm font-bold mb-8 text-esport-text-muted">
-              <span>Priority Queue Access</span>
+              <span>129 Tickrate Servers</span>
               <span className="w-1 h-1 rounded-full bg-esport-border hidden sm:block" />
-              <span>Map Selection</span>
+              <span>Balanced Matches</span>
               <span className="w-1 h-1 rounded-full bg-esport-border hidden sm:block" />
-              <span>Captain Priority</span>
+              <span>Zero Fees</span>
             </div>
             
             <button className="esport-btn-primary py-3 px-8 text-lg mx-auto">
@@ -1042,3 +1074,4 @@ export function HustlePrimeView() {
 // --- New Components ---
 
 // --- Sub-Components ---
+
