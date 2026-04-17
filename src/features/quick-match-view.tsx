@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Lock, MessageSquare, Search, Server, ShieldAlert, Sword, Target, Users } from "lucide-react";
+import { CheckCircle2, Clock, Lock, MessageSquare, Search, Server, ShieldAlert, Sparkles, Sword, Target, Users, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { isSupabaseTransientNetworkError, supabase } from "../lib/supabase";
 import {
@@ -145,6 +145,8 @@ export function BattlefieldView({
   const [incomingInviteActionId, setIncomingInviteActionId] = useState<number | null>(null);
   const [partyInviteBackendMissing, setPartyInviteBackendMissing] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
+  const [inviteSearchQuery, setInviteSearchQuery] = useState("");
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
@@ -271,6 +273,20 @@ export function BattlefieldView({
   const pendingIncomingPartyInvites = partyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
   );
+  const sortedFriendsList = friendsList
+    .slice()
+    .sort((a, b) => {
+      const onlineDelta = Number(onlineNowIds.has(b.id)) - Number(onlineNowIds.has(a.id));
+      if (onlineDelta !== 0) return onlineDelta;
+      return a.username.localeCompare(b.username);
+    });
+  const normalizedInviteSearchQuery = inviteSearchQuery.trim().toLowerCase();
+  const visibleInviteCandidates = sortedFriendsList.filter((friend) => {
+    if (!normalizedInviteSearchQuery) {
+      return true;
+    }
+    return friend.username.toLowerCase().includes(normalizedInviteSearchQuery);
+  });
   const localPartySize = queueMode === "party" ? displayedPartyMembers.length : 1;
   const effectivePlayersJoined = queueMode === "party" ? Math.max(playersJoined, localPartySize) : playersJoined;
   const effectivePlayersNeeded =
@@ -601,6 +617,12 @@ export function BattlefieldView({
       setWizardStep(1);
     }
   }, [user?.id, accountMode]);
+
+  useEffect(() => {
+    if (!isInvitePanelOpen) {
+      setInviteSearchQuery("");
+    }
+  }, [isInvitePanelOpen]);
 
   useEffect(() => {
     const hostOwnedInvites = partyInvites.filter((invite) => invite.host_user_id === user?.id);
@@ -1238,6 +1260,17 @@ export function BattlefieldView({
     await togglePartyMember(friendId);
   };
 
+  const openInvitePanel = () => {
+    if (isPartyInviteGuest) {
+      return;
+    }
+    setIsInvitePanelOpen(true);
+  };
+
+  const closeInvitePanel = () => {
+    setIsInvitePanelOpen(false);
+  };
+
   const acceptMatch = async (accept: boolean) => {
     if (!readyCheckId) return;
 
@@ -1609,8 +1642,20 @@ export function BattlefieldView({
                       <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Party Members</div>
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
-                            {(isPartyInviteGuest ? visiblePartyMembers.filter((member) => member.status === "accepted" || member.status === "owner").length : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
+                          <div className="flex items-center gap-2">
+                            <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
+                              {(isPartyInviteGuest ? visiblePartyMembers.filter((member) => member.status === "accepted" || member.status === "owner").length : acceptedPartyMembers.length)}/{maxPartyMembers} accepted
+                            </div>
+                            {!isPartyInviteGuest && (
+                              <button
+                                type="button"
+                                onClick={openInvitePanel}
+                                className="inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-accent transition-colors hover:border-esport-accent/60 hover:bg-esport-accent/15"
+                              >
+                                <Sparkles size={12} />
+                                Open Invite Panel
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="flex min-w-max gap-2.5 overflow-x-auto custom-scrollbar pb-1">
@@ -1648,12 +1693,13 @@ export function BattlefieldView({
                               <button
                                 key={`empty-slot-${index}`}
                                 type="button"
-                                onClick={() => addToast("Invite from the friends list below.", "info")}
+                                onClick={openInvitePanel}
                                 disabled={isPartyInviteGuest}
-                                className="w-[124px] rounded-2xl border border-esport-border bg-black/20 p-2.5 text-center transition-colors hover:border-esport-accent disabled:opacity-60"
+                                className="group w-[124px] rounded-2xl border border-esport-border bg-[linear-gradient(180deg,rgba(15,23,42,0.85),rgba(2,6,23,0.98))] p-2.5 text-center transition-all hover:border-esport-accent hover:shadow-[0_0_30px_rgba(59,130,246,0.15)] disabled:opacity-60"
                               >
-                                <div className="text-4xl leading-none text-white/30">+</div>
-                                <div className="mt-2 text-[9px] font-bold uppercase tracking-[0.18em] text-esport-accent">Click to invite</div>
+                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-esport-accent/20 bg-esport-accent/8 text-4xl leading-none text-white/30 transition-colors group-hover:border-esport-accent/45 group-hover:text-esport-accent">+</div>
+                                <div className="mt-2 text-[9px] font-bold uppercase tracking-[0.18em] text-esport-accent">Invite teammate</div>
+                                <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-esport-text-muted">Open panel</div>
                               </button>
                             );
                           })}
@@ -1661,12 +1707,27 @@ export function BattlefieldView({
                       </div>
 
                       <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Friends</div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Friends</div>
+                            <div className="mt-1 text-[11px] text-esport-text-muted">
+                              Need someone fast? Open the invite panel for instant search, online-first sorting, and direct message access.
+                            </div>
+                          </div>
+                          {!isPartyInviteGuest && (
+                            <button
+                              type="button"
+                              onClick={openInvitePanel}
+                              className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white transition-colors hover:border-esport-accent/50 hover:bg-esport-accent/10"
+                            >
+                              Browse Friends
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
                           {friendsList.length === 0 && <div className="text-xs text-esport-text-muted">No friends yet.</div>}
-                          {friendsList
-                            .slice()
-                            .sort((a, b) => Number(onlineNowIds.has(b.id)) - Number(onlineNowIds.has(a.id)))
+                          {sortedFriendsList
+                            .slice(0, 4)
                             .map((friend) => {
                               const invite = partyInviteByFriendId.get(friend.id);
                               const inviteStatus = invite?.status || "none";
@@ -1715,7 +1776,10 @@ export function BattlefieldView({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => onOpenDirectMessage?.(friend.id)}
+                                      onClick={() => {
+                                        closeInvitePanel();
+                                        onOpenDirectMessage?.(friend.id);
+                                      }}
                                       className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/90 transition-colors hover:border-white/30 hover:bg-white/10"
                                     >
                                       <span className="inline-flex items-center gap-1">
@@ -1727,6 +1791,15 @@ export function BattlefieldView({
                                 </div>
                               );
                             })}
+                          {friendsList.length > 4 && (
+                            <button
+                              type="button"
+                              onClick={openInvitePanel}
+                              className="mt-2 w-full rounded-xl border border-dashed border-esport-accent/25 bg-esport-accent/5 px-3 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-accent transition-colors hover:border-esport-accent/55 hover:bg-esport-accent/10"
+                            >
+                              View all {friendsList.length} friends in invite panel
+                            </button>
+                          )}
                         </div>
                       </div>
                     </>
@@ -1855,6 +1928,188 @@ export function BattlefieldView({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {isInvitePanelOpen && queueMode === "party" && !isPartyInviteGuest && (
+        <div className="fixed inset-0 z-[107] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-md"
+            onClick={closeInvitePanel}
+          />
+          <div className="relative z-10 flex h-[min(88vh,820px)] w-full max-w-6xl overflow-hidden rounded-[32px] border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_28%),linear-gradient(180deg,rgba(15,23,42,0.99),rgba(2,6,23,0.98))] shadow-[0_40px_160px_rgba(0,0,0,0.62)]">
+            <div className="hidden w-[320px] border-r border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.96))] p-6 lg:flex lg:flex-col">
+              <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+                <Sparkles size={14} />
+                Party Control
+              </div>
+              <div className="mt-6">
+                <h3 className="text-2xl font-display font-bold uppercase tracking-tight text-white">Build Your Squad Faster</h3>
+                <p className="mt-3 text-sm leading-6 text-esport-text-muted">
+                  Search your friends instantly, invite without leaving the wizard, and jump into messages when you need to coordinate.
+                </p>
+              </div>
+              <div className="mt-8 rounded-3xl border border-white/10 bg-black/25 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Current Party</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
+                    {acceptedPartyMembers.length}/{maxPartyMembers} accepted
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {displayedPartyMembers.map((member) => (
+                    <div key={`invite-panel-member-${member.id}`} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3">
+                      <img
+                        src={member.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.username)}&background=1f2937&color=ffffff&size=96`}
+                        alt={member.username}
+                        className="h-11 w-11 rounded-2xl border border-white/10 object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-bold text-white">{member.username}</div>
+                        <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">
+                          {"isSelf" in member && member.isSelf ? "You" : member.status === "owner" ? "Party owner" : member.status}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(selectedTeamSize - displayedPartyMembers.length, 0) }).map((_, index) => (
+                    <div key={`invite-panel-empty-${index}`} className="flex items-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-dashed border-esport-accent/25 text-esport-accent/60">+</div>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-esport-text-muted">Open slot</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">Invite Panel</div>
+                  <h3 className="mt-2 text-2xl font-display font-bold uppercase tracking-tight text-white">Choose Friends Without Losing Your Flow</h3>
+                  <p className="mt-2 max-w-2xl text-sm text-esport-text-muted">
+                    Invite teammates, remove pending invites, or jump straight into messages for quick coordination while staying inside the matchmaking wizard.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeInvitePanel}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/80 transition-colors hover:border-white/25 hover:text-white"
+                  aria-label="Close invite panel"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="relative xl:max-w-md xl:flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-esport-text-muted" />
+                  <input
+                    type="search"
+                    value={inviteSearchQuery}
+                    onChange={(event) => setInviteSearchQuery(event.target.value)}
+                    placeholder="Search friends by username..."
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-black/25 pl-11 pr-4 text-sm text-white outline-none transition-colors placeholder:text-esport-text-muted focus:border-esport-accent/50"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-text-muted">
+                    {visibleInviteCandidates.length} friend{visibleInviteCandidates.length === 1 ? "" : "s"} visible
+                  </div>
+                  <div className="rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-200">
+                    {visibleInviteCandidates.filter((friend) => onlineNowIds.has(friend.id)).length} online now
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleInviteCandidates.length === 0 && (
+                  <div className="col-span-full rounded-3xl border border-dashed border-white/10 bg-white/[0.03] px-6 py-10 text-center">
+                    <div className="text-sm font-bold uppercase tracking-[0.2em] text-white">No friends found</div>
+                    <div className="mt-2 text-sm text-esport-text-muted">
+                      Try a different username search or clear the filter.
+                    </div>
+                  </div>
+                )}
+                {visibleInviteCandidates.map((friend) => {
+                  const invite = partyInviteByFriendId.get(friend.id);
+                  const inviteStatus = invite?.status || "none";
+                  const inviteActionLabel =
+                    partyInviteActionUserId === friend.id
+                      ? "Updating..."
+                      : inviteStatus === "accepted"
+                        ? "Remove"
+                        : inviteStatus === "pending"
+                          ? "Cancel"
+                          : inviteStatus === "declined"
+                            ? "Reinvite"
+                            : "Invite";
+                  const isAtCapacity = inviteStatus === "none" && currentConfigPartyInvites.length >= maxPartyMembers;
+                  return (
+                    <div
+                      key={`invite-panel-friend-${friend.id}`}
+                      className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.78),rgba(2,6,23,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    >
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={friend.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.username)}&background=1f2937&color=ffffff&size=96`}
+                          alt={friend.username}
+                          className="h-14 w-14 rounded-2xl border border-white/10 object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-bold text-white">{friend.username}</div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                              partyVisibleMemberIds.has(friend.id)
+                                ? "border border-esport-accent/25 bg-esport-accent/10 text-esport-accent"
+                                : onlineNowIds.has(friend.id)
+                                  ? "border border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
+                                  : "border border-white/10 bg-white/[0.04] text-esport-text-muted"
+                            }`}>
+                              {partyVisibleMemberIds.has(friend.id) ? "In party" : onlineNowIds.has(friend.id) ? "Online" : "Offline"}
+                            </span>
+                            {inviteStatus !== "none" && (
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/80">
+                                {inviteStatus}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleSidebarInvite(friend.id)}
+                          disabled={isPartyInviteGuest || partyInviteBackendMissing || partyInviteActionUserId === friend.id || isAtCapacity}
+                          className={`rounded-2xl border px-3 py-3 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors disabled:opacity-50 ${
+                            inviteStatus === "accepted" || inviteStatus === "pending"
+                              ? "border-rose-300/30 bg-rose-400/10 text-rose-200 hover:border-rose-300/50"
+                              : "border-esport-accent/30 bg-esport-accent/10 text-esport-accent hover:border-esport-accent/60"
+                          }`}
+                        >
+                          {inviteActionLabel}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeInvitePanel();
+                            onOpenDirectMessage?.(friend.id);
+                          }}
+                          className="rounded-2xl border border-white/15 bg-white/[0.04] px-3 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition-colors hover:border-white/30 hover:bg-white/[0.08]"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <MessageSquare size={14} />
+                            Message while editing party
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
