@@ -961,7 +961,17 @@ export default function App() {
                 <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
                 <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
                   <Search size={16} className="text-esport-text-muted group-focus-within:text-esport-accent" />
-                  <input type="text" placeholder="Search tournaments, players..." className="bg-transparent border-none outline-none text-sm w-64" />
+                  <input
+                    type="search"
+                    name="site-search"
+                    placeholder="Search tournaments, players..."
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="search"
+                    className="bg-transparent border-none outline-none text-sm w-64"
+                  />
                 </div>
               </div>
 
