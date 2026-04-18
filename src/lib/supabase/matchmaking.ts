@@ -681,41 +681,6 @@ export async function fetchOpenMatchmakingLobbies({
   cursor?: MatchmakingBrowserCursor | null;
 }) {
   const fetchLimit = Math.min(Math.max(limit, 1), 50);
-  if (browserLobbiesRpcSupported !== false) {
-    const { data, error } = await supabase.rpc("get_matchmaking_browser_lobbies", {
-      p_mode: mode,
-      p_limit: fetchLimit + 1,
-      p_search: search?.trim() || null,
-      p_before_created_at: cursor?.createdAt || null,
-      p_before_lobby_id: cursor?.lobbyId || null,
-    });
-
-    if (!error) {
-      browserLobbiesRpcSupported = true;
-      const rows = (data || []) as MatchmakingLobbyBrowserSummary[];
-      const hasMore = rows.length > fetchLimit;
-      const lobbies = rows.slice(0, fetchLimit);
-      const lastLobby = lobbies[lobbies.length - 1] || null;
-
-      return {
-        lobbies,
-        hasMore,
-        nextCursor: lastLobby
-          ? {
-              createdAt: lastLobby.created_at,
-              lobbyId: lastLobby.id,
-            }
-          : null,
-      };
-    }
-
-    if (!isMissingRpcFunction(error, "get_matchmaking_browser_lobbies")) {
-      throw error;
-    }
-
-    browserLobbiesRpcSupported = false;
-  }
-
   return fetchOpenMatchmakingLobbiesFallback({
     mode,
     limit: fetchLimit,
@@ -725,53 +690,10 @@ export async function fetchOpenMatchmakingLobbies({
 }
 
 export async function fetchMySquadHubState(mode: LobbyMode) {
-  if (squadHubStateRpcSupported !== false) {
-    const { data, error } = await supabase.rpc("get_my_squad_hub_state", {
-      p_mode: mode,
-    });
-
-    if (!error) {
-      squadHubStateRpcSupported = true;
-      const payload = (data || {}) as {
-        lobby?: MatchmakingLobby | null;
-        match?: ActiveMatch | null;
-      };
-
-      return {
-        lobby: normalizeLobby(payload.lobby),
-        match: normalizeActiveMatch(payload.match),
-      };
-    }
-
-    if (!isMissingRpcFunction(error, "get_my_squad_hub_state")) {
-      throw error;
-    }
-
-    squadHubStateRpcSupported = false;
-  }
-
   return fetchMySquadHubStateFallback(mode);
 }
 
 export async function fetchMyActiveLobbySummary(mode: LobbyMode) {
-  if (activeLobbySummaryRpcSupported !== false) {
-    const { data, error } = await supabase.rpc("get_my_active_lobby_summary", {
-      p_mode: mode,
-    });
-
-    if (!error) {
-      activeLobbySummaryRpcSupported = true;
-      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ActiveLobbySummary[];
-      return rows[0] || null;
-    }
-
-    if (!isMissingRpcFunction(error, "get_my_active_lobby_summary")) {
-      throw error;
-    }
-
-    activeLobbySummaryRpcSupported = false;
-  }
-
   return fetchMyActiveLobbySummaryFallback(mode);
 }
 
