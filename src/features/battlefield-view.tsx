@@ -496,7 +496,9 @@ export function CustomLobbyView({
       setActiveMatch(refreshedLobby ? await fetchMyActiveMatch(refreshedLobby.id) : null);
     } catch (error) {
       console.error("Failed to load lobby state:", error);
-      addToast("Failed to load lobby data.", "error");
+      if (!silent) {
+        addToast("Failed to load lobby data.", "error");
+      }
     } finally {
       if (!silent) {
         setLoading(false);

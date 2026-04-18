@@ -7,6 +7,19 @@ export type MatchStatus = "pending" | "live" | "finished" | "interrupted" | "can
 export type SupportedGameMode = "wingman" | "competitive" | "team_ffa" | "ffa";
 
 let quickQueueRpcSupportsGameMode: boolean | null = null;
+let recentMatchesSchemaSupportsScores: boolean | null = null;
+
+function isMissingMatchScoreSchema(error: any) {
+  const message = String(error?.message || "");
+  return (
+    error?.code === "42703" &&
+    (
+      message.includes("matches.winning_side") ||
+      message.includes("matches.score_t") ||
+      message.includes("matches.score_ct")
+    )
+  );
+}
 
 export interface MatchmakingLobbyMember {
   user_id: string;
@@ -470,19 +483,45 @@ export async function fetchMyActiveMatch(lobbyId: string) {
 }
 
 export async function fetchRecentMatches(mode: LobbyMode, limit = 6) {
-  const { data, error } = await supabase
-    .from("matches")
-    .select("id, mode, status, started_at, ended_at, winning_side, score_t, score_ct, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players(team_side, is_winner, round_score)")
-    .eq("mode", mode)
-    .in("status", ["finished", "cancelled", "interrupted"])
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const buildMatchesQuery = (selectClause: string) =>
+    supabase
+      .from("matches")
+      .select(selectClause)
+      .eq("mode", mode)
+      .in("status", ["finished", "cancelled", "interrupted"])
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
-  if (error) {
-    throw error;
+  let data: Array<any> | null = null;
+
+  if (recentMatchesSchemaSupportsScores !== false) {
+    const modernResult = await buildMatchesQuery(
+      "id, mode, status, started_at, ended_at, winning_side, score_t, score_ct, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players(team_side, is_winner, round_score)"
+    );
+
+    if (!modernResult.error) {
+      recentMatchesSchemaSupportsScores = true;
+      data = (modernResult.data || []) as Array<any>;
+    } else if (!isMissingMatchScoreSchema(modernResult.error)) {
+      throw modernResult.error;
+    } else {
+      recentMatchesSchemaSupportsScores = false;
+    }
   }
 
-  return ((data || []) as Array<any>).map((match) => {
+  if (!data) {
+    const legacyResult = await buildMatchesQuery(
+      "id, mode, status, started_at, ended_at, lobbies!inner(name, game_mode, selected_map, stake_amount), match_players(team_side, is_winner, round_score)"
+    );
+
+    if (legacyResult.error) {
+      throw legacyResult.error;
+    }
+
+    data = (legacyResult.data || []) as Array<any>;
+  }
+
+  return (data || []).map((match) => {
     const players = Array.isArray(match.match_players) ? match.match_players : [];
     const fallbackTScore = players
       .filter((player) => player.team_side === "T")
