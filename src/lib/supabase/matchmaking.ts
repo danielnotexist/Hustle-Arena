@@ -8,6 +8,9 @@ export type SupportedGameMode = "wingman" | "competitive" | "team_ffa" | "ffa";
 
 let quickQueueRpcSupportsGameMode: boolean | null = null;
 let recentMatchesSchemaSupportsScores: boolean | null = null;
+let browserLobbiesRpcSupported: boolean | null = null;
+let squadHubStateRpcSupported: boolean | null = null;
+let activeLobbySummaryRpcSupported: boolean | null = null;
 
 function isMissingMatchScoreSchema(error: any) {
   const message = String(error?.message || "");
@@ -18,6 +21,19 @@ function isMissingMatchScoreSchema(error: any) {
       message.includes("matches.score_t") ||
       message.includes("matches.score_ct")
     )
+  );
+}
+
+function isMissingRpcFunction(error: any, rpcName: string) {
+  const message = String(error?.message || "");
+  const details = String(error?.details || "");
+  const hint = String(error?.hint || "");
+
+  return (
+    error?.code === "PGRST202" ||
+    message.includes(rpcName) ||
+    details.includes(rpcName) ||
+    hint.includes(rpcName)
   );
 }
 
@@ -353,6 +369,173 @@ const ACTIVE_LOBBY_SELECT = `
   map_vote_sessions(id, lobby_id, active_team, turn_ends_at, turn_seconds, remaining_maps, status, round_number, last_vetoed_map, updated_at, map_votes(user_id, map_code, updated_at))
 `;
 
+const OPEN_LOBBY_BROWSER_FALLBACK_SELECT = `
+  id,
+  mode,
+  kind,
+  name,
+  leader_id,
+  status,
+  stake_amount,
+  team_size,
+  max_players,
+  game_mode,
+  password_required,
+  selected_map,
+  map_voting_active,
+  auto_veto_starts_at,
+  join_server_deadline,
+  created_at,
+  lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at)
+`;
+
+async function getAuthenticatedUserId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    throw error;
+  }
+
+  return data.user?.id || null;
+}
+
+function isBeforeCursor(
+  lobby: { created_at: string; id: string },
+  cursor?: MatchmakingBrowserCursor | null
+) {
+  if (!cursor) {
+    return true;
+  }
+
+  if (lobby.created_at < cursor.createdAt) {
+    return true;
+  }
+
+  return lobby.created_at === cursor.createdAt && lobby.id < cursor.lobbyId;
+}
+
+async function fetchOpenMatchmakingLobbiesFallback({
+  mode,
+  limit,
+  search,
+  cursor,
+}: {
+  mode: LobbyMode;
+  limit: number;
+  search?: string;
+  cursor?: MatchmakingBrowserCursor | null;
+}) {
+  const fetchLimit = Math.min(Math.max(limit, 1), 50);
+
+  let query = supabase
+    .from("lobbies")
+    .select(OPEN_LOBBY_BROWSER_FALLBACK_SELECT)
+    .eq("mode", mode)
+    .eq("kind", "custom")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(Math.max(fetchLimit + 12, 64));
+
+  if (search?.trim()) {
+    query = query.ilike("name", `%${search.trim()}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const filteredRows = ((data || []) as Array<any>).filter((row) => isBeforeCursor(row, cursor));
+  const rows = filteredRows.slice(0, fetchLimit + 1);
+  const hasMore = rows.length > fetchLimit;
+  const lobbies = rows.slice(0, fetchLimit);
+  const leaderProfiles = await fetchPublicProfileBasics(lobbies.map((lobby) => lobby.leader_id));
+  const summaries = lobbies.map((lobby) => {
+    const activeMembers = (Array.isArray(lobby.lobby_members) ? lobby.lobby_members : []).filter(
+      (member) => !member.left_at && !member.kicked_at
+    );
+    const leaderProfile = leaderProfiles.get(lobby.leader_id);
+
+    return {
+      id: lobby.id,
+      mode: lobby.mode,
+      kind: lobby.kind,
+      name: lobby.name,
+      leader_id: lobby.leader_id,
+      leader_username: leaderProfile?.username || leaderProfile?.email?.split("@")[0] || null,
+      leader_avatar_url: leaderProfile?.avatar_url || null,
+      status: lobby.status,
+      stake_amount: Number(lobby.stake_amount || 0),
+      team_size: Number(lobby.team_size || 0),
+      max_players: Number(lobby.max_players || 0),
+      game_mode: lobby.game_mode || null,
+      password_required: Boolean(lobby.password_required),
+      selected_map: lobby.selected_map || null,
+      map_voting_active: Boolean(lobby.map_voting_active),
+      auto_veto_starts_at: lobby.auto_veto_starts_at || null,
+      join_server_deadline: lobby.join_server_deadline || null,
+      created_at: lobby.created_at,
+      player_count: activeMembers.length,
+      ready_count: activeMembers.filter((member) => member.is_ready).length,
+      t_count: activeMembers.filter((member) => member.team_side === "T").length,
+      ct_count: activeMembers.filter((member) => member.team_side === "CT").length,
+    } satisfies MatchmakingLobbyBrowserSummary;
+  });
+
+  const lastLobby = summaries[summaries.length - 1] || null;
+
+  return {
+    lobbies: summaries,
+    hasMore,
+    nextCursor: lastLobby
+      ? {
+          createdAt: lastLobby.created_at,
+          lobbyId: lastLobby.id,
+        }
+      : null,
+  };
+}
+
+async function fetchMyActiveLobbySummaryFallback(mode: LobbyMode) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return null;
+  }
+
+  const lobby = await fetchMyActiveLobby(userId, mode);
+  if (!lobby) {
+    return null;
+  }
+
+  return {
+    id: lobby.id,
+    mode: lobby.mode,
+    kind: lobby.kind,
+    status: lobby.status,
+    team_size: lobby.team_size,
+    game_mode: lobby.game_mode || null,
+    created_at: lobby.created_at,
+  } satisfies ActiveLobbySummary;
+}
+
+async function fetchMySquadHubStateFallback(mode: LobbyMode) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return {
+      lobby: null,
+      match: null,
+    };
+  }
+
+  const lobby = await fetchMyActiveLobby(userId, mode);
+  const match = lobby ? await fetchMyActiveMatch(lobby.id) : null;
+
+  return {
+    lobby,
+    match,
+  };
+}
+
 async function fetchPublicProfileBasics(userIds: string[]) {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
   if (!uniqueUserIds.length) {
@@ -498,66 +681,98 @@ export async function fetchOpenMatchmakingLobbies({
   cursor?: MatchmakingBrowserCursor | null;
 }) {
   const fetchLimit = Math.min(Math.max(limit, 1), 50);
-  const { data, error } = await supabase.rpc("get_matchmaking_browser_lobbies", {
-    p_mode: mode,
-    p_limit: fetchLimit + 1,
-    p_search: search?.trim() || null,
-    p_before_created_at: cursor?.createdAt || null,
-    p_before_lobby_id: cursor?.lobbyId || null,
-  });
+  if (browserLobbiesRpcSupported !== false) {
+    const { data, error } = await supabase.rpc("get_matchmaking_browser_lobbies", {
+      p_mode: mode,
+      p_limit: fetchLimit + 1,
+      p_search: search?.trim() || null,
+      p_before_created_at: cursor?.createdAt || null,
+      p_before_lobby_id: cursor?.lobbyId || null,
+    });
 
-  if (error) {
-    throw error;
+    if (!error) {
+      browserLobbiesRpcSupported = true;
+      const rows = (data || []) as MatchmakingLobbyBrowserSummary[];
+      const hasMore = rows.length > fetchLimit;
+      const lobbies = rows.slice(0, fetchLimit);
+      const lastLobby = lobbies[lobbies.length - 1] || null;
+
+      return {
+        lobbies,
+        hasMore,
+        nextCursor: lastLobby
+          ? {
+              createdAt: lastLobby.created_at,
+              lobbyId: lastLobby.id,
+            }
+          : null,
+      };
+    }
+
+    if (!isMissingRpcFunction(error, "get_matchmaking_browser_lobbies")) {
+      throw error;
+    }
+
+    browserLobbiesRpcSupported = false;
   }
 
-  const rows = (data || []) as MatchmakingLobbyBrowserSummary[];
-  const hasMore = rows.length > fetchLimit;
-  const lobbies = rows.slice(0, fetchLimit);
-  const lastLobby = lobbies[lobbies.length - 1] || null;
-
-  return {
-    lobbies,
-    hasMore,
-    nextCursor: lastLobby
-      ? {
-          createdAt: lastLobby.created_at,
-          lobbyId: lastLobby.id,
-        }
-      : null,
-  };
+  return fetchOpenMatchmakingLobbiesFallback({
+    mode,
+    limit: fetchLimit,
+    search,
+    cursor,
+  });
 }
 
 export async function fetchMySquadHubState(mode: LobbyMode) {
-  const { data, error } = await supabase.rpc("get_my_squad_hub_state", {
-    p_mode: mode,
-  });
+  if (squadHubStateRpcSupported !== false) {
+    const { data, error } = await supabase.rpc("get_my_squad_hub_state", {
+      p_mode: mode,
+    });
 
-  if (error) {
-    throw error;
+    if (!error) {
+      squadHubStateRpcSupported = true;
+      const payload = (data || {}) as {
+        lobby?: MatchmakingLobby | null;
+        match?: ActiveMatch | null;
+      };
+
+      return {
+        lobby: normalizeLobby(payload.lobby),
+        match: normalizeActiveMatch(payload.match),
+      };
+    }
+
+    if (!isMissingRpcFunction(error, "get_my_squad_hub_state")) {
+      throw error;
+    }
+
+    squadHubStateRpcSupported = false;
   }
 
-  const payload = (data || {}) as {
-    lobby?: MatchmakingLobby | null;
-    match?: ActiveMatch | null;
-  };
-
-  return {
-    lobby: normalizeLobby(payload.lobby),
-    match: normalizeActiveMatch(payload.match),
-  };
+  return fetchMySquadHubStateFallback(mode);
 }
 
 export async function fetchMyActiveLobbySummary(mode: LobbyMode) {
-  const { data, error } = await supabase.rpc("get_my_active_lobby_summary", {
-    p_mode: mode,
-  });
+  if (activeLobbySummaryRpcSupported !== false) {
+    const { data, error } = await supabase.rpc("get_my_active_lobby_summary", {
+      p_mode: mode,
+    });
 
-  if (error) {
-    throw error;
+    if (!error) {
+      activeLobbySummaryRpcSupported = true;
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as ActiveLobbySummary[];
+      return rows[0] || null;
+    }
+
+    if (!isMissingRpcFunction(error, "get_my_active_lobby_summary")) {
+      throw error;
+    }
+
+    activeLobbySummaryRpcSupported = false;
   }
 
-  const rows = (Array.isArray(data) ? data : data ? [data] : []) as ActiveLobbySummary[];
-  return rows[0] || null;
+  return fetchMyActiveLobbySummaryFallback(mode);
 }
 
 export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {

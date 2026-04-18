@@ -664,7 +664,7 @@ export default function App() {
         `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=256`;
       const coverUrl =
         profile.cover_url ||
-        `https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1400&q=80`;
+        hustleArenaLogo;
 
       setPublicProfileState({
         userId,

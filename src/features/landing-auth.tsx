@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { AlertCircle, CheckCircle2, ChevronDown, Gamepad2, Plus, ShieldAlert, User } from "lucide-react";
 import React, { useRef, useState } from "react";
+import hustleArenaLogo from "../assets/hustle-arena-logo.png";
 import { auth, createUserWithEmailAndPassword, db, doc, googleProvider, serverTimestamp, signInWithEmailAndPassword, signInWithPopup, updateDoc } from "../firebase";
 import { isSupabaseConfigured } from "../lib/env";
 import { submitKycForReview } from "../lib/supabase/profile";
@@ -8,26 +9,23 @@ import { supabase } from "../lib/supabase";
 import { cn } from "./shared-ui";
 
 export function DynamicImage({ prompt, className }: { prompt: string, className?: string }) {
-  // Map prompts to high-quality static esports/gaming images from Unsplash
-  // This ensures images look great and work perfectly when pushed to Git without needing an API key.
   const imageMap: Record<string, string> = {
-    "A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game like CS:GO or Valorant, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography.": "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&auto=format&fit=crop",
-    "A professional esports player sitting in a high-tech gaming chair, wearing a headset, focused on a glowing monitor. Intense atmosphere, neon blue lighting, high detail.": "https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1920&auto=format&fit=crop",
-    "esports tactical shooter tournament stage with players at computers": "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=1920&auto=format&fit=crop",
-    "esports battle royale tournament stage with players at computers": "https://images.unsplash.com/photo-1538481199005-c710c4e965fc?q=80&w=1920&auto=format&fit=crop",
-    "esports moba tournament stage with players at computers": "https://images.unsplash.com/photo-1560253023-3ec5d502959f?q=80&w=1920&auto=format&fit=crop",
-    "A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear.": "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?q=80&w=1920&auto=format&fit=crop",
-    "esports 5v5 tactical shooter gameplay screenshot": "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?q=80&w=1920&auto=format&fit=crop",
-    "esports 2v2 tactical shooter gameplay screenshot": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920&auto=format&fit=crop",
-    "esports battle royale gameplay screenshot": "https://images.unsplash.com/photo-1542751110-97427bbecf20?q=80&w=1920&auto=format&fit=crop",
-    "esports tournament stage with players and large screen": "https://images.unsplash.com/photo-1511882150382-421056c89033?q=80&w=1920&auto=format&fit=crop",
-    "esports gameplay highlight screenshot 1": "https://images.unsplash.com/photo-1534423861386-85a16f5d13fd?q=80&w=1920&auto=format&fit=crop",
-    "esports gameplay highlight screenshot 2": "https://images.unsplash.com/photo-1542751110-97427bbecf20?q=80&w=1920&auto=format&fit=crop",
-    "esports gameplay highlight screenshot 3": "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=1920&auto=format&fit=crop"
+    "A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game like CS:GO or Valorant, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography.": hustleArenaLogo,
+    "A professional esports player sitting in a high-tech gaming chair, wearing a headset, focused on a glowing monitor. Intense atmosphere, neon blue lighting, high detail.": hustleArenaLogo,
+    "esports tactical shooter tournament stage with players at computers": hustleArenaLogo,
+    "esports battle royale tournament stage with players at computers": hustleArenaLogo,
+    "esports moba tournament stage with players at computers": hustleArenaLogo,
+    "A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear.": hustleArenaLogo,
+    "esports 5v5 tactical shooter gameplay screenshot": hustleArenaLogo,
+    "esports 2v2 tactical shooter gameplay screenshot": hustleArenaLogo,
+    "esports battle royale gameplay screenshot": hustleArenaLogo,
+    "esports tournament stage with players and large screen": hustleArenaLogo,
+    "esports gameplay highlight screenshot 1": hustleArenaLogo,
+    "esports gameplay highlight screenshot 2": hustleArenaLogo,
+    "esports gameplay highlight screenshot 3": hustleArenaLogo
   };
 
-  // Fallback to a generic gaming image if prompt not found
-  const imageUrl = imageMap[prompt] || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&auto=format&fit=crop";
+  const imageUrl = imageMap[prompt] || hustleArenaLogo;
 
   return (
     <motion.img 
