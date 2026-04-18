@@ -35,7 +35,7 @@ import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { isSupabaseAbortError, supabase } from "./lib/supabase";
 import {
-  fetchMyActiveLobby,
+  fetchMyActiveLobbySummary,
   fetchMyReconnectableMatch,
   fetchQuickQueuePartyInvites,
   launchMatchServer,
@@ -336,7 +336,7 @@ export default function App() {
 
     const redirectIntoJoinedLobby = async () => {
       try {
-        const activeLobby = await fetchMyActiveLobby(user.id, accountMode);
+        const activeLobby = await fetchMyActiveLobbySummary(accountMode);
         if (!isCancelled && activeLobby) {
           setActiveTab("Squad Hub");
         }
@@ -348,7 +348,7 @@ export default function App() {
     void redirectIntoJoinedLobby();
     const interval = window.setInterval(() => {
       void redirectIntoJoinedLobby();
-    }, 1000);
+    }, 3000);
 
     return () => {
       isCancelled = true;

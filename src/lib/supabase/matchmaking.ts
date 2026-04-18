@@ -65,6 +65,46 @@ export interface MapVoteSession {
   map_votes?: MapVote[];
 }
 
+export interface MatchmakingBrowserCursor {
+  createdAt: string;
+  lobbyId: string;
+}
+
+export interface ActiveLobbySummary {
+  id: string;
+  mode: LobbyMode;
+  kind: LobbyKind;
+  status: "open" | "in_progress" | "closed";
+  team_size: number;
+  game_mode?: SupportedGameMode | null;
+  created_at: string;
+}
+
+export interface MatchmakingLobbyBrowserSummary {
+  id: string;
+  mode: LobbyMode;
+  kind: LobbyKind;
+  name: string;
+  leader_id: string;
+  leader_username?: string | null;
+  leader_avatar_url?: string | null;
+  status: "open" | "in_progress" | "closed";
+  stake_amount: number;
+  team_size: number;
+  max_players: number;
+  game_mode?: SupportedGameMode | null;
+  password_required: boolean;
+  selected_map?: string | null;
+  map_voting_active?: boolean;
+  auto_veto_starts_at?: string | null;
+  join_server_deadline?: string | null;
+  created_at: string;
+  player_count: number;
+  ready_count: number;
+  t_count: number;
+  ct_count: number;
+}
+
 export interface MatchmakingLobby {
   id: string;
   mode: LobbyMode;
@@ -229,6 +269,46 @@ interface PublicProfileBasic {
   username: string | null;
   email: string | null;
   avatar_url?: string | null;
+}
+
+function normalizeLobby(rawLobby: any): MatchmakingLobby | null {
+  if (!rawLobby) {
+    return null;
+  }
+
+  return {
+    ...rawLobby,
+    lobby_members: Array.isArray(rawLobby.lobby_members)
+      ? rawLobby.lobby_members
+      : rawLobby.lobby_members
+        ? [rawLobby.lobby_members]
+        : [],
+    lobby_messages: Array.isArray(rawLobby.lobby_messages)
+      ? rawLobby.lobby_messages
+      : rawLobby.lobby_messages
+        ? [rawLobby.lobby_messages]
+        : [],
+    map_vote_sessions: Array.isArray(rawLobby.map_vote_sessions)
+      ? rawLobby.map_vote_sessions
+      : rawLobby.map_vote_sessions
+        ? [rawLobby.map_vote_sessions]
+        : [],
+  } satisfies MatchmakingLobby;
+}
+
+function normalizeActiveMatch(rawMatch: any): ActiveMatch | null {
+  if (!rawMatch) {
+    return null;
+  }
+
+  return {
+    ...rawMatch,
+    match_players: Array.isArray(rawMatch.match_players)
+      ? rawMatch.match_players
+      : rawMatch.match_players
+        ? [rawMatch.match_players]
+        : [],
+  } satisfies ActiveMatch;
 }
 
 const OPEN_LOBBY_SELECT = `
@@ -406,29 +486,78 @@ export async function joinMatchmakingLobby(lobbyId: string, password?: string | 
   }
 }
 
-export async function fetchOpenMatchmakingLobbies(mode: LobbyMode, limit = 50) {
-  const { data, error } = await supabase
-    .from("lobbies")
-    .select(OPEN_LOBBY_SELECT)
-    .eq("mode", mode)
-    .eq("kind", "custom")
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+export async function fetchOpenMatchmakingLobbies({
+  mode,
+  limit = 50,
+  search,
+  cursor,
+}: {
+  mode: LobbyMode;
+  limit?: number;
+  search?: string;
+  cursor?: MatchmakingBrowserCursor | null;
+}) {
+  const fetchLimit = Math.min(Math.max(limit, 1), 50);
+  const { data, error } = await supabase.rpc("get_matchmaking_browser_lobbies", {
+    p_mode: mode,
+    p_limit: fetchLimit + 1,
+    p_search: search?.trim() || null,
+    p_before_created_at: cursor?.createdAt || null,
+    p_before_lobby_id: cursor?.lobbyId || null,
+  });
 
   if (error) {
     throw error;
   }
 
-  const lobbies = ((data || []) as MatchmakingLobby[]).filter((lobby) =>
-    (lobby.lobby_members || []).some((member) => !member.left_at && !member.kicked_at)
-  );
+  const rows = (data || []) as MatchmakingLobbyBrowserSummary[];
+  const hasMore = rows.length > fetchLimit;
+  const lobbies = rows.slice(0, fetchLimit);
+  const lastLobby = lobbies[lobbies.length - 1] || null;
 
-  const profilesById = await fetchPublicProfileBasics(
-    lobbies.flatMap((lobby) => (lobby.lobby_members || []).map((member) => member.user_id))
-  );
+  return {
+    lobbies,
+    hasMore,
+    nextCursor: lastLobby
+      ? {
+          createdAt: lastLobby.created_at,
+          lobbyId: lastLobby.id,
+        }
+      : null,
+  };
+}
 
-  return lobbies.map((lobby) => enrichLobbyProfiles(lobby, profilesById));
+export async function fetchMySquadHubState(mode: LobbyMode) {
+  const { data, error } = await supabase.rpc("get_my_squad_hub_state", {
+    p_mode: mode,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const payload = (data || {}) as {
+    lobby?: MatchmakingLobby | null;
+    match?: ActiveMatch | null;
+  };
+
+  return {
+    lobby: normalizeLobby(payload.lobby),
+    match: normalizeActiveMatch(payload.match),
+  };
+}
+
+export async function fetchMyActiveLobbySummary(mode: LobbyMode) {
+  const { data, error } = await supabase.rpc("get_my_active_lobby_summary", {
+    p_mode: mode,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (Array.isArray(data) ? data : data ? [data] : []) as ActiveLobbySummary[];
+  return rows[0] || null;
 }
 
 export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {

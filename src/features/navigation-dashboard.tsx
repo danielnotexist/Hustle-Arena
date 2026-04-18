@@ -21,7 +21,7 @@ import { supabase } from "../lib/supabase";
 import type { AccountMode, UserStats } from "./types";
 
 type DashboardMatchSummary = Awaited<ReturnType<typeof fetchRecentMatches>>[number];
-type DashboardOpenLobby = Awaited<ReturnType<typeof fetchOpenMatchmakingLobbies>>[number];
+type DashboardOpenLobby = Awaited<ReturnType<typeof fetchOpenMatchmakingLobbies>>["lobbies"][number];
 type DashboardLeaderboardEntry = Awaited<ReturnType<typeof fetchPublicApexLeaderboard>>[number];
 
 const MOTD_BY_MODE: Record<AccountMode, { title: string; body: string; badge: string }> = {
@@ -93,7 +93,7 @@ export function DashboardView({
 
         const [matchRows, lobbyRows, leaderRows] = await Promise.all([
           fetchRecentMatches(accountMode, 6),
-          fetchOpenMatchmakingLobbies(accountMode),
+          fetchOpenMatchmakingLobbies({ mode: accountMode, limit: 4 }),
           fetchPublicApexLeaderboard(5),
         ]);
 
@@ -104,7 +104,7 @@ export function DashboardView({
         setRecentMatches(
           [...matchRows].sort((a, b) => Number(b.stakeAmount || 0) - Number(a.stakeAmount || 0)).slice(0, 6)
         );
-        setLiveServers(lobbyRows.slice(0, 4));
+        setLiveServers(lobbyRows.lobbies.slice(0, 4));
         setLeaders(leaderRows.slice(0, 5));
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
@@ -138,10 +138,7 @@ export function DashboardView({
   );
   const totalLiveSeats = useMemo(
     () =>
-      liveServers.reduce((sum, lobby) => {
-        const activeMembers = (lobby.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at).length;
-        return sum + activeMembers;
-      }, 0),
+      liveServers.reduce((sum, lobby) => sum + Number(lobby.player_count || 0), 0),
     [liveServers]
   );
 
@@ -320,7 +317,7 @@ export function DashboardView({
                     id: lobby.id,
                     name: lobby.name,
                     map: lobby.selected_map || "Map voting",
-                    players: (lobby.lobby_members || []).filter((member) => !member.left_at && !member.kicked_at).length,
+                    players: Number(lobby.player_count || 0),
                     maxPlayers: lobby.max_players,
                     status: lobby.status === "open" ? "Open" : "In Progress",
                     stake: Number(lobby.stake_amount || 0),

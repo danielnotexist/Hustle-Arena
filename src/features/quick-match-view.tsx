@@ -2,7 +2,7 @@ import { CheckCircle2, Clock, Lock, MessageSquare, Search, Server, ShieldAlert, 
 import React, { useEffect, useRef, useState } from "react";
 import { isSupabaseTransientNetworkError, supabase } from "../lib/supabase";
 import {
-  fetchMyActiveLobby,
+  fetchMyActiveLobbySummary,
   fetchQuickQueuePartyStakeCap,
   fetchMyQuickQueueStatus,
   fetchQuickQueuePartyInvites,
@@ -703,7 +703,7 @@ export function BattlefieldView({
 
     const validateConnectedLobby = async () => {
       try {
-        const activeLobby = await fetchMyActiveLobby(user.id, accountMode);
+        const activeLobby = await fetchMyActiveLobbySummary(accountMode);
         if (cancelled) {
           return;
         }
@@ -720,7 +720,7 @@ export function BattlefieldView({
     void validateConnectedLobby();
     const interval = window.setInterval(() => {
       void validateConnectedLobby();
-    }, 1500);
+    }, 2500);
 
     return () => {
       cancelled = true;

@@ -1,5 +1,6 @@
 ﻿import { Clock3, Lock, MessageSquare, Radio, Server, Users } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { Search } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import anubisMap from "../assets/maps/anubis.svg";
 import ancientMap from "../assets/maps/ancient.svg";
@@ -15,8 +16,7 @@ import {
   createMatchmakingLobby,
   ensureLobbyMapVoteSession,
   fetchUnreadDemoMatchResultNotifications,
-  fetchMyActiveLobby,
-  fetchMyActiveMatch,
+  fetchMySquadHubState,
   fetchOpenMatchmakingLobbies,
   fetchRecentMatches,
   joinMatchmakingLobby,
@@ -32,7 +32,9 @@ import {
   syncMapVoteSession,
   type ActiveMatch,
   type LobbyMode,
+  type MatchmakingBrowserCursor,
   type MatchmakingLobby,
+  type MatchmakingLobbyBrowserSummary,
   type MatchmakingLobbyMember,
   type RecentMatchSummary,
   type SupportedGameMode,
@@ -451,7 +453,11 @@ export function CustomLobbyView({
   const [joiningLobbyId, setJoiningLobbyId] = useState<string | null>(null);
   const [activeLobby, setActiveLobby] = useState<MatchmakingLobby | null>(initialCachedLobby);
   const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(initialCachedMatch);
-  const [openLobbies, setOpenLobbies] = useState<MatchmakingLobby[]>([]);
+  const [openLobbies, setOpenLobbies] = useState<MatchmakingLobbyBrowserSummary[]>([]);
+  const [browserSearch, setBrowserSearch] = useState("");
+  const [browserCursor, setBrowserCursor] = useState<MatchmakingBrowserCursor | null>(null);
+  const [browserHasMore, setBrowserHasMore] = useState(false);
+  const [browserLoadingMore, setBrowserLoadingMore] = useState(false);
   const [recentMatches, setRecentMatches] = useState<RecentMatchSummary[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [selectedWinningSide, setSelectedWinningSide] = useState<"T" | "CT">("T");
@@ -476,6 +482,7 @@ export function CustomLobbyView({
   const mapVoteSyncRef = useRef<string | null>(null);
   const activeStateSyncRef = useRef(false);
   const browserStateSyncRef = useRef(false);
+  const activeRefreshTimeoutRef = useRef<number | null>(null);
   const [formState, setFormState] = useState({
     name: "",
     stakeAmount: "5",
@@ -490,16 +497,22 @@ export function CustomLobbyView({
       setLoading(true);
     }
     try {
-      const [browserLobbies, myLobby, matches] = await Promise.all([
-        fetchOpenMatchmakingLobbies(accountMode as LobbyMode, OPEN_LOBBY_BROWSER_LIMIT),
-        fetchMyActiveLobby(user.id, accountMode as LobbyMode),
+      const [browserData, squadHubState, matches] = await Promise.all([
+        fetchOpenMatchmakingLobbies({
+          mode: accountMode as LobbyMode,
+          limit: OPEN_LOBBY_BROWSER_LIMIT,
+          search: browserSearch,
+        }),
+        fetchMySquadHubState(accountMode as LobbyMode),
         fetchRecentMatches(accountMode as LobbyMode),
       ]);
 
-      setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== myLobby?.id));
-      setActiveLobby(myLobby);
+      setOpenLobbies(browserData.lobbies.filter((lobby) => lobby.id !== squadHubState.lobby?.id));
+      setBrowserCursor(browserData.nextCursor);
+      setBrowserHasMore(browserData.hasMore);
+      setActiveLobby(squadHubState.lobby);
       setRecentMatches(matches);
-      setActiveMatch(myLobby ? await fetchMyActiveMatch(myLobby.id) : null);
+      setActiveMatch(squadHubState.match);
     } catch (error) {
       console.error("Failed to load lobby state:", error);
       if (!silent) {
@@ -519,10 +532,10 @@ export function CustomLobbyView({
       setLoading(true);
     }
     try {
-      const myLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
-      setActiveLobby(myLobby);
-      setActiveMatch(myLobby ? await fetchMyActiveMatch(myLobby.id) : null);
-      return myLobby;
+      const squadHubState = await fetchMySquadHubState(accountMode as LobbyMode);
+      setActiveLobby(squadHubState.lobby);
+      setActiveMatch(squadHubState.match);
+      return squadHubState.lobby;
     } catch (error) {
       console.error("Failed to refresh active lobby state:", error);
       if (!silent) {
@@ -537,16 +550,55 @@ export function CustomLobbyView({
     }
   };
 
-  const loadBrowserData = async ({ silent = false }: { silent?: boolean } = {}) => {
+  const loadBrowserData = async ({
+    silent = false,
+    append = false,
+    cursor = null,
+    activeLobbyIdOverride,
+    includeRecentMatches = true,
+  }: {
+    silent?: boolean;
+    append?: boolean;
+    cursor?: MatchmakingBrowserCursor | null;
+    activeLobbyIdOverride?: string | null;
+    includeRecentMatches?: boolean;
+  } = {}) => {
     if (!isSupabaseConfigured() || !user?.id) return;
     try {
-      const [browserLobbies, matches] = await Promise.all([
-        fetchOpenMatchmakingLobbies(accountMode as LobbyMode, OPEN_LOBBY_BROWSER_LIMIT),
-        fetchRecentMatches(accountMode as LobbyMode),
+      const [browserData, matches] = await Promise.all([
+        fetchOpenMatchmakingLobbies({
+          mode: accountMode as LobbyMode,
+          limit: OPEN_LOBBY_BROWSER_LIMIT,
+          search: browserSearch,
+          cursor: append ? cursor : null,
+        }),
+        includeRecentMatches ? fetchRecentMatches(accountMode as LobbyMode) : Promise.resolve(null),
       ]);
 
-      setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== activeLobby?.id));
-      setRecentMatches(matches);
+      const activeLobbyId = activeLobbyIdOverride ?? activeLobby?.id ?? null;
+      const filteredLobbies = browserData.lobbies.filter((lobby) => lobby.id !== activeLobbyId);
+
+      setOpenLobbies((current) => {
+        if (!append) {
+          return filteredLobbies;
+        }
+
+        const seen = new Set(current.map((lobby) => lobby.id));
+        const next = [...current];
+        filteredLobbies.forEach((lobby) => {
+          if (!seen.has(lobby.id)) {
+            next.push(lobby);
+          }
+        });
+        return next;
+      });
+
+      setBrowserCursor(browserData.nextCursor);
+      setBrowserHasMore(browserData.hasMore);
+
+      if (matches) {
+        setRecentMatches(matches);
+      }
     } catch (error) {
       console.error("Failed to refresh browser data:", error);
       if (!silent) {
@@ -627,6 +679,29 @@ export function CustomLobbyView({
       return;
     }
 
+    const timeout = window.setTimeout(() => {
+      if (browserStateSyncRef.current) {
+        return;
+      }
+
+      browserStateSyncRef.current = true;
+      void loadBrowserData({
+        silent: true,
+        append: false,
+        activeLobbyIdOverride: activeLobby?.id ?? null,
+      }).finally(() => {
+        browserStateSyncRef.current = false;
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [browserSearch, user?.id, accountMode, activeLobby?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
     const pollMs = activeLobby || activeMatch || showJoiningLobbyState
       ? ACTIVE_LOBBY_POLL_MS
       : IDLE_LOBBY_POLL_MS;
@@ -662,7 +737,7 @@ export function CustomLobbyView({
     }, BROWSER_DATA_POLL_MS);
 
     return () => window.clearInterval(interval);
-  }, [user?.id, accountMode, activeLobby?.id]);
+  }, [user?.id, accountMode, activeLobby?.id, browserSearch]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -802,6 +877,98 @@ export function CustomLobbyView({
       !!activeLobby.selected_map
     );
   const canKickPlayers = isLeader && activeLobby?.status === "open";
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) {
+      return;
+    }
+
+    const queueActiveRefresh = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      if (activeRefreshTimeoutRef.current !== null) {
+        return;
+      }
+
+      activeRefreshTimeoutRef.current = window.setTimeout(() => {
+        activeRefreshTimeoutRef.current = null;
+        if (activeStateSyncRef.current) {
+          return;
+        }
+
+        activeStateSyncRef.current = true;
+        void loadActiveLobbyState({ silent: true }).finally(() => {
+          activeStateSyncRef.current = false;
+        });
+      }, 120);
+    };
+
+    const channel = supabase.channel(
+      `squad-hub-active-${accountMode}-${user.id}-${activeLobby?.id || "none"}-${activeMatch?.id || "none"}-${activeVoteSession?.id || "none"}`
+    );
+
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "lobby_members", filter: `user_id=eq.${user.id}` },
+      queueActiveRefresh
+    );
+
+    if (activeLobby?.id) {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lobbies", filter: `id=eq.${activeLobby.id}` },
+        queueActiveRefresh
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lobby_members", filter: `lobby_id=eq.${activeLobby.id}` },
+        queueActiveRefresh
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lobby_messages", filter: `lobby_id=eq.${activeLobby.id}` },
+        queueActiveRefresh
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "map_vote_sessions", filter: `lobby_id=eq.${activeLobby.id}` },
+        queueActiveRefresh
+      );
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "matches", filter: `lobby_id=eq.${activeLobby.id}` },
+        queueActiveRefresh
+      );
+    }
+
+    if (activeVoteSession?.id) {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "map_votes", filter: `session_id=eq.${activeVoteSession.id}` },
+        queueActiveRefresh
+      );
+    }
+
+    if (activeMatch?.id) {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "match_players", filter: `match_id=eq.${activeMatch.id}` },
+        queueActiveRefresh
+      );
+    }
+
+    channel.subscribe();
+
+    return () => {
+      if (activeRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(activeRefreshTimeoutRef.current);
+        activeRefreshTimeoutRef.current = null;
+      }
+      void supabase.removeChannel(channel);
+    };
+  }, [accountMode, activeLobby?.id, activeMatch?.id, activeVoteSession?.id, user?.id]);
   const lobbyOwnerLabel = useMemo(() => {
     if (!activeLobby) return "-";
     if (activeLobby.leader_id === user?.id) return "You";
@@ -1012,6 +1179,26 @@ export function CustomLobbyView({
     }
   };
 
+  const handleLoadMoreLobbies = async () => {
+    if (!browserHasMore || browserLoadingMore) {
+      return;
+    }
+
+    setBrowserLoadingMore(true);
+    try {
+      await loadBrowserData({
+        silent: true,
+        append: true,
+        cursor: browserCursor,
+        includeRecentMatches: false,
+      });
+    } catch (error) {
+      console.error("Failed to load more lobbies:", error);
+    } finally {
+      setBrowserLoadingMore(false);
+    }
+  };
+
   const handleMove = async (side: TeamSide) => {
     if (!activeLobby) return;
     if (myMembership?.team_side === side) return;
@@ -1204,8 +1391,24 @@ export function CustomLobbyView({
 
         <div className="esport-card overflow-hidden">
           <div className="p-6 border-b border-esport-border">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">
-              CS2 {accountMode === "demo" ? "Demo" : "Live"} Server Browser
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+                CS2 {accountMode === "demo" ? "Demo" : "Live"} Server Browser
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2 rounded-xl border border-esport-border bg-black/20 px-3 py-2">
+                  <Search size={14} className="text-esport-text-muted" />
+                  <input
+                    value={browserSearch}
+                    onChange={(event) => setBrowserSearch(event.target.value)}
+                    placeholder="Search lobby or owner"
+                    className="w-full min-w-[220px] bg-transparent text-sm text-white outline-none placeholder:text-esport-text-muted"
+                  />
+                </div>
+                <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/75">
+                  {openLobbies.length} loaded
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1226,7 +1429,6 @@ export function CustomLobbyView({
                 </thead>
                 <tbody className="divide-y divide-esport-border">
                   {openLobbies.map((lobby) => {
-                    const count = getActiveMembers(lobby).length;
                     return (
                       <tr key={lobby.id} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4">
@@ -1236,7 +1438,7 @@ export function CustomLobbyView({
                           </div>
                         </td>
                         <td className="px-6 py-4 text-white">{lobby.team_size}v{lobby.team_size}</td>
-                        <td className="px-6 py-4 text-white">{count}/{lobby.max_players}</td>
+                        <td className="px-6 py-4 text-white">{lobby.player_count}/{lobby.max_players}</td>
                         <td className="px-6 py-4 text-white">{Number(lobby.stake_amount).toFixed(2)} USDT</td>
                         <td className="px-6 py-4">
                           {lobby.password_required ? (
@@ -1259,6 +1461,19 @@ export function CustomLobbyView({
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {browserHasMore && (
+            <div className="border-t border-esport-border px-6 py-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => void handleLoadMoreLobbies()}
+                disabled={browserLoadingMore}
+                className="esport-btn-secondary disabled:opacity-50"
+              >
+                {browserLoadingMore ? "Loading..." : "Load More Lobbies"}
+              </button>
             </div>
           )}
         </div>
