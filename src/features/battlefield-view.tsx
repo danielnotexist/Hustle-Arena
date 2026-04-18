@@ -449,6 +449,7 @@ export function CustomLobbyView({
   const [loadedOnce, setLoadedOnce] = useState(!!initialCachedLobby);
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
+  const mapVoteSyncRef = useRef<string | null>(null);
   const [formState, setFormState] = useState({
     name: "",
     stakeAmount: "5",
@@ -471,12 +472,15 @@ export function CustomLobbyView({
       if (myLobby?.id && myLobby.leader_id === user.id) {
         await syncLobbyAutoVeto(myLobby.id);
       }
-      const myLobbyVoteSession = getLobbyVoteSessions(myLobby)[0];
+      const myLobbyVoteSession =
+        getLobbyVoteSessions(myLobby).find((session) => session.status === "active") || null;
       if (myLobbyVoteSession?.id) {
         await syncMapVoteSession(myLobbyVoteSession.id);
       }
       let refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
       const refreshedVoteSessions = getLobbyVoteSessions(refreshedLobby);
+      const refreshedActiveVoteSession =
+        refreshedVoteSessions.find((session) => session.status === "active") || null;
 
       if (
         refreshedLobby?.id &&
@@ -487,6 +491,16 @@ export function CustomLobbyView({
         !refreshedVoteSessions.some((session) => session.status === "active")
       ) {
         await syncLobbyAutoVeto(refreshedLobby.id);
+        refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
+      }
+
+      if (
+        refreshedActiveVoteSession?.id &&
+        refreshedActiveVoteSession.turn_ends_at &&
+        new Date(refreshedActiveVoteSession.turn_ends_at).getTime() <= Date.now() &&
+        !refreshedLobby?.selected_map
+      ) {
+        await syncMapVoteSession(refreshedActiveVoteSession.id);
         refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
       }
 
@@ -774,6 +788,45 @@ export function CustomLobbyView({
     activeLobby?.selected_map,
     activeVoteSession,
     isLeader,
+    clockTick,
+  ]);
+
+  useEffect(() => {
+    if (
+      !activeVoteSession?.id ||
+      activeVoteSession.status !== "active" ||
+      !activeVoteSession.turn_ends_at ||
+      !!activeLobby?.selected_map
+    ) {
+      mapVoteSyncRef.current = null;
+      return;
+    }
+
+    const countdownKey = `${activeVoteSession.id}:${activeVoteSession.round_number}:${activeVoteSession.turn_ends_at}`;
+    if (new Date(activeVoteSession.turn_ends_at).getTime() > clockTick) {
+      mapVoteSyncRef.current = null;
+      return;
+    }
+
+    if (mapVoteSyncRef.current === countdownKey) {
+      return;
+    }
+
+    mapVoteSyncRef.current = countdownKey;
+    void (async () => {
+      try {
+        await syncMapVoteSession(activeVoteSession.id);
+        await loadState({ silent: true });
+      } catch (error) {
+        console.error("Failed to sync active map vote session:", error);
+      }
+    })();
+  }, [
+    activeLobby?.selected_map,
+    activeVoteSession?.id,
+    activeVoteSession?.round_number,
+    activeVoteSession?.status,
+    activeVoteSession?.turn_ends_at,
     clockTick,
   ]);
 
