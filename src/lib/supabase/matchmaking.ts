@@ -61,6 +61,7 @@ export interface MapVoteSession {
   status: "active" | "completed" | "cancelled";
   round_number: number;
   last_vetoed_map?: string | null;
+  updated_at?: string | null;
   map_votes?: MapVote[];
 }
 
@@ -269,7 +270,7 @@ const ACTIVE_LOBBY_SELECT = `
   created_at,
   lobby_members(user_id, team_side, is_ready, joined_at, left_at, kicked_at, profiles:user_id(username,email,avatar_url)),
   lobby_messages(id, user_id, message, created_at, profiles:user_id(username)),
-  map_vote_sessions(id, lobby_id, active_team, turn_ends_at, turn_seconds, remaining_maps, status, round_number, last_vetoed_map, map_votes(user_id, map_code, updated_at))
+  map_vote_sessions(id, lobby_id, active_team, turn_ends_at, turn_seconds, remaining_maps, status, round_number, last_vetoed_map, updated_at, map_votes(user_id, map_code, updated_at))
 `;
 
 async function fetchPublicProfileBasics(userIds: string[]) {
@@ -437,28 +438,41 @@ export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {
     .is("left_at", null)
     .is("kicked_at", null)
     .eq("lobbies.mode", mode)
-    .in("lobbies.status", ["open", "in_progress"])
-    .limit(1);
+    .in("lobbies.status", ["open", "in_progress"]);
 
   if (error) {
     throw error;
   }
 
-  const rawLobby = (data?.[0] as { lobbies?: MatchmakingLobby | MatchmakingLobby[] } | undefined)?.lobbies;
-  if (Array.isArray(rawLobby)) {
-    const lobby = rawLobby[0] || null;
-    const profilesById = await fetchPublicProfileBasics([
-      ...(lobby?.lobby_members || []).map((member) => member.user_id),
-      ...(lobby?.lobby_messages || []).map((message) => message.user_id),
-    ]);
-    return enrichLobbyProfiles(lobby, profilesById);
-  }
+  const lobbies = ((data || []) as Array<{ lobbies?: MatchmakingLobby | MatchmakingLobby[] }>)
+    .flatMap((row) => {
+      if (Array.isArray(row.lobbies)) {
+        return row.lobbies;
+      }
+      return row.lobbies ? [row.lobbies] : [];
+    })
+    .sort((a, b) => {
+      const aStatusWeight = a.status === "in_progress" ? 1 : 0;
+      const bStatusWeight = b.status === "in_progress" ? 1 : 0;
+      if (aStatusWeight !== bStatusWeight) {
+        return bStatusWeight - aStatusWeight;
+      }
 
+      const aCreatedAt = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bCreatedAt = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (aCreatedAt !== bCreatedAt) {
+        return bCreatedAt - aCreatedAt;
+      }
+
+      return b.id.localeCompare(a.id);
+    });
+
+  const rawLobby = lobbies[0] || null;
   const profilesById = await fetchPublicProfileBasics([
     ...(rawLobby?.lobby_members || []).map((member) => member.user_id),
     ...(rawLobby?.lobby_messages || []).map((message) => message.user_id),
   ]);
-  return enrichLobbyProfiles(rawLobby || null, profilesById);
+  return enrichLobbyProfiles(rawLobby, profilesById);
 }
 
 export async function fetchMyActiveMatch(lobbyId: string) {

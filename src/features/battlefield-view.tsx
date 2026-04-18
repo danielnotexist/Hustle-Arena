@@ -99,11 +99,31 @@ const getActiveMembers = (lobby: MatchmakingLobby | null) =>
     });
 
 const getLobbyVoteSessions = (lobby: MatchmakingLobby | null) =>
-  Array.isArray(lobby?.map_vote_sessions)
-    ? lobby.map_vote_sessions
-    : lobby?.map_vote_sessions
-      ? [lobby.map_vote_sessions]
-      : [];
+  (
+    Array.isArray(lobby?.map_vote_sessions)
+      ? lobby.map_vote_sessions
+      : lobby?.map_vote_sessions
+        ? [lobby.map_vote_sessions]
+        : []
+  ).slice().sort((a, b) => {
+    const aActive = a.status === "active" ? 1 : 0;
+    const bActive = b.status === "active" ? 1 : 0;
+    if (aActive !== bActive) {
+      return bActive - aActive;
+    }
+
+    const aUpdatedAt = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+    const bUpdatedAt = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+    if (aUpdatedAt !== bUpdatedAt) {
+      return bUpdatedAt - aUpdatedAt;
+    }
+
+    if (a.round_number !== b.round_number) {
+      return b.round_number - a.round_number;
+    }
+
+    return b.id.localeCompare(a.id);
+  });
 
 const getCountdown = (turnEndsAt: string | null | undefined, nowMs = Date.now()) => {
   if (!turnEndsAt) return "00:00";
@@ -469,45 +489,11 @@ export function CustomLobbyView({
         fetchMyActiveLobby(user.id, accountMode as LobbyMode),
         fetchRecentMatches(accountMode as LobbyMode),
       ]);
-      if (myLobby?.id && myLobby.leader_id === user.id) {
-        await syncLobbyAutoVeto(myLobby.id);
-      }
-      const myLobbyVoteSession =
-        getLobbyVoteSessions(myLobby).find((session) => session.status === "active") || null;
-      if (myLobbyVoteSession?.id) {
-        await syncMapVoteSession(myLobbyVoteSession.id);
-      }
-      let refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
-      const refreshedVoteSessions = getLobbyVoteSessions(refreshedLobby);
-      const refreshedActiveVoteSession =
-        refreshedVoteSessions.find((session) => session.status === "active") || null;
 
-      if (
-        refreshedLobby?.id &&
-        refreshedLobby.leader_id === user.id &&
-        refreshedLobby.auto_veto_starts_at &&
-        new Date(refreshedLobby.auto_veto_starts_at).getTime() <= Date.now() &&
-        !refreshedLobby.selected_map &&
-        !refreshedVoteSessions.some((session) => session.status === "active")
-      ) {
-        await syncLobbyAutoVeto(refreshedLobby.id);
-        refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
-      }
-
-      if (
-        refreshedActiveVoteSession?.id &&
-        refreshedActiveVoteSession.turn_ends_at &&
-        new Date(refreshedActiveVoteSession.turn_ends_at).getTime() <= Date.now() &&
-        !refreshedLobby?.selected_map
-      ) {
-        await syncMapVoteSession(refreshedActiveVoteSession.id);
-        refreshedLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
-      }
-
-      setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== refreshedLobby?.id));
-      setActiveLobby(refreshedLobby);
+      setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== myLobby?.id));
+      setActiveLobby(myLobby);
       setRecentMatches(matches);
-      setActiveMatch(refreshedLobby ? await fetchMyActiveMatch(refreshedLobby.id) : null);
+      setActiveMatch(myLobby ? await fetchMyActiveMatch(myLobby.id) : null);
     } catch (error) {
       console.error("Failed to load lobby state:", error);
       if (!silent) {
@@ -1068,10 +1054,19 @@ export function CustomLobbyView({
     if (!activeLobby) return;
     try {
       await leaveMatchmakingLobby(activeLobby.id);
+      setActiveLobby(null);
+      setActiveMatch(null);
+      setChatDraft("");
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(QUICK_QUEUE_STATE_STORAGE_KEY);
+        if (user?.id) {
+          window.localStorage.removeItem(getSquadHubLobbyCacheKey(user.id, accountMode));
+          window.localStorage.removeItem(getSquadHubMatchCacheKey(user.id, accountMode));
+        }
       }
-      await loadState();
+      addToast("Left lobby.", "success");
+      await loadState({ silent: true });
+      setClockTick(Date.now());
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to leave lobby.", "error");
