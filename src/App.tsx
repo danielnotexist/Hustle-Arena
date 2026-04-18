@@ -145,6 +145,7 @@ export default function App() {
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
   );
+  const [sessionRecoveryAction, setSessionRecoveryAction] = useState<"retry" | "logout" | null>(null);
   const {
     authProvider,
     isLoggedIn,
@@ -584,6 +585,68 @@ export default function App() {
     }
   };
 
+  const handleSessionRecoveryRetry = async () => {
+    setSessionRecoveryAction("retry");
+    try {
+      if (shouldUseSupabase) {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) {
+          throw error;
+        }
+        setHasSupabaseSession(!!data.session?.user);
+      }
+
+      await refreshSession();
+
+      if (shouldUseSupabase) {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          throw error;
+        }
+        setHasSupabaseSession(!!data.session?.user);
+        if (!data.session?.user) {
+          setView("landing");
+        }
+      }
+    } catch (error: any) {
+      console.error("Session recovery retry failed:", error);
+      addToast(error?.message || "Failed to restore the session.", "error");
+    } finally {
+      setSessionRecoveryAction(null);
+    }
+  };
+
+  const handleSessionRecoveryLogout = async () => {
+    setSessionRecoveryAction("logout");
+    try {
+      if (shouldUseSupabase) {
+        const { error } = await supabase.auth.signOut({ scope: "local" });
+        if (error) {
+          console.error("Session recovery sign-out warning:", error);
+        }
+      } else {
+        await signOut(auth);
+      }
+    } catch (error) {
+      console.error("Session recovery logout failed:", error);
+    } finally {
+      setHasSupabaseSession(false);
+      setAuthBootstrapComplete(true);
+      setPublicProfileState(null);
+      setProfileInitialTab("overview");
+      setNotificationsOpen(false);
+      setReconnectMatch(null);
+      setGlobalPartyInvites([]);
+      setGlobalPartyInviteProfiles({});
+      setGlobalOnlineUserIds([]);
+      setSocialFocusFriendId(null);
+      setView("landing");
+      setActiveTab(DASHBOARD_TAB);
+      setSessionRecoveryAction(null);
+      addToast("Signed out. Please sign in again.", "info");
+    }
+  };
+
   const openPublicProfilePage = async (userId: string) => {
     try {
       const profile = await fetchPublicProfileDetails(userId);
@@ -799,17 +862,19 @@ export default function App() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
-                onClick={() => void refreshSession()}
-                className="esport-btn-primary min-w-[220px] py-3"
+                onClick={() => void handleSessionRecoveryRetry()}
+                disabled={sessionRecoveryAction !== null}
+                className="esport-btn-primary min-w-[220px] py-3 disabled:opacity-60"
               >
-                Retry Session Restore
+                {sessionRecoveryAction === "retry" ? "Retrying..." : "Retry Session Restore"}
               </button>
               <button
                 type="button"
-                onClick={() => void handleLogout()}
-                className="esport-btn-secondary min-w-[220px] py-3 border-amber-300/25 text-amber-200 hover:bg-amber-400/10"
+                onClick={() => void handleSessionRecoveryLogout()}
+                disabled={sessionRecoveryAction !== null}
+                className="esport-btn-secondary min-w-[220px] py-3 border-amber-300/25 text-amber-200 hover:bg-amber-400/10 disabled:opacity-60"
               >
-                Sign Out Cleanly
+                {sessionRecoveryAction === "logout" ? "Signing Out..." : "Sign Out Cleanly"}
               </button>
             </div>
           </div>
