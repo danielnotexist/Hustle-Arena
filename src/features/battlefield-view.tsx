@@ -68,6 +68,10 @@ const MAP_BACKGROUNDS: Record<string, string> = {
 const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
 const SQUAD_HUB_CACHE_PREFIX = "hustle_arena_squad_hub";
 const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
+const ACTIVE_LOBBY_POLL_MS = 2000;
+const IDLE_LOBBY_POLL_MS = 8000;
+const BROWSER_DATA_POLL_MS = 20000;
+const OPEN_LOBBY_BROWSER_LIMIT = 50;
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
@@ -470,6 +474,8 @@ export function CustomLobbyView({
   const redirectedLobbyIdRef = useRef<string | null>(null);
   const autoVetoSyncRef = useRef<string | null>(null);
   const mapVoteSyncRef = useRef<string | null>(null);
+  const activeStateSyncRef = useRef(false);
+  const browserStateSyncRef = useRef(false);
   const [formState, setFormState] = useState({
     name: "",
     stakeAmount: "5",
@@ -485,7 +491,7 @@ export function CustomLobbyView({
     }
     try {
       const [browserLobbies, myLobby, matches] = await Promise.all([
-        fetchOpenMatchmakingLobbies(accountMode as LobbyMode),
+        fetchOpenMatchmakingLobbies(accountMode as LobbyMode, OPEN_LOBBY_BROWSER_LIMIT),
         fetchMyActiveLobby(user.id, accountMode as LobbyMode),
         fetchRecentMatches(accountMode as LobbyMode),
       ]);
@@ -504,6 +510,48 @@ export function CustomLobbyView({
         setLoading(false);
       }
       setLoadedOnce(true);
+    }
+  };
+
+  const loadActiveLobbyState = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!isSupabaseConfigured() || !user?.id) return;
+    if (!silent) {
+      setLoading(true);
+    }
+    try {
+      const myLobby = await fetchMyActiveLobby(user.id, accountMode as LobbyMode);
+      setActiveLobby(myLobby);
+      setActiveMatch(myLobby ? await fetchMyActiveMatch(myLobby.id) : null);
+      return myLobby;
+    } catch (error) {
+      console.error("Failed to refresh active lobby state:", error);
+      if (!silent) {
+        addToast("Failed to refresh active lobby.", "error");
+      }
+      return null;
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+      setLoadedOnce(true);
+    }
+  };
+
+  const loadBrowserData = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!isSupabaseConfigured() || !user?.id) return;
+    try {
+      const [browserLobbies, matches] = await Promise.all([
+        fetchOpenMatchmakingLobbies(accountMode as LobbyMode, OPEN_LOBBY_BROWSER_LIMIT),
+        fetchRecentMatches(accountMode as LobbyMode),
+      ]);
+
+      setOpenLobbies(browserLobbies.filter((lobby) => lobby.id !== activeLobby?.id));
+      setRecentMatches(matches);
+    } catch (error) {
+      console.error("Failed to refresh browser data:", error);
+      if (!silent) {
+        addToast("Failed to refresh lobby browser.", "error");
+      }
     }
   };
 
@@ -575,11 +623,46 @@ export function CustomLobbyView({
   }, [user?.id, accountMode]);
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const pollMs = activeLobby || activeMatch || showJoiningLobbyState
+      ? ACTIVE_LOBBY_POLL_MS
+      : IDLE_LOBBY_POLL_MS;
+
     const interval = window.setInterval(() => {
-      void loadState({ silent: true });
-    }, 1000);
+      if (activeStateSyncRef.current) {
+        return;
+      }
+
+      activeStateSyncRef.current = true;
+      void loadActiveLobbyState({ silent: true }).finally(() => {
+        activeStateSyncRef.current = false;
+      });
+    }, pollMs);
+
     return () => window.clearInterval(interval);
-  }, [user?.id, accountMode]);
+  }, [user?.id, accountMode, activeLobby?.id, activeMatch?.id, showJoiningLobbyState]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      if (browserStateSyncRef.current) {
+        return;
+      }
+
+      browserStateSyncRef.current = true;
+      void loadBrowserData({ silent: true }).finally(() => {
+        browserStateSyncRef.current = false;
+      });
+    }, BROWSER_DATA_POLL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [user?.id, accountMode, activeLobby?.id]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

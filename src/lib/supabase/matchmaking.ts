@@ -406,14 +406,15 @@ export async function joinMatchmakingLobby(lobbyId: string, password?: string | 
   }
 }
 
-export async function fetchOpenMatchmakingLobbies(mode: LobbyMode) {
+export async function fetchOpenMatchmakingLobbies(mode: LobbyMode, limit = 50) {
   const { data, error } = await supabase
     .from("lobbies")
     .select(OPEN_LOBBY_SELECT)
     .eq("mode", mode)
     .eq("kind", "custom")
     .eq("status", "open")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) {
     throw error;
