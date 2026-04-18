@@ -1,29 +1,5 @@
--- 20260418_0056_demo_match_scores_and_stats_fix.sql
--- Make demo match completion write canonical scores, settle both sides correctly,
--- and update profile progression from real completed match history.
-
-alter table public.matches
-  add column if not exists winning_side public.ha_team_side;
-
-alter table public.matches
-  add column if not exists score_t integer;
-
-alter table public.matches
-  add column if not exists score_ct integer;
-
-alter table public.matches
-  drop constraint if exists matches_score_t_nonnegative;
-
-alter table public.matches
-  add constraint matches_score_t_nonnegative
-  check (score_t is null or score_t >= 0);
-
-alter table public.matches
-  drop constraint if exists matches_score_ct_nonnegative;
-
-alter table public.matches
-  add constraint matches_score_ct_nonnegative
-  check (score_ct is null or score_ct >= 0);
+-- 20260418_0057_fix_demo_match_completion_format_strings.sql
+-- Fix Postgres format() usage in demo match completion notifications.
 
 create or replace function public.complete_demo_match_for_testing(
   p_match_id uuid,
