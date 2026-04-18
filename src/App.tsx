@@ -248,6 +248,8 @@ export default function App() {
 
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
+  const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
+  const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
 
   useEffect(() => {
     if (user) {
@@ -755,12 +757,63 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-esport-bg text-white font-sans">
-      {!authBootstrapComplete ? (
-        <div className="min-h-screen" />
-      ) : shouldUseSupabase && hasSupabaseSession === null ? (
-        <div className="min-h-screen" />
-      ) : shouldUseSupabase && hasSupabaseSession === true && !user ? (
-        <div className="min-h-screen" />
+      {showAuthBootstrapScreen ? (
+        <div className="min-h-screen flex items-center justify-center px-6">
+          <div className="w-full max-w-xl rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.14),transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] p-10 text-center shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
+            <img
+              src={hustleArenaLogo}
+              alt="Hustle Arena"
+              className="mx-auto h-20 w-20 rounded-3xl object-cover shadow-[0_12px_40px_rgba(59,130,246,0.15)]"
+            />
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+              <Bell size={14} />
+              Restoring Session
+            </div>
+            <h2 className="mt-6 text-3xl font-display font-bold uppercase tracking-wide text-white">
+              Reconnecting You To The Arena
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-esport-text-muted">
+              Your profile, wallet, and active arena state are loading now.
+            </p>
+          </div>
+        </div>
+      ) : showSessionRecoveryScreen ? (
+        <div className="min-h-screen flex items-center justify-center px-6">
+          <div className="w-full max-w-2xl rounded-[32px] border border-amber-300/25 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.12),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.97),rgba(2,6,23,0.99))] p-10 text-center shadow-[0_30px_120px_rgba(0,0,0,0.48)]">
+            <img
+              src={hustleArenaLogo}
+              alt="Hustle Arena"
+              className="mx-auto h-20 w-20 rounded-3xl object-cover shadow-[0_12px_40px_rgba(251,191,36,0.12)]"
+            />
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-amber-200">
+              <AlertCircle size={14} />
+              Session Recovery
+            </div>
+            <h2 className="mt-6 text-3xl font-display font-bold uppercase tracking-wide text-white">
+              We Found Your Login But Couldn&apos;t Rebuild Your Arena Session
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-esport-text-muted">
+              This usually means the browser still has an auth session, but the profile or wallet bootstrap request failed.
+              You can retry once, or sign out cleanly and sign back in.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => void refreshSession()}
+                className="esport-btn-primary min-w-[220px] py-3"
+              >
+                Retry Session Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                className="esport-btn-secondary min-w-[220px] py-3 border-amber-300/25 text-amber-200 hover:bg-amber-400/10"
+              >
+                Sign Out Cleanly
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
       view === "landing" ? (
         <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
