@@ -1587,13 +1587,15 @@ export function CustomLobbyView({
                     Final score {matchResultPopup.scoreFor} - {matchResultPopup.scoreAgainst}
                   </p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setMatchResultPopup(null)}
-                  className="mt-6 esport-btn-primary px-8 py-2.5"
-                >
-                  Continue
-                </button>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setMatchResultPopup(null)}
+                    className="esport-btn-primary px-8 py-2.5"
+                  >
+                    Continue
+                  </button>
+                </div>
               </motion.div>
             </motion.div>
           )}
