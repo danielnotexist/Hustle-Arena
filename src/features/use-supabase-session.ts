@@ -14,6 +14,24 @@ import {
 import type { AccountMode, PlatformSessionState, ProfileData, WalletSnapshot, UserStats } from "./types";
 import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./use-legacy-firebase-session";
 
+const SESSION_REQUEST_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: number | null = null;
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  }) as Promise<T>;
+}
+
 export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -32,7 +50,11 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await withTimeout(
+        supabase.auth.getSession(),
+        SESSION_REQUEST_TIMEOUT_MS,
+        "Timed out while reading the current auth session."
+      );
       session = sessionData.session;
     } catch (error) {
       if (isSupabaseAbortError(error)) {
@@ -57,9 +79,15 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
     try {
       const userId = session.user.id;
-      const myProfile = await fetchMyProfile();
-      const fullProfile = myProfile ? await fetchExtendedProfile(userId) : await fetchExtendedProfile(userId);
-      const walletRow = await fetchWallet(userId);
+      const [myProfile, fullProfile, walletRow] = await withTimeout(
+        Promise.all([
+          fetchMyProfile(),
+          fetchExtendedProfile(userId),
+          fetchWallet(userId),
+        ]),
+        SESSION_REQUEST_TIMEOUT_MS,
+        "Timed out while rebuilding the arena session."
+      );
 
       if (isCancelled) {
         return;
@@ -143,7 +171,11 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     switchAccountMode,
     topUpDemoBalance,
     refreshSession: async () => {
-      await hydrateSession();
+      await withTimeout(
+        hydrateSession(),
+        SESSION_REQUEST_TIMEOUT_MS + 1000,
+        "Timed out while refreshing the arena session."
+      );
     },
   };
 }
