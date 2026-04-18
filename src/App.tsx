@@ -1078,16 +1078,42 @@ export default function App() {
               <div className="flex items-center gap-8">
                 <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
                 <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
+                  <input
+                    type="text"
+                    name="fake-username"
+                    autoComplete="username"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute h-0 w-0 opacity-0"
+                  />
+                  <input
+                    type="password"
+                    name="fake-password"
+                    autoComplete="current-password"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute h-0 w-0 opacity-0"
+                  />
                   <Search size={16} className="text-esport-text-muted group-focus-within:text-esport-accent" />
                   <input
                     type="search"
-                    name="site-search"
+                    id="global-arena-search"
+                    name="arena-query"
+                    aria-label="Search tournaments and players"
                     placeholder="Search tournaments, players..."
-                    autoComplete="off"
+                    autoComplete="new-password"
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
                     enterKeyHint="search"
+                    data-form-type="other"
+                    readOnly
+                    onFocus={(event) => {
+                      event.currentTarget.removeAttribute("readonly");
+                    }}
+                    onPointerDown={(event) => {
+                      event.currentTarget.removeAttribute("readonly");
+                    }}
                     className="bg-transparent border-none outline-none text-sm w-64"
                   />
                 </div>
