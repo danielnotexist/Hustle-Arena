@@ -779,6 +779,7 @@ export default function App() {
       await respondQuickQueuePartyInvite(inviteId, action);
       setGlobalPartyInvites((current) => current.filter((invite) => invite.id !== inviteId));
       setPublicProfileState(null);
+      setBattlefieldPartySyncNonce((current) => current + 1);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
       addToast(action === "accept" ? "Party invite accepted." : "Party invite declined.", action === "accept" ? "success" : "info");
@@ -838,6 +839,7 @@ export default function App() {
       notice.notice_type === "party_invite_removed"
     ) {
       setPublicProfileState(null);
+      setBattlefieldPartySyncNonce((current) => current + 1);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
     } else if (notice.notice_type === "lobby_closed_by_leader") {
