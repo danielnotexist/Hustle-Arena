@@ -615,15 +615,11 @@ export function BattlefieldView({
   useEffect(() => {
     if (!user?.id) {
       setPartyInvites([]);
-      setPartyInvites([]);
       return;
     }
 
     void syncPartyInvitesSnapshot();
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void syncPartyInvitesSnapshot();
     }, isDocumentVisible() ? PARTY_SYNC_POLL_MS : PARTY_SYNC_HIDDEN_POLL_MS);
 
@@ -641,9 +637,6 @@ export function BattlefieldView({
 
     void syncPartyStakeUpdatesSnapshot();
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void syncPartyStakeUpdatesSnapshot();
     }, isDocumentVisible() ? PARTY_SYNC_POLL_MS : PARTY_SYNC_HIDDEN_POLL_MS);
 
@@ -692,9 +685,6 @@ export function BattlefieldView({
 
     void loadPartyStakeCap();
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void loadPartyStakeCap();
     }, isDocumentVisible() ? PARTY_STAKE_CAP_POLL_MS : PARTY_STAKE_CAP_HIDDEN_POLL_MS);
 
@@ -811,9 +801,6 @@ export function BattlefieldView({
     const requestVersion = queueRequestVersionRef.current;
     void syncQueueStateSnapshot(requestVersion);
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void syncQueueStateSnapshot(requestVersion);
     }, isDocumentVisible() ? QUEUE_SYNC_POLL_MS : QUEUE_SYNC_HIDDEN_POLL_MS);
 
@@ -861,9 +848,6 @@ export function BattlefieldView({
 
     void validateConnectedLobby();
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void validateConnectedLobby();
     }, isDocumentVisible() ? CONNECTED_LOBBY_VALIDATE_POLL_MS : CONNECTED_LOBBY_VALIDATE_HIDDEN_POLL_MS);
 
@@ -1067,6 +1051,26 @@ export function BattlefieldView({
       online_at: new Date().toISOString(),
     });
   }, [selectedStakeAmount, user?.id, user?.username, user?.email, user?.avatarUrl]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const handleVisibilityOrFocus = () => {
+      void syncPartyInvitesSnapshot();
+      void syncPartyStakeUpdatesSnapshot();
+      void syncQueueStateSnapshot();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [user?.id, accountMode, queueMode, matchType, selectedStakeAmount, partyStakeUpdateBackendMissing]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -1574,9 +1578,6 @@ export function BattlefieldView({
 
     void poll();
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       void poll();
     }, isDocumentVisible() ? SEARCH_MATCH_POLL_MS : SEARCH_MATCH_HIDDEN_POLL_MS);
     pollingRef.current = interval;
