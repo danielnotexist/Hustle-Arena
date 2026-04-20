@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, Lock, MessageSquare, Search, Server, ShieldAlert, Sparkles, Sword, Target, Users, X } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseTransientNetworkError, supabase } from "../lib/supabase";
 import {
   fetchMyActiveLobbySummary,
@@ -176,6 +176,35 @@ export function BattlefieldView({
   const unsupportedQueueModeToastRef = useRef<string | null>(null);
   const restoredQuickQueueStateRef = useRef(false);
   const presenceChannelSubscribedRef = useRef(false);
+  const normalizedPartyInvites = useMemo(() => {
+    const latestByPair = new Map<string, QuickQueuePartyInvite>();
+    const toTimestamp = (value: string | null | undefined) => {
+      const timestamp = value ? new Date(value).getTime() : 0;
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    };
+
+    partyInvites.forEach((invite) => {
+      const key = `${invite.host_user_id}:${invite.invitee_user_id}`;
+      const current = latestByPair.get(key);
+      if (!current) {
+        latestByPair.set(key, invite);
+        return;
+      }
+
+      const currentUpdatedAt = Math.max(toTimestamp(current.updated_at), toTimestamp(current.responded_at));
+      const nextUpdatedAt = Math.max(toTimestamp(invite.updated_at), toTimestamp(invite.responded_at));
+
+      if (nextUpdatedAt >= currentUpdatedAt) {
+        latestByPair.set(key, invite);
+      }
+    });
+
+    return Array.from(latestByPair.values()).sort((a, b) => {
+      const aTime = Math.max(toTimestamp(a.updated_at), toTimestamp(a.responded_at));
+      const bTime = Math.max(toTimestamp(b.updated_at), toTimestamp(b.responded_at));
+      return bTime - aTime;
+    });
+  }, [partyInvites]);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -183,7 +212,7 @@ export function BattlefieldView({
   const maxPartyMembers = selectedTeamSize - 1;
   const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
   const hasCurrentUserAccepted = !!user?.id && acceptedUserIds.includes(user.id);
-  const currentConfigPartyInvites = partyInvites.filter(
+  const currentConfigPartyInvites = normalizedPartyInvites.filter(
     (invite) =>
       invite.host_user_id === user?.id &&
       invite.mode === accountMode &&
@@ -194,7 +223,7 @@ export function BattlefieldView({
       invite.status !== "expired"
   );
   const acceptedIncomingPartyInvite =
-    partyInvites.find(
+    normalizedPartyInvites.find(
       (invite) =>
         invite.invitee_user_id === user?.id &&
         invite.status === "accepted" &&
@@ -287,7 +316,7 @@ export function BattlefieldView({
     ? Math.max(Number(partyStakeCap ?? currentUserStakeBalance), 0)
     : currentUserStakeBalance;
   const partyVisibleMemberIds = new Set(visiblePartyMembers.map((member) => member.id));
-  const pendingIncomingPartyInvites = partyInvites.filter(
+  const pendingIncomingPartyInvites = normalizedPartyInvites.filter(
     (invite) => invite.invitee_user_id === user?.id && invite.status === "pending"
   );
   const sortedFriendsList = friendsList
@@ -621,7 +650,7 @@ export function BattlefieldView({
   useEffect(() => {
     const profileIds: string[] = Array.from(
       new Set(
-        partyInvites.flatMap((invite) => [invite.host_user_id, invite.invitee_user_id]).filter((id) => id !== user?.id)
+        normalizedPartyInvites.flatMap((invite) => [invite.host_user_id, invite.invitee_user_id]).filter((id) => id !== user?.id)
       )
     );
 
@@ -650,7 +679,7 @@ export function BattlefieldView({
     };
 
     void loadPartyInviteProfiles();
-  }, [partyInvites, user?.id]);
+  }, [normalizedPartyInvites, user?.id]);
 
   useEffect(() => {
     if (!acceptedIncomingPartyInvite) {
@@ -676,7 +705,7 @@ export function BattlefieldView({
   }, [isInvitePanelOpen]);
 
   useEffect(() => {
-    const hostOwnedInvites = partyInvites.filter((invite) => invite.host_user_id === user?.id);
+    const hostOwnedInvites = normalizedPartyInvites.filter((invite) => invite.host_user_id === user?.id);
     const previous = seenPartyInviteStatusesRef.current;
 
     hostOwnedInvites.forEach((invite) => {
@@ -688,7 +717,7 @@ export function BattlefieldView({
       }
       previous[invite.id] = invite.status;
     });
-  }, [addToast, partyInviteProfiles, partyInvites, user?.id]);
+  }, [addToast, normalizedPartyInvites, partyInviteProfiles, user?.id]);
 
   useEffect(() => {
     if (!user?.id || matchState === "connecting") {
