@@ -1076,7 +1076,7 @@ export function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [], focusFriendId = null, onFocusFriendHandled }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, onSearchPublicProfileByUsername, refreshKey = 0, onlineUserIds = [], focusFriendId = null, onFocusFriendHandled }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null; lastActiveAt: string | null }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
@@ -1124,6 +1124,32 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     } catch (error) {
       console.error('Failed to open public profile:', error);
       addToast('Failed to open profile.', 'error');
+    }
+  };
+
+  const openProfileByUsername = async () => {
+    const username = addFriendUsername.trim();
+    if (!username) {
+      addToast("Enter an exact username first.", "error");
+      return;
+    }
+
+    try {
+      if (typeof onSearchPublicProfileByUsername === "function") {
+        await onSearchPublicProfileByUsername(username);
+        return;
+      }
+
+      const target = await findPublicProfileByUsername(username);
+      if (!target?.id) {
+        addToast("Player not found", "error");
+        return;
+      }
+
+      await openFriendProfile(target.id);
+    } catch (error) {
+      console.error("Failed to open public profile by username:", error);
+      addToast("Failed to open profile.", "error");
     }
   };
 
@@ -1793,6 +1819,12 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                 placeholder="Enter exact username"
                 className="h-12 flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition-colors placeholder:text-esport-text-muted focus:border-esport-accent/50"
               />
+              <button
+                onClick={() => openProfileByUsername().catch((err) => console.error(err))}
+                className="h-12 rounded-xl border border-white/10 bg-white/[0.06] px-5 text-sm font-bold text-white transition-colors hover:bg-white/[0.1]"
+              >
+                View Profile
+              </button>
               <button onClick={() => sendFriendRequest().catch((err) => console.error(err))} className="h-12 rounded-xl bg-esport-accent px-5 text-sm font-bold text-white shadow-[0_0_20px_rgba(59,130,246,0.28)] transition-transform hover:scale-[1.01]">
                 Send Request
               </button>
