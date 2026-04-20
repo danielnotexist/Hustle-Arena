@@ -44,3 +44,16 @@ export function isSupabaseTransientNetworkError(error: unknown) {
     code === '502'
   );
 }
+
+export function isSupabaseMissingRowError(error: unknown) {
+  const code = String((error as { code?: string | number } | null)?.code || "");
+  const message = String((error as { message?: string } | null)?.message || "");
+  const details = String((error as { details?: string } | null)?.details || "");
+  const combined = `${message} ${details}`;
+
+  return (
+    code === "PGRST116" ||
+    combined.includes("JSON object requested, multiple (or no) rows returned") ||
+    combined.includes("The result contains 0 rows")
+  );
+}

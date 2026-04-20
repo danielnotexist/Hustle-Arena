@@ -151,6 +151,8 @@ export default function App() {
     isLoggedIn,
     isAdmin,
     user,
+    sessionStatus,
+    sessionError,
     stats,
     wallet,
     accountMode,
@@ -249,8 +251,11 @@ export default function App() {
 
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
-  const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
-  const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
+  const showAuthBootstrapScreen = shouldUseSupabase
+    ? !authBootstrapComplete || hasSupabaseSession === null || sessionStatus === "loading"
+    : !authBootstrapComplete;
+  const showSessionRecoveryScreen =
+    shouldUseSupabase && hasSupabaseSession === true && sessionStatus === "failed";
 
   useEffect(() => {
     if (user) {
@@ -268,6 +273,9 @@ export default function App() {
     }
 
     if (shouldUseSupabase) {
+      if (hasSupabaseSession === null || sessionStatus === "loading") {
+        return;
+      }
       if (hasSupabaseSession === false && !user) {
         previousUserIdRef.current = null;
         setView("landing");
@@ -279,7 +287,7 @@ export default function App() {
 
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession]);
+  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession, sessionStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -866,9 +874,14 @@ export default function App() {
               We Found Your Login But Couldn&apos;t Rebuild Your Arena Session
             </h2>
             <p className="mt-3 text-sm leading-6 text-esport-text-muted">
-              This usually means the browser still has an auth session, but the profile or wallet bootstrap request failed.
-              You can retry once, or sign out cleanly and sign back in.
+              We already tried to repair your platform profile and wallet bootstrap automatically, but the
+              session still could not be restored. You can retry once, or sign out cleanly and sign back in.
             </p>
+            {sessionError && (
+              <p className="mt-4 rounded-2xl border border-amber-300/15 bg-black/20 px-4 py-3 text-xs leading-5 text-amber-100/85">
+                Latest restore error: {sessionError}
+              </p>
+            )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
