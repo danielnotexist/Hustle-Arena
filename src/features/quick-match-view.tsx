@@ -116,6 +116,7 @@ export function BattlefieldView({
   user,
   accountMode,
   visibleBalance,
+  partySyncNonce = 0,
   onOpenDirectMessage,
   onMatchReady,
 }: {
@@ -124,6 +125,7 @@ export function BattlefieldView({
   user: any;
   accountMode: AccountMode;
   visibleBalance: number;
+  partySyncNonce?: number;
   onOpenDirectMessage?: (friendId: string) => void;
   refreshSession?: () => Promise<void>;
   onMatchReady?: () => void;
@@ -1071,6 +1073,16 @@ export function BattlefieldView({
       window.removeEventListener("focus", handleVisibilityOrFocus);
     };
   }, [user?.id, accountMode, queueMode, matchType, selectedStakeAmount, partyStakeUpdateBackendMissing]);
+
+  useEffect(() => {
+    if (!user?.id || partySyncNonce <= 0) {
+      return;
+    }
+
+    void syncPartyInvitesSnapshot();
+    void syncPartyStakeUpdatesSnapshot();
+    void syncQueueStateSnapshot();
+  }, [partySyncNonce, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {

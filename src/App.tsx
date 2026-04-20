@@ -140,6 +140,7 @@ export default function App() {
   const [globalPartyInviteActionId, setGlobalPartyInviteActionId] = useState<number | null>(null);
   const [globalOnlineUserIds, setGlobalOnlineUserIds] = useState<string[]>([]);
   const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
+  const [battlefieldPartySyncNonce, setBattlefieldPartySyncNonce] = useState(0);
   const [socialFocusFriendId, setSocialFocusFriendId] = useState<string | null>(null);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
@@ -393,9 +394,18 @@ export default function App() {
           );
 
           if (seenNotificationIdsRef.current.size > 0) {
+            let shouldRefreshBattlefieldPartyState = false;
             newUnreadNotices.forEach((notice) => {
               if (notice.notice_type === "lobby_closed_by_leader") {
                 return;
+              }
+
+              if (
+                notice.notice_type === "party_invite" ||
+                notice.notice_type === "party_invite_response" ||
+                notice.notice_type === "party_invite_removed"
+              ) {
+                shouldRefreshBattlefieldPartyState = true;
               }
 
               if (notice.notice_type === "direct_message") {
@@ -409,6 +419,10 @@ export default function App() {
                 notice.notice_type === "party_invite_removed" ? "info" : "success"
               );
             });
+
+            if (shouldRefreshBattlefieldPartyState) {
+              setBattlefieldPartySyncNonce((current) => current + 1);
+            }
           }
 
           seenNotificationIdsRef.current = currentIds;
@@ -1317,6 +1331,7 @@ export default function App() {
                         user={user}
                         accountMode={accountMode}
                         visibleBalance={visibleBalance}
+                        partySyncNonce={battlefieldPartySyncNonce}
                         onOpenDirectMessage={openDirectMessageWithFriend}
                         refreshSession={refreshSession}
                         onMatchReady={() => {
