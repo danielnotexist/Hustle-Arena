@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   isSupabaseAbortError,
   isSupabaseMissingRowError,
@@ -78,6 +78,12 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
   const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [accountMode, setAccountMode] = useState<AccountMode>("live");
+  const hasActiveSessionRef = useRef(false);
+  const hydrateSessionInFlightRef = useRef<Promise<void> | null>(null);
+
+  useEffect(() => {
+    hasActiveSessionRef.current = Boolean(user);
+  }, [user]);
 
   const resetSessionData = () => {
     setIsLoggedIn(false);
@@ -166,66 +172,90 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     return withTransientRetry(() => loadPlatformAccount(userId));
   };
 
-  const hydrateSession = async (isCancelled?: () => boolean) => {
-    if (!enabled) {
-      setSessionStatus("ready");
-      setSessionError(null);
-      return;
+  const hydrateSession = (
+    isCancelled?: () => boolean,
+    options?: {
+      silent?: boolean;
+      session?: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null;
+    },
+  ) => {
+    if (hydrateSessionInFlightRef.current) {
+      return hydrateSessionInFlightRef.current;
     }
 
-    const cancelled = () => isCancelled?.() ?? false;
-    if (!cancelled()) {
-      setSessionStatus("loading");
-      setSessionError(null);
-    }
-
-    let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
-
-    try {
-      const { data: sessionData } = await withTimeout(
-        supabase.auth.getSession(),
-        SESSION_REQUEST_TIMEOUT_MS,
-        "Timed out while reading the current auth session.",
-      );
-      session = sessionData.session;
-    } catch (error) {
-      if (isSupabaseAbortError(error)) {
-        return;
-      }
-      throw error;
-    }
-
-    if (!session?.user) {
-      if (!cancelled()) {
-        resetSessionData();
+    const hydrationPromise = (async () => {
+      if (!enabled) {
         setSessionStatus("ready");
         setSessionError(null);
-      }
-      return;
-    }
-
-    try {
-      const userId = session.user.id;
-      const { fullProfile, walletRow } = await loadOrRepairPlatformAccount(userId);
-
-      if (cancelled()) {
         return;
       }
 
-      applySessionData(fullProfile, walletRow);
-      setSessionStatus("ready");
-      setSessionError(null);
-    } catch (error) {
-      if (isSupabaseAbortError(error)) {
+      const cancelled = () => isCancelled?.() ?? false;
+      const shouldShowLoadingState = !options?.silent && !hasActiveSessionRef.current;
+
+      if (!cancelled() && shouldShowLoadingState) {
+        setSessionStatus("loading");
+        setSessionError(null);
+      }
+
+      let session = options?.session ?? null;
+
+      if (options?.session === undefined) {
+        try {
+          const { data: sessionData } = await withTimeout(
+            supabase.auth.getSession(),
+            SESSION_REQUEST_TIMEOUT_MS,
+            "Timed out while reading the current auth session.",
+          );
+          session = sessionData.session;
+        } catch (error) {
+          if (isSupabaseAbortError(error)) {
+            return;
+          }
+          throw error;
+        }
+      }
+
+      if (!session?.user) {
+        if (!cancelled()) {
+          resetSessionData();
+          setSessionStatus("ready");
+          setSessionError(null);
+        }
         return;
       }
-      console.error("Supabase session hydrate error:", error);
-      if (!cancelled()) {
-        resetSessionData();
-        setSessionStatus("failed");
-        setSessionError(formatSessionError(error));
+
+      try {
+        const userId = session.user.id;
+        const { fullProfile, walletRow } = await loadOrRepairPlatformAccount(userId);
+
+        if (cancelled()) {
+          return;
+        }
+
+        applySessionData(fullProfile, walletRow);
+        setSessionStatus("ready");
+        setSessionError(null);
+      } catch (error) {
+        if (isSupabaseAbortError(error)) {
+          return;
+        }
+        console.error("Supabase session hydrate error:", error);
+        if (!cancelled()) {
+          resetSessionData();
+          setSessionStatus("failed");
+          setSessionError(formatSessionError(error));
+        }
       }
-    }
+    })();
+
+    hydrateSessionInFlightRef.current = hydrationPromise.finally(() => {
+      if (hydrateSessionInFlightRef.current === hydrationPromise) {
+        hydrateSessionInFlightRef.current = null;
+      }
+    });
+
+    return hydrateSessionInFlightRef.current;
   };
 
   useEffect(() => {
@@ -239,8 +269,8 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
     void hydrateSession(() => isCancelled);
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
-      void hydrateSession(() => isCancelled);
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      void hydrateSession(() => isCancelled, { silent: true, session });
     });
 
     return () => {
@@ -269,7 +299,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     }
 
     await setDemoBalance(user.id, wallet.demoBalance + safeAmount);
-    await hydrateSession();
+    await hydrateSession(undefined, { silent: true });
   };
 
   return {
@@ -289,7 +319,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     topUpDemoBalance,
     refreshSession: async () => {
       await withTimeout(
-        hydrateSession(),
+        hydrateSession(undefined, { silent: false }),
         SESSION_REQUEST_TIMEOUT_MS + 1000,
         "Timed out while refreshing the arena session.",
       );
