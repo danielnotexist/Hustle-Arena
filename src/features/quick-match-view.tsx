@@ -31,6 +31,17 @@ import type { AccountMode } from "./types";
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
 const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
+const PARTY_SYNC_POLL_MS = 4000;
+const PARTY_SYNC_HIDDEN_POLL_MS = 15000;
+const PARTY_STAKE_CAP_POLL_MS = 10000;
+const PARTY_STAKE_CAP_HIDDEN_POLL_MS = 30000;
+const QUEUE_SYNC_POLL_MS = 2500;
+const QUEUE_SYNC_HIDDEN_POLL_MS = 10000;
+const CONNECTED_LOBBY_VALIDATE_POLL_MS = 5000;
+const CONNECTED_LOBBY_VALIDATE_HIDDEN_POLL_MS = 15000;
+const SEARCH_MATCH_POLL_MS = 1500;
+const SEARCH_MATCH_HIDDEN_POLL_MS = 6000;
+const isDocumentVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 type QuickMatchType = "ranked_5v5" | "ranked_2v2" | "ranked_team_ffa" | "ranked_ffa";
 
 const TEAM_SIZE_BY_MATCH_TYPE: Record<QuickMatchType, 2 | 5> = {
@@ -149,6 +160,11 @@ export function BattlefieldView({
   const [inviteSearchQuery, setInviteSearchQuery] = useState("");
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
+  const partySyncInFlightRef = useRef<Promise<void> | null>(null);
+  const partyStakeCapInFlightRef = useRef<Promise<void> | null>(null);
+  const queueSyncInFlightRef = useRef<Promise<void> | null>(null);
+  const connectedLobbyValidationInFlightRef = useRef<Promise<void> | null>(null);
+  const searchPollInFlightRef = useRef<Promise<void> | null>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
   const seenPartyInviteStatusesRef = useRef<Record<number, string>>({});
   const queueRequestVersionRef = useRef(0);
@@ -159,6 +175,7 @@ export function BattlefieldView({
   const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
   const unsupportedQueueModeToastRef = useRef<string | null>(null);
   const restoredQuickQueueStateRef = useRef(false);
+  const presenceChannelSubscribedRef = useRef(false);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -463,6 +480,11 @@ export function BattlefieldView({
     let cancelled = false;
 
     const loadPartyInvites = async () => {
+      if (partySyncInFlightRef.current) {
+        return partySyncInFlightRef.current;
+      }
+
+      const loadPromise = (async () => {
       try {
         const inviteRows = await fetchQuickQueuePartyInvites(user.id);
         if (!cancelled) {
@@ -496,12 +518,24 @@ export function BattlefieldView({
           console.error("Failed to load party stake updates:", error);
         }
       }
+      })();
+
+      partySyncInFlightRef.current = loadPromise.finally(() => {
+        if (partySyncInFlightRef.current === loadPromise) {
+          partySyncInFlightRef.current = null;
+        }
+      });
+
+      return partySyncInFlightRef.current;
     };
 
     void loadPartyInvites();
     const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
       void loadPartyInvites();
-    }, 1500);
+    }, isDocumentVisible() ? PARTY_SYNC_POLL_MS : PARTY_SYNC_HIDDEN_POLL_MS);
 
     return () => {
       cancelled = true;
@@ -518,6 +552,11 @@ export function BattlefieldView({
     let cancelled = false;
 
     const loadPartyStakeCap = async () => {
+      if (partyStakeCapInFlightRef.current) {
+        return partyStakeCapInFlightRef.current;
+      }
+
+      const loadPromise = (async () => {
       try {
         const cap = await fetchQuickQueuePartyStakeCap(accountMode, selectedTeamSize);
         if (!cancelled) {
@@ -531,12 +570,24 @@ export function BattlefieldView({
           }
         }
       }
+      })();
+
+      partyStakeCapInFlightRef.current = loadPromise.finally(() => {
+        if (partyStakeCapInFlightRef.current === loadPromise) {
+          partyStakeCapInFlightRef.current = null;
+        }
+      });
+
+      return partyStakeCapInFlightRef.current;
     };
 
     void loadPartyStakeCap();
     const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
       void loadPartyStakeCap();
-    }, 2500);
+    }, isDocumentVisible() ? PARTY_STAKE_CAP_POLL_MS : PARTY_STAKE_CAP_HIDDEN_POLL_MS);
 
     return () => {
       cancelled = true;
@@ -652,11 +703,16 @@ export function BattlefieldView({
     const requestVersion = queueRequestVersionRef.current;
 
     const syncQueueStateFromBackend = async () => {
-      try {
-        const status = await fetchMyQuickQueueStatus(accountMode);
-        if (!status) {
-          return;
-        }
+      if (queueSyncInFlightRef.current) {
+        return queueSyncInFlightRef.current;
+      }
+
+      const syncPromise = (async () => {
+        try {
+          const status = await fetchMyQuickQueueStatus(accountMode);
+          if (!status) {
+            return;
+          }
 
         const backendStakeAmount = Number(status.stake_amount || 0);
         const backendMatchType = backendStatusToMatchType(status.team_size, status.game_mode);
@@ -677,16 +733,28 @@ export function BattlefieldView({
             setQueueMode(backendQueueMode);
           }
           applyQueueStatus(status);
+          }
+        } catch (error) {
+          console.error("Failed to sync quick queue state from backend:", error);
         }
-      } catch (error) {
-        console.error("Failed to sync quick queue state from backend:", error);
-      }
+      })();
+
+      queueSyncInFlightRef.current = syncPromise.finally(() => {
+        if (queueSyncInFlightRef.current === syncPromise) {
+          queueSyncInFlightRef.current = null;
+        }
+      });
+
+      return queueSyncInFlightRef.current;
     };
 
     void syncQueueStateFromBackend();
     const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
       void syncQueueStateFromBackend();
-    }, 1000);
+    }, isDocumentVisible() ? QUEUE_SYNC_POLL_MS : QUEUE_SYNC_HIDDEN_POLL_MS);
 
     return () => {
       cancelled = true;
@@ -702,25 +770,42 @@ export function BattlefieldView({
     let cancelled = false;
 
     const validateConnectedLobby = async () => {
-      try {
-        const activeLobby = await fetchMyActiveLobbySummary(accountMode);
-        if (cancelled) {
-          return;
-        }
+      if (connectedLobbyValidationInFlightRef.current) {
+        return connectedLobbyValidationInFlightRef.current;
+      }
+
+      const validationPromise = (async () => {
+        try {
+          const activeLobby = await fetchMyActiveLobbySummary(accountMode);
+          if (cancelled) {
+            return;
+          }
 
         if (!activeLobby || (matchedLobbyId && activeLobby.id !== matchedLobbyId)) {
           resetQuickQueueState("idle");
           addToast("You are no longer in this lobby. You can return to matchmaking or start a new game.", "info");
+          }
+        } catch (error) {
+          console.error("Failed to validate connected lobby:", error);
         }
-      } catch (error) {
-        console.error("Failed to validate connected lobby:", error);
-      }
+      })();
+
+      connectedLobbyValidationInFlightRef.current = validationPromise.finally(() => {
+        if (connectedLobbyValidationInFlightRef.current === validationPromise) {
+          connectedLobbyValidationInFlightRef.current = null;
+        }
+      });
+
+      return connectedLobbyValidationInFlightRef.current;
     };
 
     void validateConnectedLobby();
     const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
       void validateConnectedLobby();
-    }, 2500);
+    }, isDocumentVisible() ? CONNECTED_LOBBY_VALIDATE_POLL_MS : CONNECTED_LOBBY_VALIDATE_HIDDEN_POLL_MS);
 
     return () => {
       cancelled = true;
@@ -863,6 +948,7 @@ export function BattlefieldView({
     if (presenceChannelRef.current) {
       supabase.removeChannel(presenceChannelRef.current);
       presenceChannelRef.current = null;
+      presenceChannelSubscribedRef.current = false;
     }
 
     const channel = supabase.channel(`battlefield-online-${accountMode}`, {
@@ -887,6 +973,7 @@ export function BattlefieldView({
       })
       .subscribe(async (status: string) => {
         if (status === "SUBSCRIBED") {
+          presenceChannelSubscribedRef.current = true;
           await channel.track({
             user_id: user.id,
             username: user.username || user.email?.split("@")[0] || "Player",
@@ -902,9 +989,24 @@ export function BattlefieldView({
       if (presenceChannelRef.current) {
         supabase.removeChannel(presenceChannelRef.current);
         presenceChannelRef.current = null;
+        presenceChannelSubscribedRef.current = false;
       }
     };
-  }, [user?.id, accountMode, user?.username, user?.email, user?.avatarUrl, selectedStakeAmount]);
+  }, [user?.id, accountMode, user?.username, user?.email, user?.avatarUrl]);
+
+  useEffect(() => {
+    if (!presenceChannelRef.current || !presenceChannelSubscribedRef.current || !user?.id) {
+      return;
+    }
+
+    void presenceChannelRef.current.track({
+      user_id: user.id,
+      username: user.username || user.email?.split("@")[0] || "Player",
+      avatar_url: user.avatarUrl || null,
+      selected_stake_amount: selectedStakeAmount,
+      online_at: new Date().toISOString(),
+    });
+  }, [selectedStakeAmount, user?.id, user?.username, user?.email, user?.avatarUrl]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -1317,11 +1419,16 @@ export function BattlefieldView({
     }
 
     const poll = async () => {
-      try {
-        if (!selectedStakeAmount) return;
-        const requestVersion = queueRequestVersionRef.current;
-        const nextStatus = await quickQueueJoinOrMatch(
-          accountMode,
+      if (searchPollInFlightRef.current) {
+        return searchPollInFlightRef.current;
+      }
+
+      const pollPromise = (async () => {
+        try {
+          if (!selectedStakeAmount) return;
+          const requestVersion = queueRequestVersionRef.current;
+          const nextStatus = await quickQueueJoinOrMatch(
+            accountMode,
           selectedTeamSize,
           queueMode,
           selectedStakeAmount,
@@ -1330,24 +1437,36 @@ export function BattlefieldView({
         if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
           applyQueueStatus(nextStatus);
         }
-      } catch (error: any) {
-        if (isUnsupportedQuickQueueModeError(error)) {
-          const errorKey = `${queueMode}:${selectedGameMode}`;
-          if (unsupportedQueueModeToastRef.current !== errorKey) {
-            unsupportedQueueModeToastRef.current = errorKey;
+        } catch (error: any) {
+          if (isUnsupportedQuickQueueModeError(error)) {
+            const errorKey = `${queueMode}:${selectedGameMode}`;
+            if (unsupportedQueueModeToastRef.current !== errorKey) {
+              unsupportedQueueModeToastRef.current = errorKey;
             addToast(error.message || "This quick queue mode is not available yet.", "error");
           }
           resetQuickQueueState("idle");
           return;
         }
         console.error("Quick queue poll failed:", error);
-      }
+        }
+      })();
+
+      searchPollInFlightRef.current = pollPromise.finally(() => {
+        if (searchPollInFlightRef.current === pollPromise) {
+          searchPollInFlightRef.current = null;
+        }
+      });
+
+      return searchPollInFlightRef.current;
     };
 
     void poll();
     const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
       void poll();
-    }, 750);
+    }, isDocumentVisible() ? SEARCH_MATCH_POLL_MS : SEARCH_MATCH_HIDDEN_POLL_MS);
     pollingRef.current = interval;
 
     return () => {
