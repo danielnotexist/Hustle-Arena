@@ -160,11 +160,13 @@ export function BattlefieldView({
   const [inviteSearchQuery, setInviteSearchQuery] = useState("");
   const pollingRef = useRef<number | null>(null);
   const presenceChannelRef = useRef<any>(null);
-  const partySyncInFlightRef = useRef<Promise<void> | null>(null);
+  const partyInvitesSyncInFlightRef = useRef<Promise<void> | null>(null);
+  const partyStakeUpdatesSyncInFlightRef = useRef<Promise<void> | null>(null);
   const partyStakeCapInFlightRef = useRef<Promise<void> | null>(null);
   const queueSyncInFlightRef = useRef<Promise<void> | null>(null);
   const connectedLobbyValidationInFlightRef = useRef<Promise<void> | null>(null);
   const searchPollInFlightRef = useRef<Promise<void> | null>(null);
+  const quickQueueRealtimeChannelRef = useRef<any>(null);
   const handledMatchedLobbyRef = useRef<string | null>(null);
   const seenPartyInviteStatusesRef = useRef<Record<number, string>>({});
   const queueRequestVersionRef = useRef(0);
@@ -344,6 +346,118 @@ export function BattlefieldView({
       ? readyCheckDisplayOrder.filter((id) => participantUserIds.includes(id))
       : participantUserIds;
 
+  const syncPartyInvitesSnapshot = async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    if (partyInvitesSyncInFlightRef.current) {
+      return partyInvitesSyncInFlightRef.current;
+    }
+
+    const loadPromise = (async () => {
+      try {
+        const inviteRows = await fetchQuickQueuePartyInvites(user.id);
+        setPartyInviteBackendMissing(false);
+        setPartyInvites(inviteRows);
+      } catch (error) {
+        console.error("Failed to load party invites:", error);
+        if (isPartyInviteBackendError(error)) {
+          setPartyInviteBackendMissing(true);
+        }
+      }
+    })();
+
+    partyInvitesSyncInFlightRef.current = loadPromise.finally(() => {
+      if (partyInvitesSyncInFlightRef.current === loadPromise) {
+        partyInvitesSyncInFlightRef.current = null;
+      }
+    });
+
+    return partyInvitesSyncInFlightRef.current;
+  };
+
+  const syncPartyStakeUpdatesSnapshot = async () => {
+    if (!user?.id || partyStakeUpdateBackendMissing) {
+      return;
+    }
+
+    if (partyStakeUpdatesSyncInFlightRef.current) {
+      return partyStakeUpdatesSyncInFlightRef.current;
+    }
+
+    const loadPromise = (async () => {
+      try {
+        const stakeUpdateRows = await fetchQuickQueuePartyStakeUpdates(user.id);
+        setPartyStakeUpdates(stakeUpdateRows);
+      } catch (error) {
+        if (isPartyStakeUpdateBackendError(error)) {
+          setPartyStakeUpdateBackendMissing(true);
+          setPartyStakeUpdates([]);
+          console.warn("Party stake update backend is not available yet.", error);
+        } else if (isSupabaseTransientNetworkError(error)) {
+          setPartyStakeUpdates([]);
+        } else {
+          console.error("Failed to load party stake updates:", error);
+        }
+      }
+    })();
+
+    partyStakeUpdatesSyncInFlightRef.current = loadPromise.finally(() => {
+      if (partyStakeUpdatesSyncInFlightRef.current === loadPromise) {
+        partyStakeUpdatesSyncInFlightRef.current = null;
+      }
+    });
+
+    return partyStakeUpdatesSyncInFlightRef.current;
+  };
+
+  const syncQueueStateSnapshot = async (requestVersion = queueRequestVersionRef.current) => {
+    if (!user?.id) {
+      return;
+    }
+
+    if (queueSyncInFlightRef.current) {
+      return queueSyncInFlightRef.current;
+    }
+
+    const syncPromise = (async () => {
+      try {
+        const status = await fetchMyQuickQueueStatus(accountMode);
+        if (!status) {
+          return;
+        }
+
+        const backendStakeAmount = Number(status.stake_amount || 0);
+        const backendMatchType = backendStatusToMatchType(status.team_size, status.game_mode);
+        const backendQueueMode = status.queue_mode === "party" ? "party" : "solo";
+
+        if (!cancelInFlightRef.current && requestVersion === queueRequestVersionRef.current) {
+          if (backendStakeAmount && selectedStakeAmount !== backendStakeAmount) {
+            setSelectedStakeAmount(backendStakeAmount);
+          }
+          if (matchType !== backendMatchType) {
+            setMatchType(backendMatchType);
+          }
+          if (queueMode !== backendQueueMode) {
+            setQueueMode(backendQueueMode);
+          }
+          applyQueueStatus(status);
+        }
+      } catch (error) {
+        console.error("Failed to sync quick queue state from backend:", error);
+      }
+    })();
+
+    queueSyncInFlightRef.current = syncPromise.finally(() => {
+      if (queueSyncInFlightRef.current === syncPromise) {
+        queueSyncInFlightRef.current = null;
+      }
+    });
+
+    return queueSyncInFlightRef.current;
+  };
+
   useEffect(() => {
     if (typeof window === "undefined" || !user?.id) {
       return;
@@ -501,73 +615,39 @@ export function BattlefieldView({
   useEffect(() => {
     if (!user?.id) {
       setPartyInvites([]);
+      setPartyInvites([]);
+      return;
+    }
+
+    void syncPartyInvitesSnapshot();
+    const interval = window.setInterval(() => {
+      if (!isDocumentVisible()) {
+        return;
+      }
+      void syncPartyInvitesSnapshot();
+    }, isDocumentVisible() ? PARTY_SYNC_POLL_MS : PARTY_SYNC_HIDDEN_POLL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
       setPartyStakeUpdates([]);
       setPartyStakeUpdateBackendMissing(false);
       return;
     }
 
-    let cancelled = false;
-
-    const loadPartyInvites = async () => {
-      if (partySyncInFlightRef.current) {
-        return partySyncInFlightRef.current;
-      }
-
-      const loadPromise = (async () => {
-      try {
-        const inviteRows = await fetchQuickQueuePartyInvites(user.id);
-        if (!cancelled) {
-          setPartyInviteBackendMissing(false);
-          setPartyInvites(inviteRows);
-        }
-      } catch (error) {
-        console.error("Failed to load party invites:", error);
-        if (!cancelled && isPartyInviteBackendError(error)) {
-          setPartyInviteBackendMissing(true);
-        }
-      }
-
-      if (partyStakeUpdateBackendMissing) {
-        return;
-      }
-
-      try {
-        const stakeUpdateRows = await fetchQuickQueuePartyStakeUpdates(user.id);
-        if (!cancelled) {
-          setPartyStakeUpdates(stakeUpdateRows);
-        }
-      } catch (error) {
-        if (!cancelled && isPartyStakeUpdateBackendError(error)) {
-          setPartyStakeUpdateBackendMissing(true);
-          setPartyStakeUpdates([]);
-          console.warn("Party stake update backend is not available yet.", error);
-        } else if (!cancelled && isSupabaseTransientNetworkError(error)) {
-          setPartyStakeUpdates([]);
-        } else {
-          console.error("Failed to load party stake updates:", error);
-        }
-      }
-      })();
-
-      partySyncInFlightRef.current = loadPromise.finally(() => {
-        if (partySyncInFlightRef.current === loadPromise) {
-          partySyncInFlightRef.current = null;
-        }
-      });
-
-      return partySyncInFlightRef.current;
-    };
-
-    void loadPartyInvites();
+    void syncPartyStakeUpdatesSnapshot();
     const interval = window.setInterval(() => {
       if (!isDocumentVisible()) {
         return;
       }
-      void loadPartyInvites();
+      void syncPartyStakeUpdatesSnapshot();
     }, isDocumentVisible() ? PARTY_SYNC_POLL_MS : PARTY_SYNC_HIDDEN_POLL_MS);
 
     return () => {
-      cancelled = true;
       window.clearInterval(interval);
     };
   }, [user?.id, partyStakeUpdateBackendMissing]);
@@ -728,65 +808,16 @@ export function BattlefieldView({
       return;
     }
 
-    let cancelled = false;
     const requestVersion = queueRequestVersionRef.current;
-
-    const syncQueueStateFromBackend = async () => {
-      if (queueSyncInFlightRef.current) {
-        return queueSyncInFlightRef.current;
-      }
-
-      const syncPromise = (async () => {
-        try {
-          const status = await fetchMyQuickQueueStatus(accountMode);
-          if (!status) {
-            return;
-          }
-
-        const backendStakeAmount = Number(status.stake_amount || 0);
-        const backendMatchType = backendStatusToMatchType(status.team_size, status.game_mode);
-        const backendQueueMode = status.queue_mode === "party" ? "party" : "solo";
-
-        if (
-          !cancelled &&
-          !cancelInFlightRef.current &&
-          requestVersion === queueRequestVersionRef.current
-        ) {
-          if (backendStakeAmount && selectedStakeAmount !== backendStakeAmount) {
-            setSelectedStakeAmount(backendStakeAmount);
-          }
-          if (matchType !== backendMatchType) {
-            setMatchType(backendMatchType);
-          }
-          if (queueMode !== backendQueueMode) {
-            setQueueMode(backendQueueMode);
-          }
-          applyQueueStatus(status);
-          }
-        } catch (error) {
-          console.error("Failed to sync quick queue state from backend:", error);
-        }
-      })();
-
-      queueSyncInFlightRef.current = syncPromise.finally(() => {
-        if (queueSyncInFlightRef.current === syncPromise) {
-          queueSyncInFlightRef.current = null;
-        }
-      });
-
-      return queueSyncInFlightRef.current;
-    };
-
-    void syncQueueStateFromBackend();
+    void syncQueueStateSnapshot(requestVersion);
     const interval = window.setInterval(() => {
       if (!isDocumentVisible()) {
         return;
       }
-      void syncQueueStateFromBackend();
+      void syncQueueStateSnapshot(requestVersion);
     }, isDocumentVisible() ? QUEUE_SYNC_POLL_MS : QUEUE_SYNC_HIDDEN_POLL_MS);
 
     return () => {
-      cancelled = true;
       window.clearInterval(interval);
     };
   }, [accountMode, matchState, matchType, queueMode, selectedStakeAmount, user?.id]);
@@ -1036,6 +1067,58 @@ export function BattlefieldView({
       online_at: new Date().toISOString(),
     });
   }, [selectedStakeAmount, user?.id, user?.username, user?.email, user?.avatarUrl]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    if (quickQueueRealtimeChannelRef.current) {
+      supabase.removeChannel(quickQueueRealtimeChannelRef.current);
+      quickQueueRealtimeChannelRef.current = null;
+    }
+
+    const channel = supabase.channel(`quick-queue-live-${accountMode}-${user.id}`);
+    const handleInviteChange = () => {
+      void syncPartyInvitesSnapshot();
+      void syncPartyStakeUpdatesSnapshot();
+      void syncQueueStateSnapshot();
+    };
+    const handleQueueChange = () => {
+      void syncQueueStateSnapshot();
+    };
+
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "quick_queue_party_invites", filter: `host_user_id=eq.${user.id}` },
+      handleInviteChange,
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "quick_queue_party_invites", filter: `invitee_user_id=eq.${user.id}` },
+      handleInviteChange,
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "quick_queue_entries", filter: `user_id=eq.${user.id}` },
+      handleQueueChange,
+    );
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "quick_queue_ready_check_members", filter: `user_id=eq.${user.id}` },
+      handleQueueChange,
+    );
+
+    channel.subscribe();
+    quickQueueRealtimeChannelRef.current = channel;
+
+    return () => {
+      if (quickQueueRealtimeChannelRef.current) {
+        supabase.removeChannel(quickQueueRealtimeChannelRef.current);
+        quickQueueRealtimeChannelRef.current = null;
+      }
+    };
+  }, [accountMode, user?.id, partyStakeUpdateBackendMissing, selectedStakeAmount, matchType, queueMode]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
