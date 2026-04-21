@@ -33,7 +33,7 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
-import { isSupabaseAbortError, supabase } from "./lib/supabase";
+import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
 import {
   fetchMyActiveLobbySummary,
   fetchMyQuickQueueStatus,
@@ -176,22 +176,36 @@ export default function App() {
     }
 
     let isCancelled = false;
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => {
+
+    const bootstrapSupabaseAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          throw error;
+        }
         if (!isCancelled) {
           setHasSupabaseSession(!!data.session?.user);
           setAuthBootstrapComplete(true);
         }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (isSupabaseAbortError(error)) {
+          return;
+        }
+        if (isSupabaseInvalidRefreshTokenError(error)) {
+          await clearSupabaseLocalSession();
+          if (!isCancelled) {
+            setHasSupabaseSession(false);
+            setAuthBootstrapComplete(true);
+          }
           return;
         }
         if (!isCancelled) {
           setAuthBootstrapComplete(true);
         }
-      });
+      }
+    };
+
+    void bootstrapSupabaseAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isCancelled) {

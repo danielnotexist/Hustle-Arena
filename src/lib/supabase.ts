@@ -31,6 +31,28 @@ export function isSupabaseAbortError(error: unknown) {
   );
 }
 
+export function isSupabaseInvalidRefreshTokenError(error: unknown) {
+  const message = String((error as { message?: string } | null)?.message || '');
+  const details = String((error as { details?: string } | null)?.details || '');
+  const hint = String((error as { hint?: string } | null)?.hint || '');
+  const code = String((error as { code?: string | number } | null)?.code || '');
+  const combined = `${message} ${details} ${hint}`.toLowerCase();
+
+  return (
+    combined.includes('invalid refresh token') ||
+    combined.includes('refresh token not found') ||
+    code.toLowerCase().includes('refresh')
+  );
+}
+
+export async function clearSupabaseLocalSession() {
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    // Ignore cleanup failures here; the caller is already handling a broken local session.
+  }
+}
+
 export function isSupabaseTransientNetworkError(error: unknown) {
   const message = String((error as { message?: string } | null)?.message || '');
   const details = String((error as { details?: string } | null)?.details || '');

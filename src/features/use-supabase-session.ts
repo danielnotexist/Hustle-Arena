@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { isSupabaseAbortError, supabase } from "../lib/supabase";
+import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "../lib/supabase";
 import {
   fetchExtendedProfile,
   fetchMyProfile,
@@ -42,6 +42,17 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [accountMode, setAccountMode] = useState<AccountMode>("live");
 
+  const resetSessionState = () => {
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    setUser(null);
+    setLiveStats(DEFAULT_STATS);
+    setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
+    setWallet(DEFAULT_WALLET);
+    setProfileData(DEFAULT_PROFILE_DATA);
+    setAccountMode("live");
+  };
+
   const hydrateSession = async (isCancelled = false) => {
     if (!enabled) {
       return;
@@ -50,14 +61,24 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
 
     try {
-      const { data: sessionData } = await withTimeout(
+      const { data: sessionData, error: sessionError } = await withTimeout(
         supabase.auth.getSession(),
         SESSION_REQUEST_TIMEOUT_MS,
         "Timed out while reading the current auth session."
       );
+      if (sessionError) {
+        throw sessionError;
+      }
       session = sessionData.session;
     } catch (error) {
       if (isSupabaseAbortError(error)) {
+        return;
+      }
+      if (isSupabaseInvalidRefreshTokenError(error)) {
+        await clearSupabaseLocalSession();
+        if (!isCancelled) {
+          resetSessionState();
+        }
         return;
       }
       throw error;
@@ -65,14 +86,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
     if (!session?.user) {
       if (!isCancelled) {
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-        setUser(null);
-        setLiveStats(DEFAULT_STATS);
-        setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
-        setWallet(DEFAULT_WALLET);
-        setProfileData(DEFAULT_PROFILE_DATA);
-        setAccountMode("live");
+        resetSessionState();
       }
       return;
     }
@@ -106,11 +120,16 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       if (isSupabaseAbortError(error)) {
         return;
       }
+      if (isSupabaseInvalidRefreshTokenError(error)) {
+        await clearSupabaseLocalSession();
+        if (!isCancelled) {
+          resetSessionState();
+        }
+        return;
+      }
       console.error("Supabase session hydrate error:", error);
       if (!isCancelled) {
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-        setUser(null);
+        resetSessionState();
       }
     }
   };
