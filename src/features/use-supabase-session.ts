@@ -27,46 +27,6 @@ import type {
 } from "./types";
 import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./use-legacy-firebase-session";
 
-const SESSION_REQUEST_TIMEOUT_MS = 12000;
-const MISSING_PLATFORM_ACCOUNT_CODE = "HA_MISSING_PLATFORM_ACCOUNT";
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timeoutId: number | null = null;
-
-  const timeoutPromise = new Promise<T>((_, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(new Error(message));
-    }, timeoutMs);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-    }
-  }) as Promise<T>;
-}
-
-function createMissingPlatformAccountError(message: string) {
-  const error = new Error(message) as Error & { code?: string };
-  error.code = MISSING_PLATFORM_ACCOUNT_CODE;
-  return error;
-}
-
-function isMissingPlatformAccountError(error: unknown) {
-  const code = String((error as { code?: string | number } | null)?.code || "");
-  return code === MISSING_PLATFORM_ACCOUNT_CODE || isSupabaseMissingRowError(error);
-}
-
-function formatSessionError(error: unknown) {
-  const message = String((error as { message?: string } | null)?.message || "").trim();
-  if (!message) {
-    return "Session restore failed.";
-  }
-
-  const compactMessage = message.replace(/\s+/g, " ");
-  return compactMessage.length > 180 ? `${compactMessage.slice(0, 177)}...` : compactMessage;
-}
-
 export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -123,30 +83,22 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
   };
 
   const loadPlatformAccount = async (userId: string) => {
-    const myProfile = await withTimeout(
-      fetchMyProfile(),
-      SESSION_REQUEST_TIMEOUT_MS,
-      "Timed out while loading the current player profile.",
-    );
+    const myProfile = await fetchMyProfile();
 
     if (!myProfile) {
-      throw createMissingPlatformAccountError("Missing platform profile bootstrap.");
+      throw new Error("Missing platform profile bootstrap.");
     }
 
     try {
-      const [fullProfile, walletRow] = await withTimeout(
-        Promise.all([
-          fetchExtendedProfile(userId),
-          fetchWallet(userId),
-        ]),
-        SESSION_REQUEST_TIMEOUT_MS,
-        "Timed out while rebuilding the arena session.",
-      );
+      const [fullProfile, walletRow] = await Promise.all([
+        fetchExtendedProfile(userId),
+        fetchWallet(userId),
+      ]);
 
       return { fullProfile, walletRow };
     } catch (error) {
       if (isSupabaseMissingRowError(error)) {
-        throw createMissingPlatformAccountError("Missing platform wallet bootstrap.");
+        throw new Error("Missing platform wallet bootstrap.");
       }
       throw error;
     }
@@ -156,18 +108,13 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     try {
       return await withTransientRetry(() => loadPlatformAccount(userId));
     } catch (error) {
-      if (!isMissingPlatformAccountError(error)) {
+      const isMissingAccount = isSupabaseMissingRowError(error) || String((error as any)?.code) === "HA_MISSING_PLATFORM_ACCOUNT";
+      if (!isMissingAccount) {
         throw error;
       }
     }
 
-    await withTransientRetry(() =>
-      withTimeout(
-        ensureMyPlatformAccount(),
-        SESSION_REQUEST_TIMEOUT_MS,
-        "Timed out while repairing the platform account.",
-      ),
-    );
+    await withTransientRetry(() => ensureMyPlatformAccount());
 
     return withTransientRetry(() => loadPlatformAccount(userId));
   };
@@ -202,11 +149,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
       if (options?.session === undefined) {
         try {
-          const { data: sessionData } = await withTimeout(
-            supabase.auth.getSession(),
-            SESSION_REQUEST_TIMEOUT_MS,
-            "Timed out while reading the current auth session.",
-          );
+          const { data: sessionData } = await supabase.auth.getSession();
           session = sessionData.session;
         } catch (error) {
           if (isSupabaseAbortError(error)) {
@@ -244,7 +187,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
         if (!cancelled()) {
           resetSessionData();
           setSessionStatus("failed");
-          setSessionError(formatSessionError(error));
+          setSessionError(error instanceof Error ? error.message : "Session restore failed.");
         }
       }
     })();
@@ -318,11 +261,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     switchAccountMode,
     topUpDemoBalance,
     refreshSession: async () => {
-      await withTimeout(
-        hydrateSession(undefined, { silent: false }),
-        SESSION_REQUEST_TIMEOUT_MS + 1000,
-        "Timed out while refreshing the arena session.",
-      );
+      await hydrateSession(undefined, { silent: false });
     },
   };
 }

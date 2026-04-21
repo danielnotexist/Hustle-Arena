@@ -669,12 +669,7 @@ export default function App() {
     setSessionRecoveryAction("retry");
     try {
       if (shouldUseSupabase) {
-        const { data, error } = await Promise.race([
-          supabase.auth.refreshSession(),
-          new Promise<never>((_, reject) => {
-            window.setTimeout(() => reject(new Error("Timed out while retrying the login session.")), 12000);
-          }),
-        ]);
+        const { data, error } = await supabase.auth.refreshSession();
         if (error) {
           throw error;
         }
@@ -684,12 +679,7 @@ export default function App() {
       await refreshSession();
 
       if (shouldUseSupabase) {
-        const { data, error } = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<never>((_, reject) => {
-            window.setTimeout(() => reject(new Error("Timed out while confirming the restored session.")), 12000);
-          }),
-        ]);
+        const { data, error } = await supabase.auth.getSession();
         if (error) {
           throw error;
         }
