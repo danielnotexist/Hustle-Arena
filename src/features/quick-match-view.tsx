@@ -658,20 +658,16 @@ export function BattlefieldView({
       return;
     }
 
-    if (cancelInFlightRef.current || suppressAutoQueueUntilRef.current > Date.now()) {
-      return;
-    }
-
     let cancelled = false;
-    const requestVersion = queueRequestVersionRef.current;
 
     const syncQueueStateFromBackend = async () => {
       try {
         const status = await fetchMyQuickQueueStatus(accountMode);
+        const syncBlocked =
+          cancelInFlightRef.current || suppressAutoQueueUntilRef.current > Date.now();
         const canApplyStatus =
           !cancelled &&
-          !cancelInFlightRef.current &&
-          requestVersion === queueRequestVersionRef.current;
+          !syncBlocked;
         const isResolvingLocalReadyCheck =
           matchState === "ready_check" &&
           !!readyCheckId;
