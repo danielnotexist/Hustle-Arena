@@ -36,6 +36,7 @@ import { isSupabaseConfigured } from "./lib/env";
 import { isSupabaseAbortError, supabase } from "./lib/supabase";
 import {
   fetchMyActiveLobbySummary,
+  fetchMyQuickQueueStatus,
   fetchMyReconnectableMatch,
   fetchQuickQueuePartyInvites,
   launchMatchServer,
@@ -355,6 +356,47 @@ export default function App() {
       window.clearInterval(interval);
     };
   }, [activeTab, user?.id, accountMode]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const syncGlobalQuickQueueView = async () => {
+      try {
+        const status = await fetchMyQuickQueueStatus(accountMode);
+        if (isCancelled || !status) {
+          return;
+        }
+
+        const shouldOpenMatchmaking =
+          status.status === "ready_check" ||
+          (status.status === "matched" && !!status.lobby_id && activeTab !== "Squad Hub") ||
+          (status.status === "searching" && status.queue_mode === "party");
+
+        if (!shouldOpenMatchmaking || activeTab === "Battlefield Matchmaking") {
+          return;
+        }
+
+        setBattlefieldMenuOpen(true);
+        setActiveTab("Battlefield Matchmaking");
+      } catch (error) {
+        console.error("Failed to sync global quick queue view:", error);
+      }
+    };
+
+    void syncGlobalQuickQueueView();
+    const interval = window.setInterval(() => {
+      void syncGlobalQuickQueueView();
+    }, 1500);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [accountMode, activeTab, user?.id]);
 
   useEffect(() => {
     if (activeTab !== "Squad Hub" && joiningLobbyTransition) {

@@ -161,6 +161,8 @@ export function BattlefieldView({
   const seenStakeUpdateStatusesRef = useRef<Record<number, string>>({});
   const unsupportedQueueModeToastRef = useRef<string | null>(null);
   const restoredQuickQueueStateRef = useRef(false);
+  const connectingLobbyStartedAtRef = useRef(0);
+  const connectingLobbyNavigationRef = useRef<string | null>(null);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -710,6 +712,9 @@ export function BattlefieldView({
     }
 
     let cancelled = false;
+    if (!connectingLobbyStartedAtRef.current) {
+      connectingLobbyStartedAtRef.current = Date.now();
+    }
 
     const validateConnectedLobby = async () => {
       try {
@@ -718,9 +723,21 @@ export function BattlefieldView({
           return;
         }
 
+        if (activeLobby && (!matchedLobbyId || activeLobby.id === matchedLobbyId)) {
+          if (connectingLobbyNavigationRef.current !== activeLobby.id) {
+            connectingLobbyNavigationRef.current = activeLobby.id;
+            onMatchReady?.();
+          }
+          return;
+        }
+
+        if (Date.now() - connectingLobbyStartedAtRef.current < 12000) {
+          return;
+        }
+
         if (!activeLobby || (matchedLobbyId && activeLobby.id !== matchedLobbyId)) {
           resetQuickQueueState("idle");
-          addToast("You are no longer in this lobby. You can return to matchmaking or start a new game.", "info");
+          addToast("The match was accepted, but the lobby did not finish opening. Please try queueing again.", "error");
         }
       } catch (error) {
         console.error("Failed to validate connected lobby:", error);
@@ -736,7 +753,7 @@ export function BattlefieldView({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [accountMode, addToast, matchedLobbyId, matchState, user?.id]);
+  }, [accountMode, addToast, matchedLobbyId, matchState, onMatchReady, user?.id]);
 
   useEffect(() => {
     if (!participantUserIds.length) {
@@ -845,16 +862,17 @@ export function BattlefieldView({
     if (status.status === "matched" && status.lobby_id) {
       if (handledMatchedLobbyRef.current !== status.lobby_id) {
         handledMatchedLobbyRef.current = status.lobby_id;
+        connectingLobbyStartedAtRef.current = Date.now();
+        connectingLobbyNavigationRef.current = null;
         setMatchState("connecting");
-        addToast("REDIRECT TO THE LOBBY", "success");
-        window.setTimeout(() => {
-          onMatchReady?.();
-        }, 1400);
+        addToast("Match accepted. Opening lobby...", "success");
       }
       return;
     }
 
     handledMatchedLobbyRef.current = null;
+    connectingLobbyStartedAtRef.current = 0;
+    connectingLobbyNavigationRef.current = null;
     setMatchState(status.status === "ready_check" ? "ready_check" : "searching");
   };
 
@@ -942,6 +960,8 @@ export function BattlefieldView({
     setAcceptedUserIds([]);
     setReadyCheckDisplayOrder([]);
     handledMatchedLobbyRef.current = null;
+    connectingLobbyStartedAtRef.current = 0;
+    connectingLobbyNavigationRef.current = null;
   };
 
   const leaveJoinedParty = async () => {
