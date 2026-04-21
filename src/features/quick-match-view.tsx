@@ -31,6 +31,7 @@ import type { AccountMode } from "./types";
 
 const STAKE_OPTIONS = [5, 10, 25, 50, 100, 300, 500, 1000] as const;
 const QUICK_QUEUE_STATE_STORAGE_KEY = "hustle_arena_quick_queue_state";
+const QUICK_QUEUE_STATE_VERSION = 2;
 type QuickMatchType = "ranked_5v5" | "ranked_2v2" | "ranked_team_ffa" | "ranked_ffa";
 
 const TEAM_SIZE_BY_MATCH_TYPE: Record<QuickMatchType, 2 | 5> = {
@@ -80,6 +81,7 @@ const isPartyStakeUpdateBackendError = (error: any) => {
 };
 
 type PersistedQuickQueueState = {
+  stateVersion?: number;
   userId?: string;
   accountMode?: AccountMode;
   matchType?: QuickMatchType;
@@ -312,7 +314,13 @@ export function BattlefieldView({
 
       const savedState = JSON.parse(raw) as PersistedQuickQueueState;
 
-      if (savedState.userId !== user.id || savedState.accountMode !== accountMode) {
+      const hasCompatibleSavedState =
+        savedState.stateVersion === QUICK_QUEUE_STATE_VERSION &&
+        savedState.userId === user.id &&
+        savedState.accountMode === accountMode;
+
+      if (!hasCompatibleSavedState) {
+        window.localStorage.removeItem(QUICK_QUEUE_STATE_STORAGE_KEY);
         restoredQuickQueueStateRef.current = false;
         return;
       }
@@ -337,16 +345,17 @@ export function BattlefieldView({
         setWizardStep(savedState.wizardStep);
       }
       if (savedState.matchState && savedState.matchState !== "idle") {
-        setMatchState(savedState.matchState);
+        const canRestoreReadyCheckSnapshot = savedState.matchState !== "ready_check";
+        setMatchState(canRestoreReadyCheckSnapshot ? savedState.matchState : "searching");
         setSearchTime(savedState.searchTime || 0);
         setPlayersJoined(savedState.playersJoined || 0);
         setPlayersNeeded(savedState.playersNeeded || 0);
         setEstimatedWaitSeconds(savedState.estimatedWaitSeconds || 75);
         setMatchedLobbyId(savedState.matchedLobbyId || null);
-        setReadyCheckId(savedState.readyCheckId || null);
-        setParticipantUserIds(savedState.participantUserIds || []);
-        setAcceptedUserIds(savedState.acceptedUserIds || []);
-        setReadyCheckDisplayOrder(savedState.participantUserIds || []);
+        setReadyCheckId(canRestoreReadyCheckSnapshot ? savedState.readyCheckId || null : null);
+        setParticipantUserIds(canRestoreReadyCheckSnapshot ? savedState.participantUserIds || [] : []);
+        setAcceptedUserIds(canRestoreReadyCheckSnapshot ? savedState.acceptedUserIds || [] : []);
+        setReadyCheckDisplayOrder(canRestoreReadyCheckSnapshot ? savedState.participantUserIds || [] : []);
       }
     } catch (error) {
       restoredQuickQueueStateRef.current = false;
@@ -370,6 +379,7 @@ export function BattlefieldView({
     window.localStorage.setItem(
       QUICK_QUEUE_STATE_STORAGE_KEY,
       JSON.stringify({
+        stateVersion: QUICK_QUEUE_STATE_VERSION,
         userId: user.id,
         accountMode,
         matchType,
@@ -823,16 +833,6 @@ export function BattlefieldView({
 
   const applyQueueStatus = (status: QuickQueueStatus | null) => {
     if (!status) return;
-
-    const shouldKeepCurrentReadyCheck =
-      status.status === "searching" &&
-      matchState === "ready_check" &&
-      !!readyCheckId &&
-      !status.ready_check_id;
-
-    if (shouldKeepCurrentReadyCheck) {
-      return;
-    }
 
     setPlayersJoined(status.players_joined || 0);
     setPlayersNeeded(status.players_needed || 0);
