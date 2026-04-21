@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "../lib/supabase";
 import {
   fetchExtendedProfile,
@@ -41,6 +41,8 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
   const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
   const [profileData, setProfileData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [accountMode, setAccountMode] = useState<AccountMode>("live");
+  const cancelledRef = useRef(false);
+  const hydrateRequestIdRef = useRef(0);
 
   const resetSessionState = () => {
     setIsLoggedIn(false);
@@ -53,11 +55,38 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     setAccountMode("live");
   };
 
-  const hydrateSession = async (isCancelled = false) => {
+  const buildFallbackArenaUser = (
+    session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>
+  ): PlatformSessionState["user"] => {
+    const metadata = session.user.user_metadata || {};
+    const email = session.user.email || "";
+    const fallbackUsername =
+      (typeof metadata.username === "string" && metadata.username.trim()) ||
+      email.split("@")[0]?.trim() ||
+      "Player";
+
+    return {
+      id: session.user.id,
+      username: fallbackUsername,
+      email,
+      avatarUrl:
+        (typeof metadata.avatar_url === "string" && metadata.avatar_url) ||
+        (typeof metadata.picture === "string" && metadata.picture) ||
+        null,
+      role: typeof metadata.role === "string" ? metadata.role : "user",
+      kycStatus: typeof metadata.kyc_status === "string" ? metadata.kyc_status : "none",
+      kycMessage: null,
+      accountMode: metadata.account_mode === "demo" ? "demo" : "live",
+    };
+  };
+
+  const hydrateSession = async () => {
     if (!enabled) {
       return;
     }
 
+    const requestId = ++hydrateRequestIdRef.current;
+    const shouldIgnore = () => cancelledRef.current || requestId !== hydrateRequestIdRef.current;
     let session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null = null;
 
     try {
@@ -76,7 +105,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       }
       if (isSupabaseInvalidRefreshTokenError(error)) {
         await clearSupabaseLocalSession();
-        if (!isCancelled) {
+        if (!shouldIgnore()) {
           resetSessionState();
         }
         return;
@@ -85,7 +114,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
     }
 
     if (!session?.user) {
-      if (!isCancelled) {
+      if (!shouldIgnore()) {
         resetSessionState();
       }
       return;
@@ -93,28 +122,49 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
 
     try {
       const userId = session.user.id;
-      const [myProfile, fullProfile, walletRow] = await withTimeout(
-        Promise.all([
-          fetchMyProfile(),
-          fetchExtendedProfile(userId),
-          fetchWallet(userId),
-        ]),
-        SESSION_REQUEST_TIMEOUT_MS,
-        "Timed out while rebuilding the arena session."
-      );
+      const [myProfileResult, fullProfileResult, walletResult] = await Promise.allSettled([
+        withTimeout(fetchMyProfile(), SESSION_REQUEST_TIMEOUT_MS, "Timed out while loading the signed-in profile."),
+        withTimeout(fetchExtendedProfile(userId), SESSION_REQUEST_TIMEOUT_MS, "Timed out while loading the extended profile."),
+        withTimeout(fetchWallet(userId), SESSION_REQUEST_TIMEOUT_MS, "Timed out while loading the wallet."),
+      ]);
 
-      if (isCancelled) {
+      if (shouldIgnore()) {
         return;
       }
 
-      const nextUser = mapSupabaseProfileToArenaUser(fullProfile);
+      const rejectedReasons = [myProfileResult, fullProfileResult, walletResult]
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason);
+
+      const invalidRefreshTokenError = rejectedReasons.find((reason) => isSupabaseInvalidRefreshTokenError(reason));
+      if (invalidRefreshTokenError) {
+        await clearSupabaseLocalSession();
+        if (!shouldIgnore()) {
+          resetSessionState();
+        }
+        return;
+      }
+
+      const myProfile = myProfileResult.status === "fulfilled" ? myProfileResult.value : null;
+      const fullProfile = fullProfileResult.status === "fulfilled" ? fullProfileResult.value : null;
+      const walletRow = walletResult.status === "fulfilled" ? walletResult.value : null;
+      const profileSource = fullProfile ?? myProfile;
+      const walletSource = walletRow ?? myProfile;
+      const nextUser = profileSource
+        ? mapSupabaseProfileToArenaUser(profileSource)
+        : buildFallbackArenaUser(session);
+
+      if (rejectedReasons.length) {
+        console.warn("Supabase session hydrate recovered with partial data:", rejectedReasons);
+      }
+
       setIsLoggedIn(true);
       setIsAdmin(nextUser.role === "admin");
       setUser(nextUser);
-      setLiveStats(mapSupabaseProfileToStats(fullProfile, walletRow, "live"));
-      setDemoStats(mapSupabaseProfileToStats(fullProfile, walletRow, "demo"));
-      setWallet(mapWalletSnapshot(walletRow));
-      setProfileData(mapSupabaseProfileToProfileData(fullProfile));
+      setLiveStats(mapSupabaseProfileToStats(profileSource ?? {}, walletSource ?? undefined, "live"));
+      setDemoStats(mapSupabaseProfileToStats(profileSource ?? {}, walletSource ?? undefined, "demo"));
+      setWallet(mapWalletSnapshot(walletSource ?? undefined));
+      setProfileData(mapSupabaseProfileToProfileData(profileSource ?? {}));
       setAccountMode(nextUser.accountMode || "live");
     } catch (error) {
       if (isSupabaseAbortError(error)) {
@@ -122,14 +172,23 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       }
       if (isSupabaseInvalidRefreshTokenError(error)) {
         await clearSupabaseLocalSession();
-        if (!isCancelled) {
+        if (!shouldIgnore()) {
           resetSessionState();
         }
         return;
       }
-      console.error("Supabase session hydrate error:", error);
-      if (!isCancelled) {
-        resetSessionState();
+
+      console.warn("Supabase session hydrate fell back to auth session:", error);
+      if (!shouldIgnore()) {
+        const fallbackUser = buildFallbackArenaUser(session);
+        setIsLoggedIn(true);
+        setIsAdmin(fallbackUser.role === "admin");
+        setUser(fallbackUser);
+        setLiveStats(DEFAULT_STATS);
+        setDemoStats({ ...DEFAULT_STATS, rank: "Demo Cadet" });
+        setWallet(DEFAULT_WALLET);
+        setProfileData(DEFAULT_PROFILE_DATA);
+        setAccountMode(fallbackUser.accountMode || "live");
       }
     }
   };
@@ -139,16 +198,17 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       return;
     }
 
-    let isCancelled = false;
+    cancelledRef.current = false;
 
-    void hydrateSession(isCancelled);
+    void hydrateSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
       void hydrateSession();
     });
 
     return () => {
-      isCancelled = true;
+      cancelledRef.current = true;
+      hydrateRequestIdRef.current += 1;
       authListener.subscription.unsubscribe();
     };
   }, [enabled]);

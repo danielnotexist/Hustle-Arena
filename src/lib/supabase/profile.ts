@@ -41,6 +41,8 @@ export async function fetchWallet(userId: string) {
   return data as SupabaseWalletRecord;
 }
 
+type ArenaProfileLike = Partial<SupabaseProfileRecord> & Partial<MyProfileRpcRow>;
+
 export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | MyProfileRpcRow): ArenaUser {
   return {
     id: profile.id,
@@ -54,7 +56,7 @@ export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | M
   };
 }
 
-export function mapSupabaseProfileToProfileData(profile: Partial<SupabaseProfileRecord>): ProfileData {
+export function mapSupabaseProfileToProfileData(profile: ArenaProfileLike): ProfileData {
   return {
     bio: profile.bio || "Ready to dominate the arena. Tactical shooter veteran.",
     country: normalizeSelectableCountry(profile.country),
@@ -66,7 +68,7 @@ export function mapSupabaseProfileToProfileData(profile: Partial<SupabaseProfile
 }
 
 export function mapSupabaseProfileToStats(
-  profile: Partial<SupabaseProfileRecord>,
+  profile: ArenaProfileLike,
   wallet?: Partial<SupabaseWalletRecord>,
   mode: AccountMode = "live",
 ): UserStats {
