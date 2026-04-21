@@ -7,6 +7,7 @@ export type MatchStatus = "pending" | "live" | "finished" | "interrupted" | "can
 export type SupportedGameMode = "wingman" | "competitive" | "team_ffa" | "ffa";
 
 let quickQueueRpcSupportsGameMode: boolean | null = null;
+let quickQueueStatusRpcSupported: boolean | null = null;
 let recentMatchesSchemaSupportsScores: boolean | null = null;
 let browserLobbiesRpcSupported: boolean | null = null;
 let squadHubStateRpcSupported: boolean | null = null;
@@ -516,6 +517,170 @@ async function fetchMyActiveLobbySummaryFallback(mode: LobbyMode) {
     game_mode: lobby.game_mode || null,
     created_at: lobby.created_at,
   } satisfies ActiveLobbySummary;
+}
+
+async function fetchMyQuickQueueStatusFallback(mode: LobbyMode) {
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return null;
+  }
+
+  const { data: readyCheckMemberships, error: readyCheckMembershipsError } = await supabase
+    .from("quick_queue_ready_check_members")
+    .select("ready_check_id")
+    .eq("user_id", userId);
+
+  if (readyCheckMembershipsError) {
+    throw readyCheckMembershipsError;
+  }
+
+  const readyCheckIds = Array.from(
+    new Set(((readyCheckMemberships || []) as Array<{ ready_check_id?: string | null }>).map((row) => row.ready_check_id).filter(Boolean))
+  ) as string[];
+
+  if (readyCheckIds.length) {
+    const { data: readyChecks, error: readyChecksError } = await supabase
+      .from("quick_queue_ready_checks")
+      .select("id, mode, status, team_size, queue_mode, stake_amount, game_mode, expires_at, created_at")
+      .eq("mode", mode)
+      .eq("status", "pending")
+      .in("id", readyCheckIds)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (readyChecksError) {
+      throw readyChecksError;
+    }
+
+    const readyCheck = Array.isArray(readyChecks) ? readyChecks[0] : null;
+    if (readyCheck?.id) {
+      const { data: readyCheckMembers, error: readyCheckMembersError } = await supabase
+        .from("quick_queue_ready_check_members")
+        .select("user_id, accepted_at, created_at")
+        .eq("ready_check_id", readyCheck.id)
+        .order("created_at", { ascending: true });
+
+      if (readyCheckMembersError) {
+        throw readyCheckMembersError;
+      }
+
+      const participantUserIds = ((readyCheckMembers || []) as Array<{ user_id: string; accepted_at?: string | null }>)
+        .map((row) => row.user_id)
+        .filter(Boolean);
+      const acceptedUserIds = ((readyCheckMembers || []) as Array<{ user_id: string; accepted_at?: string | null }>)
+        .filter((row) => !!row.accepted_at)
+        .map((row) => row.user_id);
+      const teamSize = Number(readyCheck.team_size || 0) as 2 | 5;
+
+      return {
+        status: "ready_check",
+        lobby_id: null,
+        players_joined: acceptedUserIds.length,
+        players_needed: Math.max(teamSize * 2 - acceptedUserIds.length, 0),
+        estimated_wait_seconds: Math.max(
+          0,
+          Math.floor((new Date(String(readyCheck.expires_at || new Date().toISOString())).getTime() - Date.now()) / 1000)
+        ),
+        ready_check_id: readyCheck.id,
+        accepted_count: acceptedUserIds.length,
+        participant_user_ids: participantUserIds,
+        accepted_user_ids: acceptedUserIds,
+        team_size: teamSize,
+        queue_mode: readyCheck.queue_mode === "party" ? "party" : "solo",
+        stake_amount: Number(readyCheck.stake_amount || 0),
+        game_mode: (readyCheck.game_mode || (teamSize === 2 ? "wingman" : "competitive")) as SupportedGameMode,
+      } satisfies MyQuickQueueStatus;
+    }
+  }
+
+  const { data: entryRows, error: entryRowsError } = await supabase
+    .from("quick_queue_entries")
+    .select("status, matched_lobby_id, team_size, queue_mode, selected_stake_amount, game_mode, updated_at")
+    .eq("user_id", userId)
+    .eq("mode", mode)
+    .in("status", ["searching", "matched"])
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (entryRowsError) {
+    throw entryRowsError;
+  }
+
+  const entry = Array.isArray(entryRows) ? entryRows[0] : null;
+  if (!entry) {
+    return null;
+  }
+
+  let partySize = 1;
+  if (entry.queue_mode === "party") {
+    let partyHostUserId = userId;
+    const stakeAmount = Number(entry.selected_stake_amount || 0);
+
+    const { data: guestPartyRows, error: guestPartyRowsError } = await supabase
+      .from("quick_queue_party_invites")
+      .select("host_user_id")
+      .eq("invitee_user_id", userId)
+      .eq("mode", mode)
+      .eq("team_size", entry.team_size)
+      .eq("stake_amount", stakeAmount)
+      .eq("status", "accepted")
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (guestPartyRowsError) {
+      throw guestPartyRowsError;
+    }
+
+    if (Array.isArray(guestPartyRows) && guestPartyRows[0]?.host_user_id) {
+      partyHostUserId = guestPartyRows[0].host_user_id;
+    }
+
+    const { data: acceptedInviteRows, error: acceptedInviteRowsError } = await supabase
+      .from("quick_queue_party_invites")
+      .select("invitee_user_id")
+      .eq("host_user_id", partyHostUserId)
+      .eq("mode", mode)
+      .eq("team_size", entry.team_size)
+      .eq("stake_amount", stakeAmount)
+      .eq("status", "accepted");
+
+    if (acceptedInviteRowsError) {
+      throw acceptedInviteRowsError;
+    }
+
+    const partyIds = new Set<string>([partyHostUserId]);
+    ((acceptedInviteRows || []) as Array<{ invitee_user_id?: string | null }>).forEach((row) => {
+      if (row.invitee_user_id) {
+        partyIds.add(row.invitee_user_id);
+      }
+    });
+    partySize = Math.max(partyIds.size, 1);
+  }
+
+  const matchedLobbyId = entry.matched_lobby_id || null;
+  if (entry.status === "matched" && matchedLobbyId) {
+    const activeLobby = await fetchMyActiveLobby(userId, mode);
+    if (!activeLobby || activeLobby.id !== matchedLobbyId) {
+      return null;
+    }
+  }
+
+  const teamSize = Number(entry.team_size || 0) as 2 | 5;
+  return {
+    status: entry.status as "searching" | "matched",
+    lobby_id: matchedLobbyId,
+    players_joined: partySize,
+    players_needed: Math.max(teamSize * 2 - partySize, 0),
+    estimated_wait_seconds: 8,
+    ready_check_id: null,
+    accepted_count: 0,
+    participant_user_ids: [],
+    accepted_user_ids: [],
+    team_size: teamSize,
+    queue_mode: entry.queue_mode === "party" ? "party" : "solo",
+    stake_amount: Number(entry.selected_stake_amount || 0),
+    game_mode: (entry.game_mode || (teamSize === 2 ? "wingman" : "competitive")) as SupportedGameMode,
+  } satisfies MyQuickQueueStatus;
 }
 
 async function fetchMySquadHubStateFallback(mode: LobbyMode) {
@@ -1176,14 +1341,24 @@ export async function quickQueueCancel(mode: LobbyMode) {
 }
 
 export async function fetchMyQuickQueueStatus(mode: LobbyMode) {
-  const { data, error } = await supabase.rpc("get_my_quick_queue_status", {
+  if (quickQueueStatusRpcSupported === false) {
+    return fetchMyQuickQueueStatusFallback(mode);
+  }
+
+  let { data, error } = await supabase.rpc("get_my_quick_queue_status", {
     p_mode: mode,
   });
+
+  if (error && isMissingRpcFunction(error, "get_my_quick_queue_status")) {
+    quickQueueStatusRpcSupported = false;
+    return fetchMyQuickQueueStatusFallback(mode);
+  }
 
   if (error) {
     throw error;
   }
 
+  quickQueueStatusRpcSupported = true;
   const row = Array.isArray(data) ? data[0] : data;
   return (row || null) as MyQuickQueueStatus | null;
 }
