@@ -2,14 +2,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import anubisMap from "../assets/maps/anubis.svg";
-import ancientMap from "../assets/maps/ancient.svg";
-import dust2Map from "../assets/maps/dust2.svg";
 import { isSupabaseConfigured } from "../lib/env";
-import infernoMap from "../assets/maps/inferno.svg";
-import mirageMap from "../assets/maps/mirage.svg";
-import nukeMap from "../assets/maps/nuke.svg";
-import overpassMap from "../assets/maps/overpass.svg";
 import {
   castLobbyMapVote,
   completeDemoMatchForTesting,
@@ -57,15 +50,46 @@ const MAP_LABELS: Record<string, string> = {
   overpass: "Overpass",
 };
 
-const MAP_BACKGROUNDS: Record<string, string> = {
-  dust2: dust2Map,
-  inferno: infernoMap,
-  mirage: mirageMap,
-  nuke: nukeMap,
-  anubis: anubisMap,
-  ancient: ancientMap,
-  overpass: overpassMap,
+const MAP_BACKGROUND_MODULES = import.meta.glob("../assets/maps/*.{png,jpg,jpeg,webp,avif,svg}", {
+  eager: true,
+  import: "default",
+}) as Record<string, string>;
+
+const MAP_BACKGROUND_PRIORITY: Record<string, number> = {
+  png: 6,
+  jpg: 5,
+  jpeg: 5,
+  webp: 4,
+  avif: 3,
+  svg: 1,
 };
+
+const MAP_BACKGROUNDS: Record<string, string> = (() => {
+  const mapBackgrounds: Record<string, { priority: number; url: string }> = {};
+
+  Object.entries(MAP_BACKGROUND_MODULES).forEach(([assetPath, assetUrl]) => {
+    const match = assetPath.match(/\/([^/]+)\.(png|jpg|jpeg|webp|avif|svg)$/i);
+    if (!match) {
+      return;
+    }
+
+    const [, mapName, extension] = match;
+    const mapCode = mapName.toLowerCase();
+    const priority = MAP_BACKGROUND_PRIORITY[extension.toLowerCase()] ?? 0;
+    const current = mapBackgrounds[mapCode];
+
+    if (!current || priority >= current.priority) {
+      mapBackgrounds[mapCode] = {
+        priority,
+        url: assetUrl,
+      };
+    }
+  });
+
+  return Object.fromEntries(
+    Object.entries(mapBackgrounds).map(([mapCode, background]) => [mapCode, background.url])
+  );
+})();
 
 const STAKE_OPTIONS = ["5", "10", "25", "50", "100", "300", "500", "1000"] as const;
 const SQUAD_HUB_CACHE_PREFIX = "hustle_arena_squad_hub";
@@ -372,32 +396,45 @@ function MapVetoCard({
   disabled: boolean;
   onVote: (mapCode: string) => Promise<void>;
 }) {
+  const mapBackground = MAP_BACKGROUNDS[mapCode];
+
   return (
     <button
       type="button"
       onClick={() => void onVote(mapCode)}
       disabled={disabled}
       className={cn(
-        "group relative h-[200px] w-[165px] shrink-0 snap-start overflow-hidden rounded-2xl border text-left transition-all duration-200",
+        "group relative h-[220px] w-[182px] shrink-0 snap-start overflow-hidden rounded-[24px] border text-left transition-all duration-300 sm:w-[196px]",
         selected
-          ? "border-esport-accent ring-2 ring-esport-accent shadow-[0_20px_45px_rgba(59,130,246,0.18)]"
-          : "border-white/10 hover:-translate-y-1 hover:border-white/30",
+          ? "border-esport-accent ring-2 ring-esport-accent shadow-[0_22px_55px_rgba(59,130,246,0.22)]"
+          : "border-white/10 hover:-translate-y-1.5 hover:border-white/30 hover:shadow-[0_18px_45px_rgba(0,0,0,0.28)]",
         disabled ? "cursor-not-allowed opacity-65" : ""
       )}
-      style={{
-        backgroundImage: `linear-gradient(180deg, rgba(5,10,20,0.08) 0%, rgba(5,10,20,0.88) 100%), url(${MAP_BACKGROUNDS[mapCode]})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/5" />
+      <div className="absolute inset-0">
+        {mapBackground ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+            style={{ backgroundImage: `url(${mapBackground})` }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(20,31,51,0.96),rgba(8,12,20,0.98))]" />
+        )}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_30%),linear-gradient(180deg,rgba(5,10,20,0.02),rgba(5,10,20,0.48)_48%,rgba(5,10,20,0.96))]" />
+        <div
+          className={cn(
+            "absolute inset-0 transition-colors duration-300",
+            selected ? "bg-esport-accent/10" : "bg-black/5 group-hover:bg-black/0"
+          )}
+        />
+      </div>
       <div className="relative flex h-full flex-col justify-between p-4">
         <div className="flex items-start justify-between gap-3">
-          <span className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/90">
-            Map Pool
+          <span className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
+            Map Veto
           </span>
           {selected && (
-            <span className="rounded-full border border-esport-accent/40 bg-esport-accent/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">
+            <span className="rounded-full border border-esport-accent/40 bg-esport-accent/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent backdrop-blur-sm">
               Your Vote
             </span>
           )}
@@ -405,17 +442,17 @@ function MapVetoCard({
 
         <div className="space-y-3">
           <div>
-            <div className="text-2xl font-display font-bold uppercase tracking-wide text-white">
+            <div className="max-w-[9ch] text-[28px] leading-none font-display font-bold uppercase tracking-wide text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.4)]">
               {MAP_LABELS[mapCode] || mapCode}
             </div>
-            <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.24em] text-white/65">
+            <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/70">
               {disabled && !selected ? "Waiting for turn" : "Select to veto"}
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/35 px-3 py-2">
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 backdrop-blur-sm">
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/65">Team clicks</span>
-            <span className="text-sm font-bold text-white">{voteCount}</span>
+            <span className="text-base font-bold text-white">{voteCount}</span>
           </div>
         </div>
       </div>
