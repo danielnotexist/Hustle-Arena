@@ -9,15 +9,7 @@ import {
   serverTimestamp,
   setDoc,
 } from "../firebase";
-import type {
-  AccountMode,
-  ArenaUser,
-  PlatformSessionState,
-  ProfileData,
-  SessionStatus,
-  UserStats,
-  WalletSnapshot,
-} from "./types";
+import type { AccountMode, ArenaUser, PlatformSessionState, ProfileData, UserStats, WalletSnapshot } from "./types";
 
 export const DEFAULT_STATS: UserStats = {
   credits: 0,
@@ -60,8 +52,6 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<ArenaUser | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(enabled ? "loading" : "ready");
-  const [sessionError, setSessionError] = useState<string | null>(null);
   const [liveStats, setLiveStats] = useState<UserStats>(DEFAULT_STATS);
   const [demoStats, setDemoStats] = useState<UserStats>({ ...DEFAULT_STATS, rank: "Demo Cadet" });
   const [wallet, setWallet] = useState<WalletSnapshot>(DEFAULT_WALLET);
@@ -70,13 +60,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
 
   const refreshSession = async () => {
     if (!enabled) {
-      setSessionStatus("ready");
-      setSessionError(null);
       return;
     }
-
-    setSessionStatus("loading");
-    setSessionError(null);
 
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
@@ -88,16 +73,12 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
       setWallet(DEFAULT_WALLET);
       setProfileData(DEFAULT_PROFILE_DATA);
       setAccountMode("live");
-      setSessionStatus("ready");
-      setSessionError(null);
       return;
     }
 
     const userDocRef = doc(db, "users", firebaseUser.uid);
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists()) {
-      setSessionStatus("failed");
-      setSessionError("Firebase profile record is missing.");
       return;
     }
 
@@ -122,14 +103,10 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
       avatarUrl: profile.avatarUrl || profile.photoURL || DEFAULT_PROFILE_DATA.avatarUrl,
       coverUrl: profile.coverUrl || DEFAULT_PROFILE_DATA.coverUrl,
     });
-    setSessionStatus("ready");
-    setSessionError(null);
   };
 
   useEffect(() => {
     if (!enabled) {
-      setSessionStatus("ready");
-      setSessionError(null);
       return;
     }
 
@@ -145,8 +122,6 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
         setWallet(DEFAULT_WALLET);
         setProfileData(DEFAULT_PROFILE_DATA);
         setAccountMode("live");
-        setSessionStatus("ready");
-        setSessionError(null);
         if (profileUnsubscribe) profileUnsubscribe();
         return;
       }
@@ -198,19 +173,13 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
               avatarUrl: profile.avatarUrl || profile.photoURL || DEFAULT_PROFILE_DATA.avatarUrl,
               coverUrl: profile.coverUrl || DEFAULT_PROFILE_DATA.coverUrl,
             });
-            setSessionStatus("ready");
-            setSessionError(null);
           },
           (error) => {
             console.error("Profile snapshot error:", error);
-            setSessionStatus("failed");
-            setSessionError(error instanceof Error ? error.message : "Firebase profile snapshot failed.");
           }
         );
       } catch (error) {
         console.error("Auth state change error:", error);
-        setSessionStatus("failed");
-        setSessionError(error instanceof Error ? error.message : "Firebase auth state change failed.");
       }
     });
 
@@ -272,8 +241,6 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     isLoggedIn,
     isAdmin,
     user,
-    sessionStatus,
-    sessionError,
     stats: accountMode === "demo" ? demoStats : liveStats,
     wallet,
     accountMode,

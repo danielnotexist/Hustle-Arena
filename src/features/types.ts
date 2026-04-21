@@ -86,15 +86,12 @@ export interface PayoutJobView {
 
 export type AuthProvider = "firebase" | "supabase";
 export type AccountMode = "live" | "demo";
-export type SessionStatus = "loading" | "ready" | "failed";
 
 export interface PlatformSessionState {
   authProvider: AuthProvider;
   isLoggedIn: boolean;
   isAdmin: boolean;
   user: ArenaUser | null;
-  sessionStatus: SessionStatus;
-  sessionError: string | null;
   stats: UserStats;
   wallet: WalletSnapshot;
   accountMode: AccountMode;

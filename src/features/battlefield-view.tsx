@@ -74,7 +74,6 @@ const ACTIVE_LOBBY_POLL_MS = 2000;
 const IDLE_LOBBY_POLL_MS = 8000;
 const BROWSER_DATA_POLL_MS = 20000;
 const OPEN_LOBBY_BROWSER_LIMIT = 50;
-const isDocumentVisible = () => typeof document === "undefined" || document.visibilityState === "visible";
 
 const getGameModeOptions = (teamSize: 2 | 5): SupportedGameMode[] =>
   teamSize === 2 ? ["wingman"] : ["competitive", "team_ffa", "ffa"];
@@ -708,9 +707,6 @@ export function CustomLobbyView({
       : IDLE_LOBBY_POLL_MS;
 
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       if (activeStateSyncRef.current) {
         return;
       }
@@ -730,9 +726,6 @@ export function CustomLobbyView({
     }
 
     const interval = window.setInterval(() => {
-      if (!isDocumentVisible()) {
-        return;
-      }
       if (browserStateSyncRef.current) {
         return;
       }
@@ -762,7 +755,7 @@ export function CustomLobbyView({
     let cancelled = false;
 
     const checkMatchResultPopup = async () => {
-      if (cancelled || matchResultPopup || !isDocumentVisible()) {
+      if (cancelled || matchResultPopup) {
         return;
       }
 
@@ -1215,7 +1208,7 @@ export function CustomLobbyView({
     }
     try {
       await setLobbyMemberTeamSide(activeLobby.id, side);
-      await loadActiveLobbyState();
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to update team side.", "error");
@@ -1224,13 +1217,13 @@ export function CustomLobbyView({
 
   const handleReadyToggle = async () => {
     if (!activeLobby || !myMembership) return;
-    if (readyLockActive) {
-      addToast("Ready state locks once map voting starts.", "info");
+    if (myMembership.is_ready && readyLockActive) {
+      addToast("Ready is locked once map voting starts.", "error");
       return;
     }
     try {
       await setLobbyMemberReady(activeLobby.id, !myMembership.is_ready);
-      await loadActiveLobbyState();
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to update ready state.", "error");
@@ -1243,7 +1236,7 @@ export function CustomLobbyView({
       await sendLobbyMessage(activeLobby.id, chatDraft);
       playChatMessageSound();
       setChatDraft("");
-      await loadActiveLobbyState({ silent: true });
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to send lobby chat message.", "error");
@@ -1254,7 +1247,7 @@ export function CustomLobbyView({
     if (!activeLobby) return;
     try {
       await ensureLobbyMapVoteSession(activeLobby.id);
-      await loadActiveLobbyState();
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to start map veto.", "error");
@@ -1265,7 +1258,7 @@ export function CustomLobbyView({
     if (!activeVoteSession) return;
     try {
       await castLobbyMapVote(activeVoteSession.id, mapCode);
-      await loadActiveLobbyState();
+      await loadState();
     } catch (error: any) {
       console.error(error);
       addToast(error?.message || "Failed to cast map veto.", "error");
@@ -1276,7 +1269,7 @@ export function CustomLobbyView({
     if (!activeLobby) return;
     try {
       await kickLobbyMember(activeLobby.id, targetUserId);
-      await loadActiveLobbyState();
+      await loadState();
       addToast("Player removed from lobby.", "success");
     } catch (error: any) {
       console.error(error);
@@ -1319,7 +1312,7 @@ export function CustomLobbyView({
     if (!activeMatch) return;
     try {
       const endpoint = await joinMatchServer(activeMatch.id);
-      await loadActiveLobbyState({ silent: true });
+      await loadState();
       launchMatchServer(endpoint);
     } catch (error: any) {
       console.error(error);
@@ -1342,7 +1335,7 @@ export function CustomLobbyView({
         }
       }
       addToast("Left lobby.", "success");
-      await loadActiveLobbyState({ silent: true });
+      await loadState({ silent: true });
       setClockTick(Date.now());
     } catch (error: any) {
       console.error(error);
@@ -1364,7 +1357,7 @@ export function CustomLobbyView({
         selectedLosingRounds,
       );
       await refreshSession();
-      await loadActiveLobbyState();
+      await loadState();
       addToast("Demo match completed.", "success");
     } catch (error: any) {
       console.error(error);

@@ -46,7 +46,6 @@ import {
 } from "./lib/supabase/matchmaking";
 import {
   fetchMyNotifications,
-  findPublicProfileByUsername,
   fetchPublicProfileBasics,
   fetchPublicProfileDetails,
   type AppNotification,
@@ -81,7 +80,6 @@ import { usePlatformSession } from "./features/use-platform-session";
 
 const DASHBOARD_TAB = "Dashboard";
 const ACTIVE_TAB_STORAGE_KEY = "hustle_arena_active_tab";
-const PUBLIC_PROFILE_USER_ID_STORAGE_KEY = "hustle_arena_public_profile_user_id";
 const VALID_TABS = new Set([
   "Dashboard",
   "Admin",
@@ -142,10 +140,7 @@ export default function App() {
   const [globalPartyInviteActionId, setGlobalPartyInviteActionId] = useState<number | null>(null);
   const [globalOnlineUserIds, setGlobalOnlineUserIds] = useState<string[]>([]);
   const [socialRefreshNonce, setSocialRefreshNonce] = useState(0);
-  const [battlefieldPartySyncNonce, setBattlefieldPartySyncNonce] = useState(0);
   const [socialFocusFriendId, setSocialFocusFriendId] = useState<string | null>(null);
-  const [globalProfileSearchQuery, setGlobalProfileSearchQuery] = useState("");
-  const [globalProfileSearchPending, setGlobalProfileSearchPending] = useState(false);
   const [authBootstrapComplete, setAuthBootstrapComplete] = useState(!shouldUseSupabase);
   const [hasSupabaseSession, setHasSupabaseSession] = useState<boolean | null>(
     shouldUseSupabase ? null : false
@@ -156,8 +151,6 @@ export default function App() {
     isLoggedIn,
     isAdmin,
     user,
-    sessionStatus,
-    sessionError,
     stats,
     wallet,
     accountMode,
@@ -256,11 +249,8 @@ export default function App() {
 
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
-  const showAuthBootstrapScreen = shouldUseSupabase
-    ? !authBootstrapComplete || hasSupabaseSession === null || sessionStatus === "loading"
-    : !authBootstrapComplete;
-  const showSessionRecoveryScreen =
-    shouldUseSupabase && hasSupabaseSession === true && sessionStatus === "failed";
+  const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
+  const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
 
   useEffect(() => {
     if (user) {
@@ -278,9 +268,6 @@ export default function App() {
     }
 
     if (shouldUseSupabase) {
-      if (hasSupabaseSession === null || sessionStatus === "loading") {
-        return;
-      }
       if (hasSupabaseSession === false && !user) {
         previousUserIdRef.current = null;
         setView("landing");
@@ -292,7 +279,7 @@ export default function App() {
 
     previousUserIdRef.current = null;
     setView("landing");
-  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession, sessionStatus]);
+  }, [user, authBootstrapComplete, shouldUseSupabase, hasSupabaseSession]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -300,17 +287,6 @@ export default function App() {
     }
     window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !user?.id) {
-      return;
-    }
-
-    const storedPublicProfileUserId = window.sessionStorage.getItem(PUBLIC_PROFILE_USER_ID_STORAGE_KEY);
-    if (storedPublicProfileUserId === user.id) {
-      window.sessionStorage.removeItem(PUBLIC_PROFILE_USER_ID_STORAGE_KEY);
-    }
-  }, [user?.id]);
 
   useEffect(() => {
     if (!isAdmin && activeTab === "Admin") {
@@ -409,18 +385,9 @@ export default function App() {
           );
 
           if (seenNotificationIdsRef.current.size > 0) {
-            let shouldRefreshBattlefieldPartyState = false;
             newUnreadNotices.forEach((notice) => {
               if (notice.notice_type === "lobby_closed_by_leader") {
                 return;
-              }
-
-              if (
-                notice.notice_type === "party_invite" ||
-                notice.notice_type === "party_invite_response" ||
-                notice.notice_type === "party_invite_removed"
-              ) {
-                shouldRefreshBattlefieldPartyState = true;
               }
 
               if (notice.notice_type === "direct_message") {
@@ -434,10 +401,6 @@ export default function App() {
                 notice.notice_type === "party_invite_removed" ? "info" : "success"
               );
             });
-
-            if (shouldRefreshBattlefieldPartyState) {
-              setBattlefieldPartySyncNonce((current) => current + 1);
-            }
           }
 
           seenNotificationIdsRef.current = currentIds;
@@ -600,50 +563,6 @@ export default function App() {
     };
   }, [user?.email, user?.id, user?.username]);
 
-  const clearStoredPublicProfileUserId = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.sessionStorage.removeItem(PUBLIC_PROFILE_USER_ID_STORAGE_KEY);
-  };
-
-  const persistPublicProfileUserId = (userId: string) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.sessionStorage.setItem(PUBLIC_PROFILE_USER_ID_STORAGE_KEY, userId);
-  };
-
-  const buildPublicProfileViewState = (userId: string, profile: PublicProfileDetails) => {
-    const displayName =
-      profile.username?.trim() ||
-      profile.email?.split("@")[0]?.trim() ||
-      `Player ${userId.slice(0, 8)}`;
-    const avatarUrl =
-      profile.avatar_url ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=256`;
-    const coverUrl =
-      profile.cover_url ||
-      hustleArenaLogo;
-
-    return {
-      userId,
-      profile,
-      displayName,
-      avatarUrl,
-      coverUrl,
-    };
-  };
-
-  const openOwnProfilePage = (initialTab: "overview" | "matches" | "highlights" | "settings" = "overview") => {
-    clearStoredPublicProfileUserId();
-    setPublicProfileState(null);
-    setProfileInitialTab(initialTab);
-    setActiveTab("Profile");
-  };
-
   const handleLogout = async () => {
     try {
       if (authProvider === "supabase" || shouldUseSupabase) {
@@ -656,7 +575,8 @@ export default function App() {
         await signOut(auth);
       }
 
-      openOwnProfilePage("overview");
+      setPublicProfileState(null);
+      setProfileInitialTab("overview");
       setNotificationsOpen(false);
       addToast("Logged out successfully", "info");
     } catch (error: any) {
@@ -669,7 +589,12 @@ export default function App() {
     setSessionRecoveryAction("retry");
     try {
       if (shouldUseSupabase) {
-        const { data, error } = await supabase.auth.refreshSession();
+        const { data, error } = await Promise.race([
+          supabase.auth.refreshSession(),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(() => reject(new Error("Timed out while retrying the login session.")), 12000);
+          }),
+        ]);
         if (error) {
           throw error;
         }
@@ -679,7 +604,12 @@ export default function App() {
       await refreshSession();
 
       if (shouldUseSupabase) {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(() => reject(new Error("Timed out while confirming the restored session.")), 12000);
+          }),
+        ]);
         if (error) {
           throw error;
         }
@@ -712,7 +642,6 @@ export default function App() {
     } finally {
       setHasSupabaseSession(false);
       setAuthBootstrapComplete(true);
-      clearStoredPublicProfileUserId();
       setPublicProfileState(null);
       setProfileInitialTab("overview");
       setNotificationsOpen(false);
@@ -730,93 +659,36 @@ export default function App() {
 
   const openPublicProfilePage = async (userId: string) => {
     try {
-      if (user?.id && userId === user.id) {
-        openOwnProfilePage("overview");
-        return;
-      }
-
       const profile = await fetchPublicProfileDetails(userId);
       if (!profile) {
         addToast("Profile not found.", "error");
         return;
       }
 
-      persistPublicProfileUserId(userId);
-      setProfileInitialTab("overview");
-      setPublicProfileState(buildPublicProfileViewState(userId, profile));
+      const displayName =
+        profile.username?.trim() ||
+        profile.email?.split("@")[0]?.trim() ||
+        `Player ${userId.slice(0, 8)}`;
+      const avatarUrl =
+        profile.avatar_url ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1f2937&color=ffffff&size=256`;
+      const coverUrl =
+        profile.cover_url ||
+        hustleArenaLogo;
+
+      setPublicProfileState({
+        userId,
+        profile,
+        displayName,
+        avatarUrl,
+        coverUrl,
+      });
       setActiveTab("Profile");
     } catch (error) {
       console.error("Failed to open public profile page:", error);
       addToast("Failed to open profile.", "error");
     }
   };
-
-  const openPublicProfileByUsername = async (rawUsername: string) => {
-    const username = rawUsername.trim();
-    if (!username) {
-      addToast("Enter an exact username to search.", "error");
-      return;
-    }
-
-    setGlobalProfileSearchPending(true);
-    try {
-      const target = await findPublicProfileByUsername(username);
-      if (!target?.id) {
-        addToast("Player not found.", "error");
-        return;
-      }
-
-      if (user?.id && target.id === user.id) {
-        openOwnProfilePage("overview");
-      } else {
-        await openPublicProfilePage(target.id);
-      }
-
-      setGlobalProfileSearchQuery("");
-    } catch (error) {
-      console.error("Failed to search public profile:", error);
-      addToast("Failed to search for that player.", "error");
-    } finally {
-      setGlobalProfileSearchPending(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab !== "Profile" || publicProfileState || typeof window === "undefined") {
-      return;
-    }
-
-    const storedPublicProfileUserId = window.sessionStorage.getItem(PUBLIC_PROFILE_USER_ID_STORAGE_KEY);
-    if (!storedPublicProfileUserId || (user?.id && storedPublicProfileUserId === user.id)) {
-      if (storedPublicProfileUserId && user?.id && storedPublicProfileUserId === user.id) {
-        clearStoredPublicProfileUserId();
-      }
-      return;
-    }
-
-    let isCancelled = false;
-    void (async () => {
-      try {
-        const profile = await fetchPublicProfileDetails(storedPublicProfileUserId);
-        if (!profile || isCancelled) {
-          clearStoredPublicProfileUserId();
-          return;
-        }
-
-        setProfileInitialTab("overview");
-        setPublicProfileState(buildPublicProfileViewState(storedPublicProfileUserId, profile));
-      } catch (error) {
-        if (!isCancelled) {
-          console.error("Failed to restore public profile state:", error);
-          clearStoredPublicProfileUserId();
-        }
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeTab, publicProfileState, user?.id]);
 
   const unreadNotificationsCount = notifications.filter(
     (notice) => !notice.is_read && notice.notice_type !== "direct_message"
@@ -853,7 +725,6 @@ export default function App() {
     }
 
     setNotificationsOpen(false);
-    clearStoredPublicProfileUserId();
     setPublicProfileState(null);
     setSocialFocusFriendId(senderId || null);
     setActiveTab("Social");
@@ -885,9 +756,7 @@ export default function App() {
     try {
       await respondQuickQueuePartyInvite(inviteId, action);
       setGlobalPartyInvites((current) => current.filter((invite) => invite.id !== inviteId));
-      clearStoredPublicProfileUserId();
       setPublicProfileState(null);
-      setBattlefieldPartySyncNonce((current) => current + 1);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
       addToast(action === "accept" ? "Party invite accepted." : "Party invite declined.", action === "accept" ? "success" : "info");
@@ -901,7 +770,6 @@ export default function App() {
 
   const openDirectMessageWithFriend = (friendId: string) => {
     setNotificationsOpen(false);
-    clearStoredPublicProfileUserId();
     setPublicProfileState(null);
     setSocialFocusFriendId(friendId);
     setActiveTab("Social");
@@ -937,7 +805,6 @@ export default function App() {
     }
 
     if (notice.link_target === "/social" || notice.notice_type === "friend_request" || notice.notice_type === "direct_message") {
-      clearStoredPublicProfileUserId();
       setPublicProfileState(null);
       setSocialFocusFriendId((notice.metadata?.sender_id as string | undefined) || null);
       setActiveTab("Social");
@@ -948,13 +815,10 @@ export default function App() {
       notice.notice_type === "party_invite_response" ||
       notice.notice_type === "party_invite_removed"
     ) {
-      clearStoredPublicProfileUserId();
       setPublicProfileState(null);
-      setBattlefieldPartySyncNonce((current) => current + 1);
       setBattlefieldMenuOpen(true);
       setActiveTab("Battlefield Matchmaking");
     } else if (notice.notice_type === "lobby_closed_by_leader") {
-      clearStoredPublicProfileUserId();
       setPublicProfileState(null);
       setBattlefieldMenuOpen(true);
       setActiveTab("Squad Hub");
@@ -1002,14 +866,9 @@ export default function App() {
               We Found Your Login But Couldn&apos;t Rebuild Your Arena Session
             </h2>
             <p className="mt-3 text-sm leading-6 text-esport-text-muted">
-              We already tried to repair your platform profile and wallet bootstrap automatically, but the
-              session still could not be restored. You can retry once, or sign out cleanly and sign back in.
+              This usually means the browser still has an auth session, but the profile or wallet bootstrap request failed.
+              You can retry once, or sign out cleanly and sign back in.
             </p>
-            {sessionError && (
-              <p className="mt-4 rounded-2xl border border-amber-300/15 bg-black/20 px-4 py-3 text-xs leading-5 text-amber-100/85">
-                Latest restore error: {sessionError}
-              </p>
-            )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 type="button"
@@ -1160,7 +1019,7 @@ export default function App() {
             </nav>
 
             <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="relative flex items-center gap-3 rounded-xl px-2.5 pb-2.5 pt-3 pr-20 hover:bg-white/5 cursor-pointer group transition-all" onClick={() => openOwnProfilePage("overview")}>
+              <div className="relative flex items-center gap-3 rounded-xl px-2.5 pb-2.5 pt-3 pr-20 hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
@@ -1199,7 +1058,9 @@ export default function App() {
                     aria-label="Open profile settings"
                     onClick={(event) => {
                       event.stopPropagation();
-                      openOwnProfilePage("settings");
+                      setPublicProfileState(null);
+                      setProfileInitialTab("settings");
+                      setActiveTab("Profile");
                     }}
                     className="rounded-lg p-1 text-esport-text-muted transition-colors hover:bg-white/5 hover:text-white"
                   >
@@ -1226,13 +1087,7 @@ export default function App() {
             <header className="glass-header h-16 flex items-center justify-between px-8 shrink-0">
               <div className="flex items-center gap-8">
                 <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
-                <form
-                  className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void openPublicProfileByUsername(globalProfileSearchQuery);
-                  }}
-                >
+                <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
                   <input
                     type="text"
                     name="fake-username"
@@ -1254,26 +1109,24 @@ export default function App() {
                     type="search"
                     id="global-arena-search"
                     name="arena-query"
-                    aria-label="Search exact player username"
-                    placeholder="Search exact player username..."
-                    autoComplete="off"
+                    aria-label="Search tournaments and players"
+                    placeholder="Search tournaments, players..."
+                    autoComplete="new-password"
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
                     enterKeyHint="search"
-                    value={globalProfileSearchQuery}
-                    onChange={(event) => setGlobalProfileSearchQuery(event.target.value)}
-                    disabled={globalProfileSearchPending}
+                    data-form-type="other"
+                    readOnly
+                    onFocus={(event) => {
+                      event.currentTarget.removeAttribute("readonly");
+                    }}
+                    onPointerDown={(event) => {
+                      event.currentTarget.removeAttribute("readonly");
+                    }}
                     className="bg-transparent border-none outline-none text-sm w-64"
                   />
-                  <button
-                    type="submit"
-                    disabled={globalProfileSearchPending || !globalProfileSearchQuery.trim()}
-                    className="rounded-md bg-esport-accent px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {globalProfileSearchPending ? "Opening" : "Open"}
-                  </button>
-                </form>
+                </div>
               </div>
 
               <div className="flex items-center gap-4">
@@ -1451,7 +1304,6 @@ export default function App() {
                         user={user}
                         accountMode={accountMode}
                         visibleBalance={visibleBalance}
-                        partySyncNonce={battlefieldPartySyncNonce}
                         onOpenDirectMessage={openDirectMessageWithFriend}
                         refreshSession={refreshSession}
                         onMatchReady={() => {
@@ -1462,7 +1314,7 @@ export default function App() {
                     )}
                     {activeTab === "Custom Lobby Browser" && <CustomLobbyBrowserView addToast={addToast} openModal={openModal} user={user} accountMode={accountMode} refreshSession={refreshSession} onLobbyJoined={() => { setJoiningLobbyTransition(true); setActiveTab("Squad Hub"); }} />}
                     {activeTab === "Squad Hub" && <SquadHubView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} showJoinTransition={joiningLobbyTransition} onJoinTransitionDone={() => setJoiningLobbyTransition(false)} />}
-                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} onSearchPublicProfileByUsername={openPublicProfileByUsername} refreshKey={socialRefreshNonce} onlineUserIds={globalOnlineUserIds} focusFriendId={socialFocusFriendId} onFocusFriendHandled={() => setSocialFocusFriendId(null)} />}
+                    {activeTab === "Social" && <SocialView addToast={addToast} user={user} accountMode={accountMode} openModal={openModal} refreshSession={refreshSession} onOpenPublicProfile={openPublicProfilePage} refreshKey={socialRefreshNonce} onlineUserIds={globalOnlineUserIds} focusFriendId={socialFocusFriendId} onFocusFriendHandled={() => setSocialFocusFriendId(null)} />}
                     {activeTab === "Apex List" && <ApexListView onOpenPublicProfile={openPublicProfilePage} />}
                     {activeTab === "Neural Map" && <NeuralMapView stats={stats} />}
                     {activeTab === "Missions" && <MissionsView addToast={addToast} />}
@@ -1525,7 +1377,6 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     void acknowledgeLobbyClosedNotice(primaryLobbyClosedNotice.id);
-                    clearStoredPublicProfileUserId();
                     setPublicProfileState(null);
                     setBattlefieldMenuOpen(true);
                     setActiveTab("Squad Hub");

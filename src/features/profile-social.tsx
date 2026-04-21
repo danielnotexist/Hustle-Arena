@@ -1076,7 +1076,7 @@ export function PublicProfileView({
   );
 }
 
-export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, onSearchPublicProfileByUsername, refreshKey = 0, onlineUserIds = [], focusFriendId = null, onFocusFriendHandled }: any) {
+export function SocialView({ addToast, user, accountMode = 'demo', openModal, refreshSession, onOpenPublicProfile, refreshKey = 0, onlineUserIds = [], focusFriendId = null, onFocusFriendHandled }: any) {
   const [loading, setLoading] = useState(true);
   const [friendsList, setFriendsList] = useState<Array<{ id: string; username: string; avatarUrl: string | null; lastActiveAt: string | null }>>([]);
   const [pendingRequests, setPendingRequests] = useState<Array<{ id: number; requester_id: string; username: string }>>([]);
@@ -1088,10 +1088,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const socialRealtimeChannelRef = useRef<any>(null);
   const typingRealtimeChannelRef = useRef<any>(null);
-  const selectedFriendIdRef = useRef<string | null>(null);
-  const threadLoadFriendIdRef = useRef<string | null>(null);
-  const threadLoadInFlightRef = useRef<Promise<void> | null>(null);
-  const unreadCountsLoadInFlightRef = useRef<Promise<void> | null>(null);
   const [isSelectedFriendTyping, setIsSelectedFriendTyping] = useState(false);
   const threadScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const threadBottomRef = useRef<HTMLDivElement | null>(null);
@@ -1127,32 +1123,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
   };
 
-  const openProfileByUsername = async () => {
-    const username = addFriendUsername.trim();
-    if (!username) {
-      addToast("Enter an exact username first.", "error");
-      return;
-    }
-
-    try {
-      if (typeof onSearchPublicProfileByUsername === "function") {
-        await onSearchPublicProfileByUsername(username);
-        return;
-      }
-
-      const target = await findPublicProfileByUsername(username);
-      if (!target?.id) {
-        addToast("Player not found", "error");
-        return;
-      }
-
-      await openFriendProfile(target.id);
-    } catch (error) {
-      console.error("Failed to open public profile by username:", error);
-      addToast("Failed to open profile.", "error");
-    }
-  };
-
   const selectedFriend = useMemo(
     () => friendsList.find((f) => f.id === selectedFriendId) ?? null,
     [friendsList, selectedFriendId]
@@ -1175,10 +1145,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       }, {}),
     [friendsList]
   );
-  useEffect(() => {
-    selectedFriendIdRef.current = selectedFriendId;
-  }, [selectedFriendId]);
-
   useEffect(() => {
     const interval = window.setInterval(() => {
       setPresenceNow(Date.now());
@@ -1518,11 +1484,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             playChatMessageSound();
           }
 
-          const activeFriendId = selectedFriendIdRef.current;
           if (
-            activeFriendId &&
-            ((row.sender_id === user.id && row.receiver_id === activeFriendId) ||
-              (row.sender_id === activeFriendId && row.receiver_id === user.id))
+            selectedFriendId &&
+            ((row.sender_id === user.id && row.receiver_id === selectedFriendId) ||
+              (row.sender_id === selectedFriendId && row.receiver_id === user.id))
           ) {
             setThreadMessages((current) =>
               current.some((entry) => entry.id === row.id) ? current : [...current, row]
@@ -1554,11 +1519,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             playChatMessageSound();
           }
 
-          const activeFriendId = selectedFriendIdRef.current;
           if (
-            activeFriendId &&
-            ((row.sender_id === user.id && row.receiver_id === activeFriendId) ||
-              (row.sender_id === activeFriendId && row.receiver_id === user.id))
+            selectedFriendId &&
+            ((row.sender_id === user.id && row.receiver_id === selectedFriendId) ||
+              (row.sender_id === selectedFriendId && row.receiver_id === user.id))
           ) {
             setThreadMessages((current) =>
               current.some((entry) => entry.id === row.id) ? current : [...current, row]
@@ -1591,7 +1555,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
         socialRealtimeChannelRef.current = null;
       }
     };
-  }, [user?.id]);
+  }, [user?.id, selectedFriendId]);
 
   useEffect(() => {
     if (!threadBottomRef.current) return;
@@ -1620,68 +1584,30 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     }
 
     const interval = window.setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        return;
-      }
       void loadThread(selectedFriendId);
-    }, 10000);
+    }, 1500);
 
     return () => {
       window.clearInterval(interval);
     };
   }, [user?.id, selectedFriendId]);
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        return;
-      }
-      void loadUnreadCounts();
-      if (selectedFriendIdRef.current) {
-        void loadThread(selectedFriendIdRef.current);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user?.id]);
-
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
 
-    if (unreadCountsLoadInFlightRef.current) {
-      return unreadCountsLoadInFlightRef.current;
-    }
+    const { data } = await supabase
+      .from('direct_messages')
+      .select('sender_id')
+      .eq('receiver_id', user.id)
+      .eq('is_read', false);
 
-    const loadPromise = (async () => {
-      const { data } = await supabase
-        .from('direct_messages')
-        .select('sender_id')
-        .eq('receiver_id', user.id)
-        .eq('is_read', false);
-
-      const counts: Record<string, number> = {};
-      (data ?? []).forEach((row: any) => {
-        const sender = row.sender_id as string;
-        counts[sender] = (counts[sender] ?? 0) + 1;
-      });
-
-      setUnreadByFriend(counts);
-    })();
-
-    unreadCountsLoadInFlightRef.current = loadPromise.finally(() => {
-      if (unreadCountsLoadInFlightRef.current === loadPromise) {
-        unreadCountsLoadInFlightRef.current = null;
-      }
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((row: any) => {
+      const sender = row.sender_id as string;
+      counts[sender] = (counts[sender] ?? 0) + 1;
     });
 
-    return unreadCountsLoadInFlightRef.current;
+    setUnreadByFriend(counts);
   };
 
   const loadThread = async (friendId: string | null) => {
@@ -1690,44 +1616,26 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       return;
     }
 
-    if (threadLoadInFlightRef.current && threadLoadFriendIdRef.current === friendId) {
-      return threadLoadInFlightRef.current;
-    }
+    const condition =
+      'and(sender_id.eq.' + user.id + ',receiver_id.eq.' + friendId + '),and(sender_id.eq.' + friendId + ',receiver_id.eq.' + user.id + ')';
 
-    const loadPromise = (async () => {
-      const condition =
-        'and(sender_id.eq.' + user.id + ',receiver_id.eq.' + friendId + '),and(sender_id.eq.' + friendId + ',receiver_id.eq.' + user.id + ')';
+    const { data } = await supabase
+      .from('direct_messages')
+      .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
+      .or(condition)
+      .order('created_at', { ascending: true })
+      .limit(200);
 
-      const { data } = await supabase
-        .from('direct_messages')
-        .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
-        .or(condition)
-        .order('created_at', { ascending: true })
-        .limit(200);
+    setThreadMessages((data ?? []) as any);
 
-      if (selectedFriendIdRef.current === friendId) {
-        setThreadMessages((data ?? []) as any);
-      }
+    await supabase
+      .from('direct_messages')
+      .update({ is_read: true })
+      .eq('receiver_id', user.id)
+      .eq('sender_id', friendId)
+      .eq('is_read', false);
 
-      await supabase
-        .from('direct_messages')
-        .update({ is_read: true })
-        .eq('receiver_id', user.id)
-        .eq('sender_id', friendId)
-        .eq('is_read', false);
-
-      await loadUnreadCounts();
-    })();
-
-    threadLoadFriendIdRef.current = friendId;
-    threadLoadInFlightRef.current = loadPromise.finally(() => {
-      if (threadLoadInFlightRef.current === loadPromise) {
-        threadLoadInFlightRef.current = null;
-        threadLoadFriendIdRef.current = null;
-      }
-    });
-
-    return threadLoadInFlightRef.current;
+    await loadUnreadCounts();
   };
 
   const sendMessage = async () => {
@@ -1819,12 +1727,6 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
                 placeholder="Enter exact username"
                 className="h-12 flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm text-white outline-none transition-colors placeholder:text-esport-text-muted focus:border-esport-accent/50"
               />
-              <button
-                onClick={() => openProfileByUsername().catch((err) => console.error(err))}
-                className="h-12 rounded-xl border border-white/10 bg-white/[0.06] px-5 text-sm font-bold text-white transition-colors hover:bg-white/[0.1]"
-              >
-                View Profile
-              </button>
               <button onClick={() => sendFriendRequest().catch((err) => console.error(err))} className="h-12 rounded-xl bg-esport-accent px-5 text-sm font-bold text-white shadow-[0_0_20px_rgba(59,130,246,0.28)] transition-transform hover:scale-[1.01]">
                 Send Request
               </button>

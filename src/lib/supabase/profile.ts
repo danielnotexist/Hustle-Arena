@@ -13,13 +13,6 @@ export async function fetchMyProfile() {
   return row || null;
 }
 
-export async function ensureMyPlatformAccount() {
-  const { error } = await supabase.rpc("ensure_my_platform_account");
-  if (error) {
-    throw error;
-  }
-}
-
 export async function fetchExtendedProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
