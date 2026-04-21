@@ -163,6 +163,8 @@ export function BattlefieldView({
   const restoredQuickQueueStateRef = useRef(false);
   const connectingLobbyStartedAtRef = useRef(0);
   const connectingLobbyNavigationRef = useRef<string | null>(null);
+  const backendStatusMissingStreakRef = useRef(0);
+  const readyCheckStabilityUntilRef = useRef(0);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -666,19 +668,44 @@ export function BattlefieldView({
     const syncQueueStateFromBackend = async () => {
       try {
         const status = await fetchMyQuickQueueStatus(accountMode);
+        const canApplyStatus =
+          !cancelled &&
+          !cancelInFlightRef.current &&
+          requestVersion === queueRequestVersionRef.current;
+        const isHoldingReadyCheck =
+          matchState === "ready_check" &&
+          !!readyCheckId &&
+          readyCheckStabilityUntilRef.current > Date.now();
+
         if (!status) {
+          backendStatusMissingStreakRef.current += 1;
+          if (
+            canApplyStatus &&
+            !isHoldingReadyCheck &&
+            backendStatusMissingStreakRef.current >= 2 &&
+            (matchState === "searching" || matchState === "ready_check")
+          ) {
+            resetQuickQueueState("idle");
+          }
           return;
         }
+
+        backendStatusMissingStreakRef.current = 0;
 
         const backendStakeAmount = Number(status.stake_amount || 0);
         const backendMatchType = backendStatusToMatchType(status.team_size, status.game_mode);
         const backendQueueMode = status.queue_mode === "party" ? "party" : "solo";
 
-        if (
-          !cancelled &&
-          !cancelInFlightRef.current &&
-          requestVersion === queueRequestVersionRef.current
-        ) {
+        if (canApplyStatus) {
+          if (
+            isHoldingReadyCheck &&
+            status.status === "searching" &&
+            !status.ready_check_id &&
+            !status.lobby_id
+          ) {
+            return;
+          }
+
           if (backendStakeAmount && selectedStakeAmount !== backendStakeAmount) {
             setSelectedStakeAmount(backendStakeAmount);
           }
@@ -859,11 +886,16 @@ export function BattlefieldView({
     setParticipantUserIds(status.participant_user_ids || []);
     setAcceptedUserIds(status.accepted_user_ids || []);
 
+    if (status.status === "ready_check" && status.ready_check_id) {
+      readyCheckStabilityUntilRef.current = Date.now() + 4000;
+    }
+
     if (status.status === "matched" && status.lobby_id) {
       if (handledMatchedLobbyRef.current !== status.lobby_id) {
         handledMatchedLobbyRef.current = status.lobby_id;
         connectingLobbyStartedAtRef.current = Date.now();
         connectingLobbyNavigationRef.current = null;
+        readyCheckStabilityUntilRef.current = 0;
         setMatchState("connecting");
         addToast("Match accepted. Opening lobby...", "success");
       }
@@ -873,6 +905,9 @@ export function BattlefieldView({
     handledMatchedLobbyRef.current = null;
     connectingLobbyStartedAtRef.current = 0;
     connectingLobbyNavigationRef.current = null;
+    if (status.status !== "ready_check") {
+      readyCheckStabilityUntilRef.current = 0;
+    }
     setMatchState(status.status === "ready_check" ? "ready_check" : "searching");
   };
 
@@ -962,6 +997,8 @@ export function BattlefieldView({
     handledMatchedLobbyRef.current = null;
     connectingLobbyStartedAtRef.current = 0;
     connectingLobbyNavigationRef.current = null;
+    backendStatusMissingStreakRef.current = 0;
+    readyCheckStabilityUntilRef.current = 0;
   };
 
   const leaveJoinedParty = async () => {
