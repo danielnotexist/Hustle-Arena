@@ -48,6 +48,7 @@ const MAP_LABELS: Record<string, string> = {
   anubis: "Anubis",
   ancient: "Ancient",
   overpass: "Overpass",
+  vertigo: "Vertigo",
 };
 
 const MAP_BACKGROUND_MODULES = import.meta.glob("../assets/maps/*.{png,jpg,jpeg,webp,avif,svg}", {
