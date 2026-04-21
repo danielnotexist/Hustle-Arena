@@ -164,7 +164,7 @@ export function BattlefieldView({
   const connectingLobbyStartedAtRef = useRef(0);
   const connectingLobbyNavigationRef = useRef<string | null>(null);
   const backendStatusMissingStreakRef = useRef(0);
-  const readyCheckStabilityUntilRef = useRef(0);
+  const readyCheckExitCandidateStreakRef = useRef(0);
 
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
@@ -672,20 +672,25 @@ export function BattlefieldView({
           !cancelled &&
           !cancelInFlightRef.current &&
           requestVersion === queueRequestVersionRef.current;
-        const isHoldingReadyCheck =
+        const isResolvingLocalReadyCheck =
           matchState === "ready_check" &&
-          !!readyCheckId &&
-          readyCheckStabilityUntilRef.current > Date.now();
+          !!readyCheckId;
 
         if (!status) {
           backendStatusMissingStreakRef.current += 1;
           if (
             canApplyStatus &&
-            !isHoldingReadyCheck &&
-            backendStatusMissingStreakRef.current >= 2 &&
-            (matchState === "searching" || matchState === "ready_check")
+            (matchState === "searching" || isResolvingLocalReadyCheck)
           ) {
-            resetQuickQueueState("idle");
+            if (isResolvingLocalReadyCheck) {
+              readyCheckExitCandidateStreakRef.current += 1;
+              if (readyCheckExitCandidateStreakRef.current < 2) {
+                return;
+              }
+            }
+            if (backendStatusMissingStreakRef.current >= 2 || isResolvingLocalReadyCheck) {
+              resetQuickQueueState("idle");
+            }
           }
           return;
         }
@@ -698,12 +703,17 @@ export function BattlefieldView({
 
         if (canApplyStatus) {
           if (
-            isHoldingReadyCheck &&
+            isResolvingLocalReadyCheck &&
             status.status === "searching" &&
             !status.ready_check_id &&
             !status.lobby_id
           ) {
-            return;
+            readyCheckExitCandidateStreakRef.current += 1;
+            if (readyCheckExitCandidateStreakRef.current < 2) {
+              return;
+            }
+          } else {
+            readyCheckExitCandidateStreakRef.current = 0;
           }
 
           if (backendStakeAmount && selectedStakeAmount !== backendStakeAmount) {
@@ -887,7 +897,7 @@ export function BattlefieldView({
     setAcceptedUserIds(status.accepted_user_ids || []);
 
     if (status.status === "ready_check" && status.ready_check_id) {
-      readyCheckStabilityUntilRef.current = Date.now() + 4000;
+      readyCheckExitCandidateStreakRef.current = 0;
     }
 
     if (status.status === "matched" && status.lobby_id) {
@@ -895,7 +905,7 @@ export function BattlefieldView({
         handledMatchedLobbyRef.current = status.lobby_id;
         connectingLobbyStartedAtRef.current = Date.now();
         connectingLobbyNavigationRef.current = null;
-        readyCheckStabilityUntilRef.current = 0;
+        readyCheckExitCandidateStreakRef.current = 0;
         setMatchState("connecting");
         addToast("Match accepted. Opening lobby...", "success");
       }
@@ -906,7 +916,7 @@ export function BattlefieldView({
     connectingLobbyStartedAtRef.current = 0;
     connectingLobbyNavigationRef.current = null;
     if (status.status !== "ready_check") {
-      readyCheckStabilityUntilRef.current = 0;
+      readyCheckExitCandidateStreakRef.current = 0;
     }
     setMatchState(status.status === "ready_check" ? "ready_check" : "searching");
   };
@@ -998,7 +1008,7 @@ export function BattlefieldView({
     connectingLobbyStartedAtRef.current = 0;
     connectingLobbyNavigationRef.current = null;
     backendStatusMissingStreakRef.current = 0;
-    readyCheckStabilityUntilRef.current = 0;
+    readyCheckExitCandidateStreakRef.current = 0;
   };
 
   const leaveJoinedParty = async () => {
