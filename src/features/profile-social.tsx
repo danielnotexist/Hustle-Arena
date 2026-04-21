@@ -1690,7 +1690,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(7,10,18,0.98))] p-6 shadow-[0_25px_70px_rgba(0,0,0,0.35)]">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] 2xl:items-end">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
               <Activity size={14} />
@@ -1702,16 +1702,16 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 2xl:justify-self-end">
             {[
               { label: "Friends", value: friendsList.length, tone: "text-white" },
               { label: "Online", value: onlineFriendIds.length, tone: "text-emerald-300" },
               { label: "Unread", value: totalUnreadCount, tone: "text-esport-accent" },
               { label: "Invites", value: pendingRequests.length + pendingLobbyInvites.length, tone: "text-amber-200" },
             ].map((card) => (
-              <div key={card.label} className="min-w-[128px] rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div key={card.label} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 sm:px-5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">{card.label}</div>
-                <div className={`mt-2 text-2xl font-display font-bold ${card.tone}`}>{card.value}</div>
+                <div className={`mt-2 text-xl font-display font-bold sm:text-2xl ${card.tone}`}>{card.value}</div>
               </div>
             ))}
           </div>
