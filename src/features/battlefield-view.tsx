@@ -2,7 +2,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import squadHubBackground from "../assets/ha-squad-hub.png";
+import squadHubBackground from "../assets/squad-hub-top-background-clean.png";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   castLobbyMapVote,
