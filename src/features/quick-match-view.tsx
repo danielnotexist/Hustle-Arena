@@ -27,6 +27,7 @@ import {
   playReadyCheckCompleteSound,
 } from "../lib/sound";
 import hustleArenaLogo from "../assets/hustle-arena-logo.png";
+import battlefieldBackground from "../assets/background.png";
 import anubisMap from "../assets/maps/anubis.jpg";
 import infernoMap from "../assets/maps/inferno.jpg";
 import mirageMap from "../assets/maps/mirage.jpg";
@@ -1509,7 +1510,7 @@ export function BattlefieldView({
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: `linear-gradient(180deg,rgba(3,7,13,0.20),rgba(3,7,13,0.70)), url(${nukeMap})`,
+              backgroundImage: `linear-gradient(180deg,rgba(3,7,13,0.20),rgba(3,7,13,0.70)), url(${battlefieldBackground})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
