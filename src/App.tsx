@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
+import hustleArenaSidebarLogo from "./assets/hustle-arena-sidebar-logo.jpg";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
@@ -953,13 +954,15 @@ export default function App() {
           {/* Sidebar */}
           <aside className="w-[272px] shrink-0 border-r border-white/10 bg-[linear-gradient(180deg,#16171b_0%,#101115_100%)] text-white z-40 flex flex-col relative overflow-hidden">
             <div className="absolute inset-0 pointer-events-none opacity-35 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_28%),linear-gradient(145deg,transparent_0%,rgba(255,255,255,0.03)_35%,transparent_70%)]" />
-            <div className="p-6 pb-4">
-              <div className="flex justify-center cursor-pointer" onClick={() => setView("dashboard")}>
-                <div className="relative rounded-[26px] border border-white/8 bg-black/18 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="p-6 pb-5">
+              <div className="relative mx-auto w-full max-w-[224px] cursor-pointer" onClick={() => setView("dashboard")}>
+                <div className="pointer-events-none absolute -inset-3 rounded-[34px] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_62%)] blur-2xl" />
+                <div className="relative overflow-hidden rounded-[30px] border border-cyan-300/15 bg-[linear-gradient(180deg,rgba(7,10,16,0.98),rgba(11,14,20,0.92))] p-3 shadow-[0_22px_46px_rgba(0,0,0,0.45),0_0_28px_rgba(34,211,238,0.08)] transition-all duration-200 hover:border-cyan-300/30 hover:shadow-[0_24px_48px_rgba(0,0,0,0.48),0_0_34px_rgba(34,211,238,0.12)]">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_45%),linear-gradient(135deg,rgba(255,255,255,0.05),transparent_55%)]" />
                   <img
-                    src={hustleArenaLogo}
+                    src={hustleArenaSidebarLogo}
                     alt="Hustle Arena"
-                    className="h-[92px] w-auto object-contain"
+                    className="relative h-[136px] w-full rounded-[22px] object-contain"
                   />
                 </div>
               </div>
