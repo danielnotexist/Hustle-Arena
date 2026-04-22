@@ -1314,11 +1314,10 @@ export default function App() {
               {isSquadHubTab && (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <div
-                    className="absolute inset-0 scale-[1.03] bg-cover bg-center opacity-36"
+                    className="absolute inset-0 scale-[1.01] bg-cover bg-center opacity-100"
                     style={{ backgroundImage: `url(${squadHubBackground})`, backgroundPosition: "center center" }}
                   />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(59,130,246,0.26),transparent_24%),radial-gradient(circle_at_78%_22%,rgba(96,165,250,0.18),transparent_26%),linear-gradient(90deg,rgba(4,7,12,0.9)_0%,rgba(4,7,12,0.5)_18%,rgba(4,7,12,0.18)_44%,rgba(4,7,12,0.18)_56%,rgba(4,7,12,0.54)_82%,rgba(4,7,12,0.9)_100%),linear-gradient(180deg,rgba(5,8,13,0.82)_0%,rgba(5,8,13,0.48)_20%,rgba(4,7,12,0.72)_100%)]" />
-                  <div className="absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(5,8,13,0.5),transparent)]" />
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,8,13,0.24)_0%,rgba(5,8,13,0.08)_14%,rgba(5,8,13,0.02)_32%,rgba(5,8,13,0.02)_68%,rgba(5,8,13,0.12)_86%,rgba(5,8,13,0.28)_100%),linear-gradient(180deg,rgba(5,8,13,0.2)_0%,rgba(5,8,13,0.02)_24%,rgba(5,8,13,0.24)_100%)]" />
                 </div>
               )}
               {isLoggedIn && !isAdmin && accountMode === "live" && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
