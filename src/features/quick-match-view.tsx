@@ -76,8 +76,8 @@ const MATCH_TYPE_CARD_ART: Record<
   },
   ranked_5v5: {
     image: mirageMap,
-    accent: "text-fuchsia-300",
-    glow: "shadow-[0_0_30px_rgba(217,70,239,0.18)]",
+    accent: "text-white",
+    glow: "shadow-[0_0_30px_rgba(255,255,255,0.12)]",
   },
   ranked_team_ffa: {
     image: infernoMap,
@@ -1547,28 +1547,58 @@ export function BattlefieldView({
 
               {wizardStep === 1 && (
                 <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white sm:text-5xl">How do you want to play?</h3>
-                    <p className="mt-2 text-sm text-esport-text-muted">Choose your queue style to continue.</p>
+                  <div>
+                    <div className="mb-5 flex items-center gap-3">
+                      <div className="h-[3px] w-10 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.7)]" />
+                      <div className="h-[3px] w-8 rounded-full bg-white/25" />
+                      <div className="h-[3px] w-8 rounded-full bg-white/20" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white sm:text-6xl">
+                        How Do You
+                        <span className="mt-1 block text-cyan-300">Want To Play?</span>
+                      </h3>
+                      <p className="mt-3 text-sm text-esport-text-muted">Choose your queue style to continue.</p>
+                    </div>
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => selectWizardQueueType("solo")}
                       disabled={isPartyInviteGuest}
-                      className="min-h-[170px] rounded-[26px] border border-esport-border bg-black/30 p-9 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10"
+                      className="group min-h-[178px] rounded-[24px] border border-cyan-400/25 bg-[linear-gradient(180deg,rgba(8,12,18,0.88),rgba(7,10,15,0.92))] p-7 text-left transition-all hover:border-cyan-300/45 hover:bg-cyan-400/[0.04]"
                     >
-                      <div className="text-2xl font-display font-bold uppercase text-white">Solo Quick Match</div>
-                      <div className="mt-3 max-w-md text-base text-esport-text-muted">Find a random team and queue on your own.</div>
+                      <div className="flex h-full items-center gap-5">
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] border border-cyan-400/30 bg-cyan-400/[0.05] text-cyan-300 shadow-[inset_0_0_18px_rgba(34,211,238,0.08)]">
+                          <Sword size={36} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[32px] font-display font-bold uppercase leading-none text-white">Solo</div>
+                          <div className="mt-2 text-xl font-display font-bold uppercase tracking-tight text-cyan-300">Quick Match</div>
+                          <div className="mt-4 max-w-md text-base leading-7 text-esport-text-muted">
+                            Find a random team and queue on your own.
+                          </div>
+                        </div>
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => selectWizardQueueType("party")}
                       disabled={isPartyInviteGuest}
-                      className="min-h-[170px] rounded-[26px] border border-esport-border bg-black/30 p-9 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10 disabled:opacity-60"
+                      className="group min-h-[178px] rounded-[24px] border border-orange-300/25 bg-[linear-gradient(180deg,rgba(8,12,18,0.88),rgba(7,10,15,0.92))] p-7 text-left transition-all hover:border-orange-300/40 hover:bg-orange-400/[0.04] disabled:opacity-60"
                     >
-                      <div className="text-2xl font-display font-bold uppercase text-white">Party Quick Match</div>
-                      <div className="mt-3 max-w-md text-base text-esport-text-muted">Queue with your party and invite friends before search.</div>
+                      <div className="flex h-full items-center gap-5">
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] border border-orange-300/30 bg-orange-400/[0.05] text-orange-300 shadow-[inset_0_0_18px_rgba(251,146,60,0.08)]">
+                          <Users size={36} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[32px] font-display font-bold uppercase leading-none text-white">Party</div>
+                          <div className="mt-2 text-xl font-display font-bold uppercase tracking-tight text-orange-300">Quick Match</div>
+                          <div className="mt-4 max-w-md text-base leading-7 text-esport-text-muted">
+                            Queue with your party and invite friends before search.
+                          </div>
+                        </div>
+                      </div>
                     </button>
                   </div>
                 </div>
@@ -1911,7 +1941,7 @@ export function BattlefieldView({
                         (queueMode === "party" &&
                           (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
                       }
-                      className="mx-auto block w-full max-w-[520px] rounded-full bg-[linear-gradient(90deg,#33e6ff_0%,#27d9ff_32%,#ff27d5_100%)] px-6 py-4 text-base font-bold text-[#041018] shadow-[0_0_30px_rgba(74,222,255,0.22)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mx-auto block w-full max-w-[520px] rounded-full border border-cyan-300/35 bg-[linear-gradient(180deg,rgba(52,203,255,0.95),rgba(19,154,210,0.95))] px-6 py-4 text-base font-bold text-[#041018] shadow-[0_0_30px_rgba(74,222,255,0.18)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {queueMode === "solo" ? "Start Matchmaking" : isPartyInviteGuest ? "Waiting For Party Leader" : "Start Matchmaking"}
                     </button>
