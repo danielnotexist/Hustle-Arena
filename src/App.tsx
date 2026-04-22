@@ -951,24 +951,24 @@ export default function App() {
       ) : (
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-64 bg-esport-sidebar flex flex-col border-r border-esport-border z-40 shrink-0">
-            <div className="p-6">
-              <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setView("dashboard")}>
-                <div className="flex items-center gap-3 h-12">
+          <aside className="w-[272px] shrink-0 border-r border-white/10 bg-[linear-gradient(180deg,#15171c_0%,#101216_100%)] text-white z-40 flex flex-col relative overflow-hidden">
+            <div className="absolute inset-0 opacity-30 pointer-events-none bg-[linear-gradient(145deg,transparent_0%,rgba(255,255,255,0.03)_35%,transparent_70%)]" />
+            <div className="p-6 pb-4">
+              <div className="flex justify-center cursor-pointer" onClick={() => setView("dashboard")}>
+                <div className="relative rounded-[26px] border border-white/8 bg-black/18 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <img
                     src={hustleArenaLogo}
                     alt="Hustle Arena"
-                    className="h-full w-12 rounded-lg object-cover border border-esport-border"
+                    className="h-[92px] w-auto object-contain"
                   />
-                  <span className="font-display font-bold text-xl tracking-wider text-white">Hustle-Arena</span>
                 </div>
               </div>
             </div>
 
-            <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-8 py-4">
+            <nav className="flex-1 overflow-y-auto custom-scrollbar px-4 space-y-7 py-4">
               {isAdmin && (
                 <div>
-                  <div className="px-4 mb-3 text-[10px] font-bold text-esport-secondary uppercase tracking-[0.2em]">Administration</div>
+                  <div className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Administration</div>
                   <div className="space-y-1">
                     <SidebarItem 
                       icon={<Shield size={20} />} 
@@ -982,7 +982,7 @@ export default function App() {
               )}
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Navigation</div>
+                <div className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Navigation</div>
                 <div className="space-y-1">
                   <SidebarItem
                     icon={<LayoutDashboard size={20} />}
@@ -1005,16 +1005,16 @@ export default function App() {
                     }}
                   />
                   {(battlefieldMenuOpen || isBattlefieldTab) && (
-                    <div className="ml-6 space-y-1 border-l border-esport-border pl-3">
+                    <div className="ml-6 space-y-1 border-l border-white/8 pl-3">
                       <button
                         onClick={() => {
                           setBattlefieldMenuOpen(true);
                           setActiveTab("Battlefield Matchmaking");
                         }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                        className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
                           activeTab === "Battlefield Matchmaking"
-                            ? "bg-esport-accent/10 text-esport-accent"
-                            : "text-esport-text-muted hover:bg-white/5 hover:text-white"
+                            ? "bg-cyan-400/10 text-cyan-300"
+                            : "text-white/45 hover:bg-white/[0.04] hover:text-white"
                         }`}
                       >
                         Matchmaking
@@ -1024,10 +1024,10 @@ export default function App() {
                           setBattlefieldMenuOpen(true);
                           setActiveTab("Custom Lobby Browser");
                         }}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
+                        className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold uppercase tracking-[0.18em] transition-all ${
                           activeTab === "Custom Lobby Browser"
-                            ? "bg-esport-accent/10 text-esport-accent"
-                            : "text-esport-text-muted hover:bg-white/5 hover:text-white"
+                            ? "bg-cyan-400/10 text-cyan-300"
+                            : "text-white/45 hover:bg-white/[0.04] hover:text-white"
                         }`}
                       >
                         Custom Lobby Browser
@@ -1046,7 +1046,7 @@ export default function App() {
               </div>
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Social</div>
+                <div className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Social</div>
                 <div className="space-y-1">
                   {socialItems.map(item => (
                     <SidebarItem
@@ -1060,7 +1060,7 @@ export default function App() {
               </div>
 
               <div>
-                <div className="px-4 mb-3 text-[10px] font-bold text-esport-text-muted uppercase tracking-[0.2em]">Collective</div>
+                <div className="px-4 mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Collective</div>
                 <div className="space-y-1">
                   {collectiveItems.map(item => (
                     <SidebarItem 
@@ -1074,19 +1074,19 @@ export default function App() {
               </div>
             </nav>
 
-            <div className="p-4 border-t border-esport-border bg-black/20">
-              <div className="relative flex items-center gap-3 rounded-xl px-2.5 pb-2.5 pt-3 pr-20 hover:bg-white/5 cursor-pointer group transition-all" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
+            <div className="border-t border-white/10 bg-black/18 p-4">
+              <div className="relative flex items-center gap-3 rounded-[22px] border border-white/8 bg-white/[0.03] px-3 pb-3 pt-3 pr-20 cursor-pointer group transition-all hover:bg-white/[0.05]" onClick={() => { setPublicProfileState(null); setProfileInitialTab("overview"); setActiveTab("Profile"); }}>
                 <div className="relative">
                   <img
                     src={profileData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.username || "Player")}&background=random`}
-                    className="w-10 h-10 rounded-full border-2 border-esport-accent group-hover:border-white transition-colors object-cover"
+                    className="w-10 h-10 rounded-full border-2 border-cyan-300/70 group-hover:border-white transition-colors object-cover"
                   />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-esport-success border-2 border-esport-sidebar rounded-full" />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#12151a] bg-esport-success" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold truncate">{user?.username || "CyberGhost_99"}</div>
                   <div className="flex items-center gap-2">
-                  <div className="text-[10px] text-esport-accent font-bold uppercase tracking-wider">Level {stats?.level || 0}</div>
+                  <div className="text-[10px] text-cyan-300 font-bold uppercase tracking-wider">Level {stats?.level || 0}</div>
                   <div className={`text-[8px] px-1.5 py-0.5 border rounded uppercase font-bold ${accountMode === "demo" ? "bg-esport-secondary/20 text-esport-secondary border-esport-secondary/30" : "bg-esport-success/20 text-esport-success border-esport-success/30"}`}>
                     {accountMode}
                   </div>
@@ -1108,7 +1108,7 @@ export default function App() {
                     )}
                   </div>
                 </div>
-                <div className="absolute right-0 top-0 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+                <div className="absolute right-2 top-2 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
                   <button
                     type="button"
                     aria-label="Open profile settings"

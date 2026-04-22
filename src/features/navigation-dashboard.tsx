@@ -41,9 +41,14 @@ export function SidebarItem({ icon, label, active, onClick, highlight }: any) {
   return (
     <div
       onClick={onClick}
-      className={`sidebar-item ${active ? "active" : ""} ${highlight ? "text-esport-secondary hover:text-esport-secondary" : ""}`}
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[16px] border px-4 py-3 text-left transition-all duration-200 ${
+        active
+          ? "border-cyan-400/45 bg-[linear-gradient(90deg,rgba(34,211,238,0.26),rgba(34,211,238,0.12))] text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.15)]"
+          : "border-transparent text-white/90 hover:border-white/10 hover:bg-white/[0.04]"
+      } ${highlight ? "text-esport-secondary hover:text-esport-secondary" : ""}`}
     >
-      <div className="shrink-0">{icon}</div>
+      {active && <div className="absolute inset-y-2 right-0 w-[2px] rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />}
+      <div className={`shrink-0 transition-colors ${active ? "text-cyan-300" : "text-white/70 group-hover:text-white"}`}>{icon}</div>
       <span className="text-sm font-bold tracking-tight">{label}</span>
       {highlight && <div className="ml-auto w-2 h-2 bg-esport-secondary rounded-full shadow-[0_0_8px_rgba(249,115,22,0.6)]" />}
     </div>
