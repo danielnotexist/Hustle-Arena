@@ -1522,14 +1522,15 @@ export function CustomLobbyView({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="relative overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.66),rgba(2,6,23,0.72))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[linear-gradient(180deg,rgba(11,18,34,0.86),rgba(4,8,18,0.88))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
         <div className="pointer-events-none absolute inset-0">
-          <div
-            className="absolute inset-y-0 right-0 hidden w-[56%] bg-cover bg-center opacity-95 lg:block"
-            style={{ backgroundImage: `url(${squadHubBackground})`, backgroundPosition: "center center" }}
+          <img
+            src={squadHubBackground}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-y-0 right-0 hidden h-full w-[58%] object-cover object-center lg:block"
           />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,10,22,0.94)_0%,rgba(3,10,22,0.9)_34%,rgba(3,10,22,0.78)_52%,rgba(3,10,22,0.36)_70%,rgba(3,10,22,0.16)_100%)]" />
-          <div className="absolute inset-y-0 right-0 hidden w-[58%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_58%)] lg:block" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,10,22,0.96)_0%,rgba(3,10,22,0.92)_34%,rgba(3,10,22,0.7)_48%,rgba(3,10,22,0.14)_66%,rgba(3,10,22,0)_100%)]" />
         </div>
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
