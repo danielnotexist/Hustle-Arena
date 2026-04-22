@@ -28,10 +28,10 @@ import {
 } from "../lib/sound";
 import hustleArenaLogo from "../assets/hustle-arena-logo.png";
 import battlefieldBackground from "../assets/background.png";
-import anubisMap from "../assets/maps/anubis.jpg";
-import infernoMap from "../assets/maps/inferno.jpg";
-import mirageMap from "../assets/maps/mirage.jpg";
-import nukeMap from "../assets/maps/nuke.jpg";
+import wingmanSquare from "../assets/gamemodes/square/wingman_square.png";
+import competitiveSquare from "../assets/gamemodes/square/competitive_square.png";
+import teamFfaSquare from "../assets/gamemodes/square/team_ffa_square.png";
+import ffaSquare from "../assets/gamemodes/square/ffa_square.png";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -65,28 +65,23 @@ const MATCH_TYPE_CARD_ART: Record<
   QuickMatchType,
   {
     image: string;
-    accent: string;
     glow: string;
   }
 > = {
   ranked_2v2: {
-    image: anubisMap,
-    accent: "text-cyan-300",
+    image: wingmanSquare,
     glow: "shadow-[0_0_30px_rgba(34,211,238,0.18)]",
   },
   ranked_5v5: {
-    image: mirageMap,
-    accent: "text-white",
+    image: competitiveSquare,
     glow: "shadow-[0_0_30px_rgba(255,255,255,0.12)]",
   },
   ranked_team_ffa: {
-    image: infernoMap,
-    accent: "text-orange-300",
+    image: teamFfaSquare,
     glow: "shadow-[0_0_30px_rgba(251,146,60,0.18)]",
   },
   ranked_ffa: {
-    image: nukeMap,
-    accent: "text-amber-200",
+    image: ffaSquare,
     glow: "shadow-[0_0_30px_rgba(250,204,21,0.16)]",
   },
 };
@@ -1713,29 +1708,26 @@ export function BattlefieldView({
                             key={card.type}
                             type="button"
                             onClick={() => setMatchType(card.type)}
-                            className={`group relative min-h-[235px] overflow-hidden rounded-[22px] border text-left transition-all duration-200 ${
+                            aria-pressed={active}
+                            className={`group relative aspect-square overflow-hidden rounded-[22px] border text-left transition-all duration-200 ${
                               active
                                 ? `border-white/70 ${card.art.glow} scale-[1.01]`
                                 : "border-white/20 bg-black/20 hover:border-white/35"
                             }`}
                           >
-                            <div
-                              className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                              style={{ backgroundImage: `url(${card.art.image})` }}
+                            <img
+                              src={card.art.image}
+                              alt={card.label}
+                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                             />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.04),rgba(5,7,11,0.66)_66%,rgba(5,7,11,0.96))]" />
-                            <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)]" />
+                            <div className="pointer-events-none absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/8" />
                             <div className="relative flex h-full flex-col justify-between p-4">
                               <div className="flex justify-end">
                                 <span className="rounded-full bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
                                   {formatStakeLabel(selectedStakeAmount)}
                                 </span>
                               </div>
-                              <div>
-                                <div className={`text-[24px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
-                                  {card.label}
-                                </div>
-                              </div>
+                              <div />
                             </div>
                           </button>
                         );
@@ -1768,26 +1760,26 @@ export function BattlefieldView({
                               onClick={() => {
                                 if (!isPartyInviteGuest) setMatchType(card.type);
                               }}
-                              className={`group relative min-h-[210px] overflow-hidden rounded-[24px] border text-left transition-all duration-200 ${
+                              aria-pressed={active}
+                              className={`group relative aspect-square overflow-hidden rounded-[24px] border text-left transition-all duration-200 ${
                                 active
                                   ? `border-white/60 ${card.art.glow} scale-[1.01]`
                                   : "border-white/20 bg-black/20 hover:border-white/35"
                               } ${isPartyInviteGuest ? "opacity-60" : ""}`}
                             >
-                              <div
-                                className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                                style={{ backgroundImage: `url(${card.art.image})` }}
+                              <img
+                                src={card.art.image}
+                                alt={card.label}
+                                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                               />
-                              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.08),rgba(5,7,11,0.78)_66%,rgba(5,7,11,0.96))]" />
+                              <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-inset ring-white/8" />
                               <div className="relative flex h-full flex-col justify-between p-4">
                                 <div className="flex justify-end">
                                   <span className="rounded-full bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
                                     {formatStakeLabel(selectedStakeAmount)}
                                   </span>
                                 </div>
-                                <div className={`text-[24px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
-                                  {card.label}
-                                </div>
+                                <div />
                               </div>
                             </button>
                           );
