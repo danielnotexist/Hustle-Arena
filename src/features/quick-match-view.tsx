@@ -1506,7 +1506,7 @@ export function BattlefieldView({
       )}
 
       {matchState === "idle" && (
-        <div className="relative min-h-[78vh] overflow-hidden rounded-[32px] border border-white/10 bg-[#05080d]">
+        <div className="relative min-h-[80vh] overflow-hidden rounded-[32px] border border-white/10 bg-[#05080d]">
           <div
             className="absolute inset-0"
             style={{
@@ -1516,7 +1516,7 @@ export function BattlefieldView({
             }}
           />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_20%),linear-gradient(180deg,rgba(4,10,18,0.10),rgba(4,10,18,0.72))]" />
-          <div className="relative z-10 px-8 pb-8 pt-10 sm:px-12">
+          <div className="relative z-10 px-8 pb-8 pt-10 sm:px-12 lg:px-16">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h2 className="text-5xl font-display font-bold uppercase italic tracking-tight text-white sm:text-6xl">Battlefield</h2>
@@ -1529,8 +1529,8 @@ export function BattlefieldView({
               </div>
             </div>
           </div>
-          <div className="relative z-10 flex min-h-[62vh] items-center justify-center p-5 pt-2 sm:p-8 sm:pt-0">
-            <div className="w-full max-w-[860px] rounded-[34px] border border-cyan-300/25 bg-[linear-gradient(180deg,rgba(30,38,46,0.60),rgba(20,24,31,0.62))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8 lg:max-w-[880px]">
+          <div className="relative z-10 flex min-h-[64vh] items-center justify-center px-5 pb-8 pt-2 sm:px-8 sm:pb-10 sm:pt-0">
+            <div className="w-full max-w-[1080px] rounded-[34px] border border-cyan-300/25 bg-[linear-gradient(180deg,rgba(30,38,46,0.60),rgba(20,24,31,0.62))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8 lg:max-w-[1120px] lg:p-10">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div className="text-[11px] font-bold uppercase tracking-[0.26em] text-cyan-300">
                   Matchmaking Setup - Step {wizardStep} of 3
@@ -1551,12 +1551,12 @@ export function BattlefieldView({
                     <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white sm:text-5xl">How do you want to play?</h3>
                     <p className="mt-2 text-sm text-esport-text-muted">Choose your queue style to continue.</p>
                   </div>
-                  <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid gap-6 md:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => selectWizardQueueType("solo")}
                       disabled={isPartyInviteGuest}
-                      className="min-h-[150px] rounded-[26px] border border-esport-border bg-black/30 p-8 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10"
+                      className="min-h-[170px] rounded-[26px] border border-esport-border bg-black/30 p-9 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10"
                     >
                       <div className="text-2xl font-display font-bold uppercase text-white">Solo Quick Match</div>
                       <div className="mt-3 max-w-md text-base text-esport-text-muted">Find a random team and queue on your own.</div>
@@ -1565,7 +1565,7 @@ export function BattlefieldView({
                       type="button"
                       onClick={() => selectWizardQueueType("party")}
                       disabled={isPartyInviteGuest}
-                      className="min-h-[150px] rounded-[26px] border border-esport-border bg-black/30 p-8 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10 disabled:opacity-60"
+                      className="min-h-[170px] rounded-[26px] border border-esport-border bg-black/30 p-9 text-left transition-all hover:border-esport-accent hover:bg-esport-accent/10 disabled:opacity-60"
                     >
                       <div className="text-2xl font-display font-bold uppercase text-white">Party Quick Match</div>
                       <div className="mt-3 max-w-md text-base text-esport-text-muted">Queue with your party and invite friends before search.</div>
