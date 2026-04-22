@@ -26,6 +26,11 @@ import {
   playReadyCheckAcceptSound,
   playReadyCheckCompleteSound,
 } from "../lib/sound";
+import hustleArenaLogo from "../assets/hustle-arena-logo.png";
+import anubisMap from "../assets/maps/anubis.jpg";
+import infernoMap from "../assets/maps/inferno.jpg";
+import mirageMap from "../assets/maps/mirage.jpg";
+import nukeMap from "../assets/maps/nuke.jpg";
 import { KYCForm } from "./landing-auth";
 import type { AccountMode } from "./types";
 
@@ -53,6 +58,36 @@ const QUEUE_LABEL_BY_MATCH_TYPE: Record<QuickMatchType, string> = {
   ranked_5v5: "COMPETITIVE 5V5",
   ranked_team_ffa: "TEAM FFA 5V5",
   ranked_ffa: "FFA 5V5",
+};
+
+const MATCH_TYPE_CARD_ART: Record<
+  QuickMatchType,
+  {
+    image: string;
+    accent: string;
+    glow: string;
+  }
+> = {
+  ranked_2v2: {
+    image: anubisMap,
+    accent: "text-cyan-300",
+    glow: "shadow-[0_0_30px_rgba(34,211,238,0.18)]",
+  },
+  ranked_5v5: {
+    image: mirageMap,
+    accent: "text-fuchsia-300",
+    glow: "shadow-[0_0_30px_rgba(217,70,239,0.18)]",
+  },
+  ranked_team_ffa: {
+    image: infernoMap,
+    accent: "text-orange-300",
+    glow: "shadow-[0_0_30px_rgba(251,146,60,0.18)]",
+  },
+  ranked_ffa: {
+    image: nukeMap,
+    accent: "text-amber-200",
+    glow: "shadow-[0_0_30px_rgba(250,204,21,0.16)]",
+  },
 };
 
 const backendStatusToMatchType = (teamSize: number, gameMode: string | null | undefined): QuickMatchType => {
@@ -169,6 +204,16 @@ export function BattlefieldView({
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
   const selectedQueueLabel = QUEUE_LABEL_BY_MATCH_TYPE[matchType];
+  const matchTypeCards = ([
+    "ranked_2v2",
+    "ranked_5v5",
+    "ranked_team_ffa",
+    "ranked_ffa",
+  ] as const).map((type) => ({
+    type,
+    label: QUEUE_LABEL_BY_MATCH_TYPE[type],
+    art: MATCH_TYPE_CARD_ART[type],
+  }));
   const maxPartyMembers = selectedTeamSize - 1;
   const onlineNowIds = new Set(onlineNow.map((entry) => entry.user_id));
   const hasCurrentUserAccepted = !!user?.id && acceptedUserIds.includes(user.id);
@@ -1442,22 +1487,41 @@ export function BattlefieldView({
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-display font-bold uppercase tracking-tight">Battlefield</h2>
-          <p className="text-esport-text-muted">
-            {accountMode === "demo"
-              ? "Quick matchmaking is active here. Use Battlefield only for instant solo or party queue search."
-              : "Quick matchmaking is currently restricted to Demo Accounts so queue and server flows can be tested safely."}
-          </p>
-        </div>
-        <div className="flex items-center gap-4 bg-esport-card border border-esport-border px-4 py-2 rounded-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-esport-success animate-pulse" />
-            <span className="text-sm font-bold">
-              {accountMode === "demo" ? `Quick Queue Online - ${onlineNow.length}` : "Live Queue Locked"}
-            </span>
+    <div className="mx-auto max-w-7xl space-y-5">
+      <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#080b11]">
+        <div
+          className="absolute inset-0 opacity-45"
+          style={{
+            backgroundImage: `linear-gradient(180deg,rgba(5,8,15,0.18),rgba(5,8,15,0.88)), url(${nukeMap})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(120,219,255,0.18),transparent_32%),radial-gradient(circle_at_bottom,rgba(225,0,255,0.12),transparent_28%)]" />
+        <div className="relative z-10 flex flex-col gap-4 px-5 py-6 sm:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative hidden shrink-0 overflow-hidden rounded-[24px] border border-cyan-400/20 bg-black/40 p-3 shadow-[0_0_40px_rgba(34,211,238,0.12)] sm:block">
+                <img src={hustleArenaLogo} alt="Hustle Arena logo" className="h-16 w-16 object-contain" />
+              </div>
+              <div>
+                <div className="text-[12px] font-bold uppercase tracking-[0.26em] text-cyan-300/85">Battlefield</div>
+                <h2 className="mt-1 text-4xl font-display font-bold uppercase italic tracking-tight text-white sm:text-5xl">
+                  Battlefield
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-white/65">
+                  {accountMode === "demo"
+                    ? "Quick matchmaking is active here. Use Battlefield only for instant solo or party queue search."
+                    : "Quick matchmaking is currently restricted to Demo Accounts so queue and server flows can be tested safely."}
+                </p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-3 self-start rounded-full border border-white/15 bg-black/45 px-5 py-3 shadow-[0_0_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)] animate-pulse" />
+              <span className="text-sm font-bold text-white">
+                {accountMode === "demo" ? `Quick Queue Online - ${onlineNow.length}` : "Live Queue Locked"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -1479,19 +1543,27 @@ export function BattlefieldView({
       )}
 
       {matchState === "idle" && (
-        <div className="relative min-h-[72vh]">
-          <div className="absolute inset-0 rounded-3xl border border-white/10 bg-black/65 backdrop-blur-md" />
-          <div className="relative z-10 flex min-h-[72vh] items-center justify-center p-4">
-            <div className="w-full max-w-4xl rounded-[28px] border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
+        <div className="relative min-h-[72vh] overflow-hidden rounded-[32px] border border-white/10 bg-[#05080d]">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `linear-gradient(180deg,rgba(3,7,13,0.34),rgba(3,7,13,0.78)), url(${anubisMap})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_22%),linear-gradient(180deg,rgba(4,10,18,0.18),rgba(4,10,18,0.78))]" />
+          <div className="relative z-10 flex min-h-[72vh] items-center justify-center p-4 sm:p-6">
+            <div className="w-full max-w-5xl rounded-[34px] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(18,25,34,0.74),rgba(10,15,23,0.80))] p-5 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8">
               <div className="mb-5 flex items-center justify-between gap-4">
-                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-esport-accent">
+                <div className="text-[11px] font-bold uppercase tracking-[0.26em] text-cyan-300">
                   Matchmaking Setup - Step {wizardStep} of 3
                 </div>
                 <button
                   type="button"
                   onClick={goToPreviousWizardStep}
                   disabled={wizardStep === 1 || isPartyInviteGuest}
-                  className="rounded-lg border border-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-text-muted hover:border-white/20 hover:text-white disabled:opacity-40"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/75 hover:border-white/20 hover:text-white disabled:opacity-40"
                 >
                   Back
                 </button>
@@ -1577,60 +1649,58 @@ export function BattlefieldView({
 
               {wizardStep === 3 && (
                 <div className="space-y-5">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <h3 className="text-2xl font-display font-bold uppercase tracking-tight text-white">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="text-center md:text-left">
+                      <h3 className="text-4xl font-display font-bold uppercase italic tracking-tight text-white sm:text-5xl">
                         {queueMode === "party" ? "Party Assembly" : "Ready To Queue"}
                       </h3>
-                      <p className="mt-1 text-sm text-esport-text-muted">
+                      <p className="mt-2 text-sm text-white/65">
                         {queueMode === "party"
                           ? "Invite teammates, review party slots, then start matchmaking."
                           : "Your setup is complete. Start matchmaking when you are ready."}
                       </p>
                     </div>
-                    <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-esport-accent">
+                    <div className="self-center rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200 md:self-start">
                       {selectedQueueLabel} - {formatStakeLabel(selectedStakeAmount)}
                     </div>
                   </div>
 
                   {queueMode === "solo" && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => setMatchType("ranked_2v2")}
-                        className={`rounded-xl border p-3 text-left transition-colors ${
-                          matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMatchType("ranked_5v5")}
-                        className={`rounded-xl border p-3 text-left transition-colors ${
-                          matchType === "ranked_5v5" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="text-sm font-bold uppercase text-white">Competitive 5v5</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMatchType("ranked_team_ffa")}
-                        className={`rounded-xl border p-3 text-left transition-colors ${
-                          matchType === "ranked_team_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="text-sm font-bold uppercase text-white">Team FFA 5v5</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMatchType("ranked_ffa")}
-                        className={`rounded-xl border p-3 text-left transition-colors ${
-                          matchType === "ranked_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="text-sm font-bold uppercase text-white">FFA 5v5</div>
-                      </button>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      {matchTypeCards.map((card) => {
+                        const active = matchType === card.type;
+                        return (
+                          <button
+                            key={card.type}
+                            type="button"
+                            onClick={() => setMatchType(card.type)}
+                            className={`group relative min-h-[235px] overflow-hidden rounded-[24px] border text-left transition-all duration-200 ${
+                              active
+                                ? `border-white/60 ${card.art.glow} scale-[1.01]`
+                                : "border-white/20 bg-black/20 hover:border-white/35"
+                            }`}
+                          >
+                            <div
+                              className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                              style={{ backgroundImage: `url(${card.art.image})` }}
+                            />
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.08),rgba(5,7,11,0.78)_66%,rgba(5,7,11,0.96))]" />
+                            <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)]" />
+                            <div className="relative flex h-full flex-col justify-between p-4">
+                              <div className="flex justify-end">
+                                <span className="rounded-full bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+                                  {formatStakeLabel(selectedStakeAmount)}
+                                </span>
+                              </div>
+                              <div>
+                                <div className={`text-[28px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
+                                  {card.label}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -1649,51 +1719,40 @@ export function BattlefieldView({
                         </div>
                       )}
 
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isPartyInviteGuest) setMatchType("ranked_2v2");
-                          }}
-                          className={`rounded-xl border p-3 text-left transition-colors ${
-                            matchType === "ranked_2v2" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
-                        >
-                          <div className="text-sm font-bold uppercase text-white">Wingman 2v2</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isPartyInviteGuest) setMatchType("ranked_5v5");
-                          }}
-                          className={`rounded-xl border p-3 text-left transition-colors ${
-                            matchType === "ranked_5v5" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
-                        >
-                          <div className="text-sm font-bold uppercase text-white">Competitive 5v5</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isPartyInviteGuest) setMatchType("ranked_team_ffa");
-                          }}
-                          className={`rounded-xl border p-3 text-left transition-colors ${
-                            matchType === "ranked_team_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
-                        >
-                          <div className="text-sm font-bold uppercase text-white">Team FFA 5v5</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isPartyInviteGuest) setMatchType("ranked_ffa");
-                          }}
-                          className={`rounded-xl border p-3 text-left transition-colors ${
-                            matchType === "ranked_ffa" ? "border-esport-accent bg-esport-accent/10" : "border-esport-border bg-black/20 hover:border-white/20"
-                          } ${isPartyInviteGuest ? "opacity-60" : ""}`}
-                        >
-                          <div className="text-sm font-bold uppercase text-white">FFA 5v5</div>
-                        </button>
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        {matchTypeCards.map((card) => {
+                          const active = matchType === card.type;
+                          return (
+                            <button
+                              key={card.type}
+                              type="button"
+                              onClick={() => {
+                                if (!isPartyInviteGuest) setMatchType(card.type);
+                              }}
+                              className={`group relative min-h-[210px] overflow-hidden rounded-[24px] border text-left transition-all duration-200 ${
+                                active
+                                  ? `border-white/60 ${card.art.glow} scale-[1.01]`
+                                  : "border-white/20 bg-black/20 hover:border-white/35"
+                              } ${isPartyInviteGuest ? "opacity-60" : ""}`}
+                            >
+                              <div
+                                className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
+                                style={{ backgroundImage: `url(${card.art.image})` }}
+                              />
+                              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.08),rgba(5,7,11,0.78)_66%,rgba(5,7,11,0.96))]" />
+                              <div className="relative flex h-full flex-col justify-between p-4">
+                                <div className="flex justify-end">
+                                  <span className="rounded-full bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+                                    {formatStakeLabel(selectedStakeAmount)}
+                                  </span>
+                                </div>
+                                <div className={`text-[24px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
+                                  {card.label}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
 
                       {partyInviteBackendMissing && (
@@ -1876,7 +1935,7 @@ export function BattlefieldView({
                         (queueMode === "party" &&
                           (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
                       }
-                      className="esport-btn-primary w-full py-3 text-sm shadow-[0_0_20px_rgba(59,130,246,0.4)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full rounded-full bg-[linear-gradient(90deg,#33e6ff_0%,#27d9ff_32%,#ff27d5_100%)] px-6 py-4 text-base font-bold text-[#041018] shadow-[0_0_30px_rgba(74,222,255,0.22)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {queueMode === "solo" ? "Start Matchmaking" : isPartyInviteGuest ? "Waiting For Party Leader" : "Start Matchmaking"}
                     </button>
