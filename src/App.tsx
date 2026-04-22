@@ -32,6 +32,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import hustleArenaSidebarLogo from "./assets/hustle-arena-sidebar-logo.jpg";
+import squadHubBackground from "./assets/ha-squad-hub.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
@@ -265,6 +266,7 @@ export default function App() {
 
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
+  const isSquadHubTab = activeTab === "Squad Hub";
   const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
   const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
 
@@ -1151,12 +1153,20 @@ export default function App() {
 
           {/* Main Content */}
           <main className="flex-1 flex flex-col overflow-hidden relative">
-            <header className="h-16 shrink-0 border-b border-white/8 bg-[linear-gradient(180deg,rgba(25,28,34,0.92),rgba(16,18,22,0.92))] px-8 flex items-center justify-between backdrop-blur-md">
+            <header className={`h-16 shrink-0 border-b px-8 flex items-center justify-between backdrop-blur-md ${
+              isSquadHubTab
+                ? "border-white/10 bg-[linear-gradient(180deg,rgba(11,15,22,0.72),rgba(9,12,18,0.66))] backdrop-blur-xl"
+                : "border-white/8 bg-[linear-gradient(180deg,rgba(25,28,34,0.92),rgba(16,18,22,0.92))]"
+            }`}>
               <div className="flex items-center gap-8">
                 <h2 className={`text-xl font-display font-bold uppercase tracking-tight ${isBattlefieldTab ? "italic text-cyan-300" : "text-white"}`}>
                   {isBattlefieldTab ? "Battlefield" : activeTab}
                 </h2>
-                <div className="hidden md:flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 group focus-within:border-cyan-300/40 transition-all min-w-[340px]">
+                <div className={`hidden md:flex items-center gap-2 rounded-xl border px-4 py-2 group focus-within:border-cyan-300/40 transition-all min-w-[340px] ${
+                  isSquadHubTab
+                    ? "border-white/12 bg-black/20 backdrop-blur-md"
+                    : "border-white/10 bg-white/[0.04]"
+                }`}>
                   <input
                     type="text"
                     name="fake-username"
@@ -1301,6 +1311,16 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+              {isSquadHubTab && (
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <div
+                    className="absolute inset-0 scale-[1.03] bg-cover bg-center opacity-36"
+                    style={{ backgroundImage: `url(${squadHubBackground})`, backgroundPosition: "center center" }}
+                  />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_24%,rgba(59,130,246,0.26),transparent_24%),radial-gradient(circle_at_78%_22%,rgba(96,165,250,0.18),transparent_26%),linear-gradient(90deg,rgba(4,7,12,0.9)_0%,rgba(4,7,12,0.5)_18%,rgba(4,7,12,0.18)_44%,rgba(4,7,12,0.18)_56%,rgba(4,7,12,0.54)_82%,rgba(4,7,12,0.9)_100%),linear-gradient(180deg,rgba(5,8,13,0.82)_0%,rgba(5,8,13,0.48)_20%,rgba(4,7,12,0.72)_100%)]" />
+                  <div className="absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(5,8,13,0.5),transparent)]" />
+                </div>
+              )}
               {isLoggedIn && !isAdmin && accountMode === "live" && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (
                 <div className="sticky top-0 z-[30] bg-esport-accent/10 border-b border-esport-accent/30 backdrop-blur-md p-3 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -1327,7 +1347,7 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div className="max-w-[1400px] mx-auto p-8">
+              <div className="relative z-10 max-w-[1400px] mx-auto p-8">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab}
