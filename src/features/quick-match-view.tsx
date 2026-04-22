@@ -1616,10 +1616,10 @@ export function BattlefieldView({
               )}
 
               {wizardStep === 2 && (
-                <div className="space-y-5">
+                <div className="space-y-7">
                   <div className="text-center">
-                    <h3 className="text-3xl font-display font-bold uppercase tracking-tight text-white">Choose Your Stake</h3>
-                    <p className="mt-2 text-sm text-esport-text-muted">Pick the amount you want to queue for in USDT.</p>
+                    <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white sm:text-6xl">Choose Your Stake</h3>
+                    <p className="mt-3 text-base text-esport-text-muted">Pick the amount you want to queue for in USDT.</p>
                   </div>
 
                   {isPartyQueueMode && isPartyLeader && acceptedPartyMembers.length > 0 && effectiveStakeLimit < STAKE_OPTIONS[STAKE_OPTIONS.length - 1] && (
@@ -1628,7 +1628,7 @@ export function BattlefieldView({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {STAKE_OPTIONS.map((amount) => {
                       const active = selectedStakeAmount === amount;
                       const disabledForBalance = amount > effectiveStakeLimit;
@@ -1638,26 +1638,48 @@ export function BattlefieldView({
                           type="button"
                           disabled={disabledForBalance}
                           onClick={() => void requestStakeChange(amount)}
-                          className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                          className={`group rounded-[20px] border px-4 py-5 text-left transition-all ${
                             disabledForBalance
                               ? "cursor-not-allowed border-white/10 bg-white/[0.03] opacity-45"
                               : active
-                                ? "border-esport-accent bg-esport-accent/12 shadow-[0_0_20px_rgba(59,130,246,0.18)]"
-                                : "border-esport-border bg-black/20 hover:border-white/20"
+                                ? "border-cyan-300 bg-cyan-400/[0.08] shadow-[0_0_20px_rgba(34,211,238,0.16)]"
+                                : "border-white/10 bg-black/20 hover:border-white/20"
                           }`}
                         >
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-esport-text-muted">Entry</div>
-                          <div className="mt-1 text-lg font-display font-bold text-white">${amount}</div>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className={`flex h-14 w-14 items-center justify-center rounded-[16px] border ${
+                              active ? "border-cyan-300/60 bg-cyan-400/[0.07] text-cyan-300" : "border-white/14 bg-white/[0.02] text-white/75"
+                            }`}>
+                              <Target size={24} />
+                            </div>
+                            {active && (
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-300 text-black">
+                                <CheckCircle2 size={18} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-4 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Entry</div>
+                          <div className="mt-2 text-[18px] font-display font-bold text-white sm:text-[20px]">${amount}</div>
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-                    <div className="rounded-full border border-esport-accent/25 bg-esport-accent/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-esport-accent">
-                      Current: {formatStakeLabel(selectedStakeAmount)}
+                  <div className="grid gap-4 rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,12,18,0.86),rgba(7,10,15,0.92))] p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-[18px] border border-cyan-300/35 bg-cyan-400/[0.05] text-cyan-300">
+                        <Target size={28} />
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-cyan-300">Current Stake</div>
+                        <div className="mt-2 text-3xl font-display font-bold text-white">{formatStakeLabel(selectedStakeAmount)}</div>
+                      </div>
                     </div>
-                    <button type="button" onClick={goToAssemblyStep} className="esport-btn-primary px-8 py-3 text-sm">
+                    <button
+                      type="button"
+                      onClick={goToAssemblyStep}
+                      className="inline-flex items-center justify-center rounded-[18px] border border-cyan-300/35 bg-[linear-gradient(180deg,rgba(52,203,255,0.95),rgba(19,154,210,0.95))] px-10 py-4 text-lg font-bold text-[#041018] shadow-[0_0_26px_rgba(74,222,255,0.16)] transition-transform hover:scale-[1.01]"
+                    >
                       Next
                     </button>
                   </div>
