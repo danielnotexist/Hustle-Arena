@@ -964,12 +964,12 @@ export default function App() {
                       src={hustleArenaSidebarLogo}
                       alt=""
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-1/2 top-1/2 h-[122%] w-[122%] -translate-x-1/2 -translate-y-1/2 object-cover object-center opacity-40 blur-xl saturate-150"
+                      className="pointer-events-none absolute left-1/2 top-1/2 h-[128%] w-[128%] -translate-x-1/2 -translate-y-1/2 object-cover object-center opacity-42 blur-2xl saturate-150"
                     />
                     <img
                       src={hustleArenaSidebarLogo}
                       alt="Hustle Arena"
-                      className="relative h-full w-full scale-[1.24] object-cover object-center mix-blend-lighten saturate-150 contrast-125 brightness-110"
+                      className="absolute left-1/2 top-1/2 h-[126%] w-[126%] -translate-x-1/2 -translate-y-1/2 object-cover object-center mix-blend-lighten saturate-150 contrast-125 brightness-110"
                     />
                   </div>
                 </div>
