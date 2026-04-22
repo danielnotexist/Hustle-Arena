@@ -205,6 +205,7 @@ export function BattlefieldView({
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
   const selectedQueueLabel = QUEUE_LABEL_BY_MATCH_TYPE[matchType];
+  const wizardProgressSegments = [1, 2, 3] as const;
   const matchTypeCards = ([
     "ranked_2v2",
     "ranked_5v5",
@@ -1545,14 +1546,24 @@ export function BattlefieldView({
                 </button>
               </div>
 
+              <div className="mb-6 flex items-center gap-3">
+                {wizardProgressSegments.map((step) => (
+                  <div
+                    key={step}
+                    className={`h-[3px] rounded-full ${
+                      step === wizardStep
+                        ? "w-10 bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.7)]"
+                        : step < wizardStep
+                          ? "w-8 bg-cyan-300/45"
+                          : "w-8 bg-white/20"
+                    }`}
+                  />
+                ))}
+              </div>
+
               {wizardStep === 1 && (
                 <div className="space-y-8">
                   <div>
-                    <div className="mb-5 flex items-center gap-3">
-                      <div className="h-[3px] w-10 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.7)]" />
-                      <div className="h-[3px] w-8 rounded-full bg-white/25" />
-                      <div className="h-[3px] w-8 rounded-full bg-white/20" />
-                    </div>
                     <div className="text-center">
                       <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white sm:text-6xl">
                         How Do You
