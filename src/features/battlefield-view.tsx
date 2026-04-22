@@ -2,6 +2,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Search } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import squadHubBackground from "../assets/ha-squad-hub.png";
 import { isSupabaseConfigured } from "../lib/env";
 import {
   castLobbyMapVote,
@@ -1521,21 +1522,31 @@ export function CustomLobbyView({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.82),rgba(2,6,23,0.9))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-md">
-        <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
-          <Radio className="h-3.5 w-3.5" />
-          Real-time squad control
+      <div className="relative overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.66),rgba(2,6,23,0.72))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-0">
+          <div
+            className="absolute inset-y-0 right-0 hidden w-[56%] bg-cover bg-center opacity-95 lg:block"
+            style={{ backgroundImage: `url(${squadHubBackground})`, backgroundPosition: "center center" }}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,10,22,0.94)_0%,rgba(3,10,22,0.9)_34%,rgba(3,10,22,0.78)_52%,rgba(3,10,22,0.36)_70%,rgba(3,10,22,0.16)_100%)]" />
+          <div className="absolute inset-y-0 right-0 hidden w-[58%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2),transparent_58%)] lg:block" />
         </div>
-        <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub</h2>
-        <p className="mt-2 max-w-3xl text-sm text-esport-text-muted">
-          Manage your custom lobby, teams, readiness, chat, and match flow from one polished control room.
-        </p>
+        <div className="relative z-10 max-w-3xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+            <Radio className="h-3.5 w-3.5" />
+            Real-time squad control
+          </div>
+          <h2 className="text-3xl font-display font-bold uppercase tracking-tight">Squad Hub</h2>
+          <p className="mt-2 max-w-3xl text-sm text-esport-text-muted">
+            Manage your custom lobby, teams, readiness, chat, and match flow from one polished control room.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-6">
           {!activeLobby && showJoiningLobbyState && (
-            <div className="esport-card overflow-hidden border-esport-accent/25 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),transparent_45%),linear-gradient(180deg,rgba(17,24,39,0.82),rgba(2,6,23,0.9))] p-7 backdrop-blur-md">
-              <div className="rounded-3xl border border-esport-accent/30 bg-black/18 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm">
+            <div className="esport-card overflow-hidden border-esport-accent/25 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),transparent_45%),linear-gradient(180deg,rgba(17,24,39,0.66),rgba(2,6,23,0.72))] p-7 backdrop-blur-sm">
+              <div className="rounded-3xl border border-esport-accent/30 bg-black/14 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm">
                 <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
                   Joining Lobby
                 </div>
@@ -1553,7 +1564,7 @@ export function CustomLobbyView({
           )}
 
           {!activeLobby && !showJoiningLobbyState && (
-            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.8),rgba(2,6,23,0.9))] p-6 space-y-5 backdrop-blur-md">
+            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.64),rgba(2,6,23,0.72))] p-6 space-y-5 backdrop-blur-sm">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{accountMode === "demo" ? "Demo" : "Live"} Lobby Setup</div>
@@ -1563,15 +1574,15 @@ export function CustomLobbyView({
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-left">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.024] px-4 py-3 backdrop-blur-sm">
                     <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Stake</div>
                     <div className="mt-2 text-lg font-bold text-white">{formState.stakeAmount} USDT</div>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.024] px-4 py-3 backdrop-blur-sm">
                     <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Teams</div>
                     <div className="mt-2 text-lg font-bold text-white">{formState.teamSize}v{formState.teamSize}</div>
                   </div>
-                  <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.08] px-4 py-3 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.064] px-4 py-3 backdrop-blur-sm">
                     <div className="text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Mode</div>
                     <div className="mt-2 text-lg font-bold text-esport-accent">{formatMode(formState.gameMode)}</div>
                   </div>
@@ -1580,12 +1591,12 @@ export function CustomLobbyView({
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                 <div className="space-y-4">
-                  <label className="block rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-sm">
+                  <label className="block rounded-2xl border border-white/10 bg-black/14 p-4 backdrop-blur-sm">
                     <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Name</div>
-                    <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="mt-3 w-full bg-white/[0.06] border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
+                    <input value={formState.name} onChange={(e) => setFormState((current) => ({ ...current, name: e.target.value }))} className="mt-3 w-full bg-white/[0.048] border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Lobby name" />
                   </label>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-white/10 bg-black/14 p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Lobby Format</div>
@@ -1650,7 +1661,7 @@ export function CustomLobbyView({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-white/10 bg-black/14 p-4 backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Entry Stake</div>
@@ -1684,9 +1695,9 @@ export function CustomLobbyView({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-black/18 p-4 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-white/10 bg-black/14 p-4 backdrop-blur-sm">
                     <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-esport-text-muted">Access Control</div>
-                    <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="mt-3 w-full bg-white/[0.06] border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
+                    <input type="password" value={formState.password} onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))} className="mt-3 w-full bg-white/[0.048] border border-esport-border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-esport-accent/60" placeholder="Optional password" />
                     <div className="mt-3 text-xs text-esport-text-muted">
                       Leave blank for an open lobby, or add a password for a private room.
                     </div>
@@ -1701,7 +1712,7 @@ export function CustomLobbyView({
           )}
 
           {activeLobby && (
-            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.82),rgba(2,6,23,0.9))] p-5 space-y-5 backdrop-blur-md">
+            <div className="esport-card overflow-hidden border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.66),rgba(2,6,23,0.72))] p-5 space-y-5 backdrop-blur-sm">
               <div className="flex flex-col lg:flex-row justify-between gap-4">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">{isLeader ? "My" : "Joined"} {accountMode === "demo" ? "Demo" : "Live"} Custom Lobby</div>
@@ -1717,16 +1728,16 @@ export function CustomLobbyView({
                     <span className="text-sm font-bold text-white">{lobbyOwnerLabel}</span>
                   </div>
                 </div>
-                <div className="rounded-xl border border-esport-border bg-black/18 px-4 py-3 min-w-[220px] backdrop-blur-sm">
+                <div className="rounded-xl border border-esport-border bg-black/14 px-4 py-3 min-w-[220px] backdrop-blur-sm">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Selected map</div>
                   <div className="mt-2 text-lg font-display font-bold text-white">{activeLobby.selected_map ? MAP_LABELS[activeLobby.selected_map] || activeLobby.selected_map : "Pending veto"}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby status</div><div className="mt-2 text-sm font-bold text-white">{activeMatch ? activeMatch.status : activeLobby.status}</div></div>
-                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] p-4 shadow-[0_0_25px_rgba(16,185,129,0.06)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ready players</div><div className="mt-2 text-sm font-bold text-esport-success">{readyCount}/{activeMembers.length}</div></div>
-                <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.07] p-4 shadow-[0_0_25px_rgba(59,130,246,0.08)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Stake Amount</div><div className="mt-2 text-sm font-bold text-white">{`${Number(activeLobby.stake_amount || 0).toFixed(2)} USDT / player`}</div></div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.024] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby status</div><div className="mt-2 text-sm font-bold text-white">{activeMatch ? activeMatch.status : activeLobby.status}</div></div>
+                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.04] p-4 shadow-[0_0_25px_rgba(16,185,129,0.06)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Ready players</div><div className="mt-2 text-sm font-bold text-esport-success">{readyCount}/{activeMembers.length}</div></div>
+                <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/[0.056] p-4 shadow-[0_0_25px_rgba(59,130,246,0.08)] backdrop-blur-sm"><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Stake Amount</div><div className="mt-2 text-sm font-bold text-white">{`${Number(activeLobby.stake_amount || 0).toFixed(2)} USDT / player`}</div></div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1736,7 +1747,7 @@ export function CustomLobbyView({
 
               <TeamBoard title="Bench / Unassigned" accentClass="border-slate-500/30 bg-slate-500/10" members={benchMembers} capacity={10} currentUserId={user?.id} currentUserAvatarUrl={user?.avatarUrl || null} leaderId={activeLobby.leader_id} teamSide="UNASSIGNED" isCurrentTeam={myMembership?.team_side === "UNASSIGNED"} onMove={handleMove} canKick={canKickPlayers} onKick={handleKickPlayer} onAddFriend={handleAddFriend} friendActionByUserId={friendActionByUserId} addingFriendIds={addingFriendIds} />
 
-              <div className="rounded-[24px] border border-white/10 bg-black/18 p-4 backdrop-blur-sm">
+              <div className="rounded-[24px] border border-white/10 bg-black/14 p-4 backdrop-blur-sm">
                 <div className="mb-3 text-[10px] uppercase tracking-[0.22em] text-esport-text-muted">Lobby Controls</div>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={handleLeaveLobby} className="esport-btn-secondary">{isLeader ? "Close / Leave Lobby" : "Leave Lobby"}</button>
@@ -1752,7 +1763,7 @@ export function CustomLobbyView({
                     "min-w-[260px] rounded-lg border px-4 py-2.5 text-sm font-bold",
                     activeLobby?.auto_veto_starts_at
                       ? "border-esport-accent/35 bg-esport-accent/10 text-white"
-                        : "border-white/10 bg-black/18 text-esport-text-muted"
+                        : "border-white/10 bg-black/14 text-esport-text-muted"
                   )}>
                     {activeLobby?.auto_veto_starts_at
                       ? `Map Voting starts in ${autoVetoCountdownLabel}`
@@ -1766,9 +1777,9 @@ export function CustomLobbyView({
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[24px] border border-esport-border bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
+                <div className="rounded-[24px] border border-esport-border bg-white/[0.032] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
                   <div className="flex items-center gap-2 mb-3"><MessageSquare className="w-4 h-4 text-esport-accent" /><div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">Lobby chat</div></div>
-                  <div className="h-52 rounded-lg border border-white/10 bg-black/18 p-3 overflow-y-auto space-y-2 backdrop-blur-sm">
+                  <div className="h-52 rounded-lg border border-white/10 bg-black/14 p-3 overflow-y-auto space-y-2 backdrop-blur-sm">
                     {(activeLobby.lobby_messages || []).length === 0 && <div className="text-xs text-esport-text-muted">No messages yet.</div>}
                     {(activeLobby.lobby_messages || []).map((message) => (
                       <div key={message.id} className="text-sm">
@@ -1780,13 +1791,13 @@ export function CustomLobbyView({
                     ))}
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <input value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleSendMessage(); } }} className="flex-1 bg-black/22 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/60 backdrop-blur-sm" placeholder="Type a message..." />
+                    <input value={chatDraft} onChange={(e) => setChatDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleSendMessage(); } }} className="flex-1 bg-black/18 border border-esport-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-esport-accent/60 backdrop-blur-sm" placeholder="Type a message..." />
                     <button onClick={handleSendMessage} disabled={!chatDraft.trim()} className="esport-btn-primary disabled:opacity-50">Send</button>
                   </div>
                 </div>
 
                 {(activeVoteSession || activeLobby.map_voting_active || activeLobby.auto_veto_starts_at) && (
-                  <div className="rounded-[24px] border border-esport-border bg-white/[0.04] p-4 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
+                  <div className="rounded-[24px] border border-esport-border bg-white/[0.032] p-4 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 map veto</div>
@@ -1807,7 +1818,7 @@ export function CustomLobbyView({
                           "rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]",
                           isMyVotingTurn
                             ? "border-esport-accent/40 bg-esport-accent/10 text-esport-accent"
-                            : "border-white/10 bg-black/18 text-esport-text-muted"
+                            : "border-white/10 bg-black/14 text-esport-text-muted"
                         )}>
                           {isMyVotingTurn ? "Your team can vote" : "Opposing team locked"}
                         </div>
@@ -1816,7 +1827,7 @@ export function CustomLobbyView({
 
                     {activeVoteSession ? (
                       <>
-                        <div className="rounded-2xl border border-white/10 bg-black/18 px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-sm">
+                        <div className="rounded-2xl border border-white/10 bg-black/14 px-4 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between backdrop-blur-sm">
                           <div className="flex items-center gap-2">
                             <Clock3 className="w-4 h-4 text-esport-accent" />
                             <div className="text-xs uppercase tracking-[0.2em] text-esport-text-muted">
@@ -1852,7 +1863,7 @@ export function CustomLobbyView({
                         </div>
                       </>
                     ) : (
-                          <div className="rounded-2xl border border-white/10 bg-black/18 px-4 py-5 text-sm text-esport-text-muted backdrop-blur-sm">
+                          <div className="rounded-2xl border border-white/10 bg-black/14 px-4 py-5 text-sm text-esport-text-muted backdrop-blur-sm">
                         Map voting will appear here automatically as soon as the countdown completes.
                       </div>
                     )}
