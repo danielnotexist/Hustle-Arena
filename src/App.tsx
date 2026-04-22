@@ -33,6 +33,7 @@ import React, { useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import hustleArenaSidebarLogo from "./assets/hustle-arena-sidebar-logo.jpg";
 import squadHubBackground from "./assets/ha-squad-hub.png";
+import arenaGuardBackground from "./assets/arena-guard-bg.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
@@ -267,6 +268,12 @@ export default function App() {
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
   const isSquadHubTab = activeTab === "Squad Hub";
+  const isArenaGuardTab = activeTab === "Arena Guard";
+  const activeSectionBackground = isSquadHubTab
+    ? squadHubBackground
+    : isArenaGuardTab
+      ? arenaGuardBackground
+      : null;
   const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
   const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
 
@@ -1311,13 +1318,19 @@ export default function App() {
             </header>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-              {isSquadHubTab && (
+              {activeSectionBackground && (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <div
                     className="absolute inset-0 scale-[1.01] bg-cover bg-center opacity-100"
-                    style={{ backgroundImage: `url(${squadHubBackground})`, backgroundPosition: "center center" }}
+                    style={{ backgroundImage: `url(${activeSectionBackground})`, backgroundPosition: "center center" }}
                   />
-                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,8,13,0.24)_0%,rgba(5,8,13,0.08)_14%,rgba(5,8,13,0.02)_32%,rgba(5,8,13,0.02)_68%,rgba(5,8,13,0.12)_86%,rgba(5,8,13,0.28)_100%),linear-gradient(180deg,rgba(5,8,13,0.2)_0%,rgba(5,8,13,0.02)_24%,rgba(5,8,13,0.24)_100%)]" />
+                  <div
+                    className={`absolute inset-0 ${
+                      isArenaGuardTab
+                        ? "bg-[linear-gradient(90deg,rgba(5,8,13,0.22)_0%,rgba(5,8,13,0.08)_15%,rgba(5,8,13,0.03)_34%,rgba(5,8,13,0.03)_68%,rgba(5,8,13,0.12)_85%,rgba(5,8,13,0.24)_100%),linear-gradient(180deg,rgba(5,8,13,0.18)_0%,rgba(5,8,13,0.03)_24%,rgba(5,8,13,0.22)_100%)]"
+                        : "bg-[linear-gradient(90deg,rgba(5,8,13,0.24)_0%,rgba(5,8,13,0.08)_14%,rgba(5,8,13,0.02)_32%,rgba(5,8,13,0.02)_68%,rgba(5,8,13,0.12)_86%,rgba(5,8,13,0.28)_100%),linear-gradient(180deg,rgba(5,8,13,0.2)_0%,rgba(5,8,13,0.02)_24%,rgba(5,8,13,0.24)_100%)]"
+                    }`}
+                  />
                 </div>
               )}
               {isLoggedIn && !isAdmin && accountMode === "live" && user?.email?.toLowerCase() !== "danielnotexist@gmail.com" && user?.kycStatus !== 'verified' && (

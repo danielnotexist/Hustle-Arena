@@ -594,21 +594,33 @@ export function SyndicatesView({ addToast }: any) {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h3 className="text-2xl font-display font-bold uppercase tracking-tight">Arena Guard</h3>
-          <p className="text-sm text-esport-text-muted">Self-report anti-cheat hub for suspicious player activity.</p>
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div className="relative overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[linear-gradient(180deg,rgba(11,18,34,0.34),rgba(4,8,18,0.42))] px-6 py-7 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_50%,rgba(59,130,246,0.18),transparent_22%),radial-gradient(circle_at_84%_50%,rgba(59,130,246,0.1),transparent_36%),linear-gradient(90deg,rgba(3,10,22,0.82)_0%,rgba(3,10,22,0.66)_34%,rgba(3,10,22,0.28)_58%,rgba(3,10,22,0.06)_100%)]" />
         </div>
-        <button onClick={handleDownloadAntiCheat} className="esport-btn-primary flex items-center gap-2">
-          <Download size={16} />
-          Download Arena-Guard Anti cheat
-        </button>
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/25 bg-esport-accent/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+              <Shield size={14} />
+              Integrity Enforcement
+            </div>
+            <h3 className="mt-3 text-3xl font-display font-bold uppercase tracking-tight text-white">Arena Guard</h3>
+            <p className="mt-2 max-w-3xl text-sm text-esport-text-muted">Self-report anti-cheat hub for suspicious player activity.</p>
+          </div>
+          <button
+            onClick={handleDownloadAntiCheat}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-esport-accent/30 bg-[linear-gradient(180deg,rgba(74,144,255,0.92),rgba(45,110,222,0.92))] px-5 py-3 text-sm font-bold text-white shadow-[0_0_26px_rgba(59,130,246,0.2)] transition-transform hover:scale-[1.01]"
+          >
+            <Download size={16} />
+            Download Arena-Guard Anti cheat
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2 esport-card p-6 space-y-5">
-          <div className="rounded-2xl border border-esport-danger/30 bg-esport-danger/10 p-4 flex items-start gap-3">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
+        <div className="xl:col-span-2 overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.12),rgba(2,6,23,0.2))] p-6 space-y-5 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-300">
+          <div className="rounded-2xl border border-esport-danger/30 bg-[linear-gradient(180deg,rgba(239,68,68,0.14),rgba(239,68,68,0.06))] p-4 flex items-start gap-3 backdrop-blur-xl">
             <ShieldAlert className="text-esport-danger mt-0.5" size={18} />
             <div>
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-danger">Fair Play Enforcement</div>
@@ -625,7 +637,7 @@ export function SyndicatesView({ addToast }: any) {
                 value={suspectName}
                 onChange={(e) => setSuspectName(e.target.value)}
                 placeholder="Nickname or Steam ID"
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
               />
             </div>
             <div className="space-y-2">
@@ -633,7 +645,7 @@ export function SyndicatesView({ addToast }: any) {
               <select
                 value={cheatType}
                 onChange={(e) => setCheatType(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
               >
                 <option value="aimbot">Aimbot</option>
                 <option value="wallhack">Wallhack</option>
@@ -649,13 +661,13 @@ export function SyndicatesView({ addToast }: any) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what happened, round/time context, and why this looked suspicious..."
-              className="w-full min-h-[140px] bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+              className="w-full min-h-[140px] rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
             />
           </div>
 
           <div className="space-y-3">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">Evidence Upload (Photos/Videos)</label>
-            <label className="block cursor-pointer rounded-xl border border-dashed border-esport-accent/40 bg-esport-accent/10 p-5 text-center hover:border-esport-accent transition-all">
+            <label className="block cursor-pointer rounded-xl border border-dashed border-esport-accent/40 bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(59,130,246,0.05))] p-5 text-center backdrop-blur-xl transition-all hover:border-esport-accent">
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -673,7 +685,7 @@ export function SyndicatesView({ addToast }: any) {
             {evidenceFiles.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {evidenceFiles.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className="rounded-lg border border-esport-border bg-white/5 px-3 py-2 flex items-center justify-between gap-3">
+                  <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-3 py-2 backdrop-blur-xl">
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-white truncate">{file.name}</div>
                       <div className="text-[10px] text-esport-text-muted">{file.type.startsWith("video/") ? <><FileVideo size={11} className="inline mr-1" />Video</> : "Image"} · {(file.size / 1024 / 1024).toFixed(2)} MB</div>
@@ -698,7 +710,7 @@ export function SyndicatesView({ addToast }: any) {
         </div>
 
         <div className="space-y-4">
-          <div className="esport-card p-5">
+          <div className="overflow-hidden rounded-[28px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.12),rgba(2,6,23,0.2))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Detection Queue</div>
             <div className="mt-3 text-sm text-esport-text-muted">Incoming reports are triaged by evidence quality and severity signal.</div>
             <div className="mt-4 space-y-2 text-xs">
@@ -709,7 +721,7 @@ export function SyndicatesView({ addToast }: any) {
             </div>
           </div>
 
-          <div className="esport-card p-5">
+          <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.12),rgba(2,6,23,0.2))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-accent">Roadmap Placeholder</div>
             <div className="mt-3 text-sm text-esport-text-muted">
               Next phase can include case tracking IDs, status updates, trust scoring, and automated demo parsing.
