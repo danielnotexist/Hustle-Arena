@@ -951,8 +951,8 @@ export default function App() {
       ) : (
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-[272px] shrink-0 border-r border-white/10 bg-[linear-gradient(180deg,#15171c_0%,#101216_100%)] text-white z-40 flex flex-col relative overflow-hidden">
-            <div className="absolute inset-0 opacity-30 pointer-events-none bg-[linear-gradient(145deg,transparent_0%,rgba(255,255,255,0.03)_35%,transparent_70%)]" />
+          <aside className="w-[272px] shrink-0 border-r border-white/10 bg-[linear-gradient(180deg,#16171b_0%,#101115_100%)] text-white z-40 flex flex-col relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none opacity-35 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_28%),linear-gradient(145deg,transparent_0%,rgba(255,255,255,0.03)_35%,transparent_70%)]" />
             <div className="p-6 pb-4">
               <div className="flex justify-center cursor-pointer" onClick={() => setView("dashboard")}>
                 <div className="relative rounded-[26px] border border-white/8 bg-black/18 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -1140,10 +1140,12 @@ export default function App() {
 
           {/* Main Content */}
           <main className="flex-1 flex flex-col overflow-hidden relative">
-            <header className="glass-header h-16 flex items-center justify-between px-8 shrink-0">
+            <header className="h-16 shrink-0 border-b border-white/8 bg-[linear-gradient(180deg,rgba(25,28,34,0.92),rgba(16,18,22,0.92))] px-8 flex items-center justify-between backdrop-blur-md">
               <div className="flex items-center gap-8">
-                <h2 className="text-xl font-display font-bold uppercase tracking-tight">{activeTab}</h2>
-                <div className="hidden md:flex items-center gap-2 bg-white/5 border border-esport-border rounded-lg px-3 py-1.5 group focus-within:border-esport-accent/50 transition-all">
+                <h2 className={`text-xl font-display font-bold uppercase tracking-tight ${isBattlefieldTab ? "italic text-cyan-300" : "text-white"}`}>
+                  {isBattlefieldTab ? "Battlefield" : activeTab}
+                </h2>
+                <div className="hidden md:flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 group focus-within:border-cyan-300/40 transition-all min-w-[340px]">
                   <input
                     type="text"
                     name="fake-username"
@@ -1160,7 +1162,7 @@ export default function App() {
                     aria-hidden="true"
                     className="pointer-events-none absolute h-0 w-0 opacity-0"
                   />
-                  <Search size={16} className="text-esport-text-muted group-focus-within:text-esport-accent" />
+                  <Search size={16} className="text-white/45 group-focus-within:text-cyan-300" />
                   <input
                     type="search"
                     id="global-arena-search"
@@ -1180,7 +1182,7 @@ export default function App() {
                     onPointerDown={(event) => {
                       event.currentTarget.removeAttribute("readonly");
                     }}
-                    className="bg-transparent border-none outline-none text-sm w-64"
+                    className="w-64 bg-transparent border-none text-sm text-white/85 outline-none placeholder:text-white/35"
                   />
                 </div>
               </div>
@@ -1203,14 +1205,14 @@ export default function App() {
                     Reconnect To Match
                   </button>
                 )}
-                <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 border border-esport-border rounded-full hover:bg-white/10 transition-colors cursor-pointer">
-                  <div className="w-5 h-5 bg-esport-secondary rounded-full flex items-center justify-center">
+                <div className="flex cursor-pointer items-center gap-3 rounded-full border border-amber-300/15 bg-[linear-gradient(90deg,rgba(255,185,54,0.18),rgba(255,185,54,0.08))] px-4 py-2 transition-colors hover:bg-[linear-gradient(90deg,rgba(255,185,54,0.24),rgba(255,185,54,0.10))]">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f4b73f]">
                     <Star size={12} className="text-white fill-white" />
                   </div>
-                  <span className="text-xs font-bold">
+                  <span className="text-xs font-bold text-white">
                     {accountMode === "demo" ? "Demo Balance" : "Live Balance"} {visibleBalance.toLocaleString()} USDT
                   </span>
-                  <Plus size={14} className="text-esport-text-muted" />
+                  <Plus size={14} className="text-white/65" />
                 </div>
                 
                 <div className="relative">

@@ -1488,38 +1488,6 @@ export function BattlefieldView({
 
   return (
     <div className="w-full space-y-5">
-      <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#080b11]">
-        <div
-          className="absolute inset-0 opacity-45"
-          style={{
-            backgroundImage: `linear-gradient(180deg,rgba(5,8,15,0.18),rgba(5,8,15,0.88)), url(${nukeMap})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(120,219,255,0.18),transparent_32%),radial-gradient(circle_at_bottom,rgba(225,0,255,0.12),transparent_28%)]" />
-        <div className="relative z-10 flex flex-col gap-4 px-6 py-7 sm:px-10 lg:px-12">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex-1">
-              <div className="relative inline-flex overflow-hidden rounded-[30px] border border-cyan-400/20 bg-black/30 px-5 py-4 shadow-[0_0_60px_rgba(34,211,238,0.16)] backdrop-blur-sm">
-                <img src={hustleArenaLogo} alt="Hustle Arena logo" className="h-24 w-auto object-contain sm:h-28 lg:h-32" />
-              </div>
-              <p className="mt-4 max-w-3xl text-sm text-white/65">
-                {accountMode === "demo"
-                  ? "Quick matchmaking is active here. Use Battlefield only for instant solo or party queue search."
-                  : "Quick matchmaking is currently restricted to Demo Accounts so queue and server flows can be tested safely."}
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-3 self-start rounded-full border border-white/15 bg-black/45 px-5 py-3 shadow-[0_0_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)] animate-pulse" />
-              <span className="text-sm font-bold text-white">
-                {accountMode === "demo" ? `Quick Queue Online - ${onlineNow.length}` : "Live Queue Locked"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {accountMode !== "demo" && (
         <div className="esport-card p-6 border border-esport-secondary/30 bg-esport-secondary/5">
           <div className="flex items-start gap-4">
@@ -1541,14 +1509,27 @@ export function BattlefieldView({
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: `linear-gradient(180deg,rgba(3,7,13,0.34),rgba(3,7,13,0.78)), url(${anubisMap})`,
+              backgroundImage: `linear-gradient(180deg,rgba(3,7,13,0.20),rgba(3,7,13,0.70)), url(${nukeMap})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_22%),linear-gradient(180deg,rgba(4,10,18,0.18),rgba(4,10,18,0.78))]" />
-          <div className="relative z-10 flex min-h-[78vh] items-center justify-center p-5 sm:p-8">
-            <div className="w-full max-w-[1220px] rounded-[34px] border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(18,25,34,0.74),rgba(10,15,23,0.80))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-10 lg:p-12">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_20%),linear-gradient(180deg,rgba(4,10,18,0.10),rgba(4,10,18,0.72))]" />
+          <div className="relative z-10 px-8 pb-8 pt-10 sm:px-12">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-5xl font-display font-bold uppercase italic tracking-tight text-white sm:text-6xl">Battlefield</h2>
+              </div>
+              <div className="inline-flex items-center gap-3 self-start rounded-full border border-white/15 bg-black/45 px-5 py-3 shadow-[0_0_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)] animate-pulse" />
+                <span className="text-sm font-bold text-white">
+                  {accountMode === "demo" ? `Quick Queue Online - ${onlineNow.length}` : "Live Queue Locked"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="relative z-10 flex min-h-[62vh] items-center justify-center p-5 pt-2 sm:p-8 sm:pt-0">
+            <div className="w-full max-w-[860px] rounded-[34px] border border-cyan-300/25 bg-[linear-gradient(180deg,rgba(30,38,46,0.60),rgba(20,24,31,0.62))] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:p-8 lg:max-w-[880px]">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div className="text-[11px] font-bold uppercase tracking-[0.26em] text-cyan-300">
                   Matchmaking Setup - Step {wizardStep} of 3
@@ -1644,17 +1625,17 @@ export function BattlefieldView({
               {wizardStep === 3 && (
                 <div className="space-y-5">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="text-center md:text-left">
-                      <h3 className="text-4xl font-display font-bold uppercase italic tracking-tight text-white sm:text-5xl">
+                    <div className="w-full text-center">
+                      <h3 className="text-5xl font-display font-bold uppercase italic tracking-tight text-white sm:text-6xl">
                         {queueMode === "party" ? "Party Assembly" : "Ready To Queue"}
                       </h3>
-                      <p className="mt-2 text-sm text-white/65">
+                      <p className="mt-2 text-base text-white/65">
                         {queueMode === "party"
                           ? "Invite teammates, review party slots, then start matchmaking."
                           : "Your setup is complete. Start matchmaking when you are ready."}
                       </p>
                     </div>
-                    <div className="self-center rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200 md:self-start">
+                    <div className="hidden self-center rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-200 md:self-start">
                       {selectedQueueLabel} - {formatStakeLabel(selectedStakeAmount)}
                     </div>
                   </div>
@@ -1668,9 +1649,9 @@ export function BattlefieldView({
                             key={card.type}
                             type="button"
                             onClick={() => setMatchType(card.type)}
-                            className={`group relative min-h-[235px] overflow-hidden rounded-[24px] border text-left transition-all duration-200 ${
+                            className={`group relative min-h-[235px] overflow-hidden rounded-[22px] border text-left transition-all duration-200 ${
                               active
-                                ? `border-white/60 ${card.art.glow} scale-[1.01]`
+                                ? `border-white/70 ${card.art.glow} scale-[1.01]`
                                 : "border-white/20 bg-black/20 hover:border-white/35"
                             }`}
                           >
@@ -1678,7 +1659,7 @@ export function BattlefieldView({
                               className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
                               style={{ backgroundImage: `url(${card.art.image})` }}
                             />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.08),rgba(5,7,11,0.78)_66%,rgba(5,7,11,0.96))]" />
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,11,0.04),rgba(5,7,11,0.66)_66%,rgba(5,7,11,0.96))]" />
                             <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)]" />
                             <div className="relative flex h-full flex-col justify-between p-4">
                               <div className="flex justify-end">
@@ -1687,7 +1668,7 @@ export function BattlefieldView({
                                 </span>
                               </div>
                               <div>
-                                <div className={`text-[28px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
+                                <div className={`text-[24px] font-display font-bold uppercase italic leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] ${card.art.accent}`}>
                                   {card.label}
                                 </div>
                               </div>
@@ -1929,7 +1910,7 @@ export function BattlefieldView({
                         (queueMode === "party" &&
                           (acceptedPartyMembers.length === 0 || isPartyInviteGuest || (isPartyLeader && hostStakeChangePending)))
                       }
-                      className="w-full rounded-full bg-[linear-gradient(90deg,#33e6ff_0%,#27d9ff_32%,#ff27d5_100%)] px-6 py-4 text-base font-bold text-[#041018] shadow-[0_0_30px_rgba(74,222,255,0.22)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mx-auto block w-full max-w-[520px] rounded-full bg-[linear-gradient(90deg,#33e6ff_0%,#27d9ff_32%,#ff27d5_100%)] px-6 py-4 text-base font-bold text-[#041018] shadow-[0_0_30px_rgba(74,222,255,0.22)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {queueMode === "solo" ? "Start Matchmaking" : isPartyInviteGuest ? "Waiting For Party Leader" : "Start Matchmaking"}
                     </button>
