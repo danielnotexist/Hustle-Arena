@@ -962,8 +962,14 @@ export default function App() {
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_48%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_55%)]" />
                     <img
                       src={hustleArenaSidebarLogo}
+                      alt=""
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-1/2 top-1/2 h-[122%] w-[122%] -translate-x-1/2 -translate-y-1/2 object-cover object-center opacity-40 blur-xl saturate-150"
+                    />
+                    <img
+                      src={hustleArenaSidebarLogo}
                       alt="Hustle Arena"
-                      className="relative h-full w-full scale-[1.08] object-cover object-center mix-blend-screen saturate-125 contrast-110"
+                      className="relative h-full w-full scale-[1.24] object-cover object-center mix-blend-lighten saturate-150 contrast-125 brightness-110"
                     />
                   </div>
                 </div>
