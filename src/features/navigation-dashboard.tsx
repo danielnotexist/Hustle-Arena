@@ -188,9 +188,9 @@ export function DashboardView({
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-esport-accent/25 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_34%),linear-gradient(180deg,#111829_0%,#0b1020_100%)] p-6 md:p-8">
+      <section className="relative overflow-hidden rounded-[28px] border border-esport-accent/25 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.28),rgba(2,6,23,0.38))] p-6 md:p-8 backdrop-blur-xl">
         <div className="absolute -right-16 top-0 h-56 w-56 rounded-full bg-esport-accent/10 blur-3xl" />
-        <div className="absolute right-6 top-6 hidden lg:flex h-14 items-center gap-2 rounded-full border border-white/10 bg-black/20 px-4 text-xs uppercase tracking-[0.22em] text-esport-text-muted">
+        <div className="absolute right-6 top-6 hidden lg:flex h-14 items-center gap-2 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] px-4 text-xs uppercase tracking-[0.22em] text-esport-text-muted backdrop-blur-xl">
           <Radar className="h-4 w-4 text-esport-accent" />
           Arena overview live
         </div>
@@ -207,12 +207,12 @@ export function DashboardView({
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+              <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-5 backdrop-blur-xl">
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Message Of The Day</div>
                 <div className="mt-3 text-xl font-display font-bold text-white">{motd.title}</div>
                 <p className="mt-2 text-sm leading-relaxed text-esport-text-muted">{motd.body}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+              <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-5 backdrop-blur-xl">
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Quick Actions</div>
                 <div className="mt-4 space-y-3">
                   {[
@@ -237,10 +237,10 @@ export function DashboardView({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * index }}
-                className="rounded-2xl border border-white/10 bg-black/20 p-5 backdrop-blur-sm"
+                className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.015))] p-5 backdrop-blur-xl"
               >
                 <div className="flex items-center justify-between">
-                  <div className={`rounded-xl bg-white/5 p-2 ${card.accent}`}>{card.icon}</div>
+                  <div className={`rounded-xl bg-white/[0.05] p-2 ${card.accent}`}>{card.icon}</div>
                   <ArrowUpRight className="h-4 w-4 text-esport-text-muted" />
                 </div>
                 <div className="mt-6 text-3xl font-display font-bold text-white">{card.value}</div>
@@ -253,7 +253,7 @@ export function DashboardView({
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-        <section className="esport-card p-6">
+        <section className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-300">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">High-Stake Recent Matches</div>
@@ -265,7 +265,7 @@ export function DashboardView({
           </div>
           <div className="space-y-3">
             {recentMatches.length === 0 ? (
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+              <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 text-sm text-esport-text-muted backdrop-blur-xl">
                 No finished matches yet.
               </div>
             ) : recentMatches.map((match) => (
@@ -273,7 +273,7 @@ export function DashboardView({
                 key={match.id}
                 type="button"
                 onClick={() => openMatchModal(match)}
-                className="group grid w-full gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-left transition-all hover:border-esport-accent/40 hover:bg-esport-accent/[0.06] md:grid-cols-[1.3fr_0.8fr_0.55fr]"
+                className="group grid w-full gap-4 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 text-left backdrop-blur-xl transition-all hover:border-esport-accent/40 hover:bg-esport-accent/[0.08] md:grid-cols-[1.3fr_0.8fr_0.55fr]"
               >
                 <div className="flex items-start gap-4">
                   <div className="rounded-2xl bg-esport-accent/10 p-3 text-esport-accent">
@@ -308,7 +308,7 @@ export function DashboardView({
         </section>
 
         <section className="space-y-6">
-          <div className="esport-card p-6">
+          <div className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Live Server Rooms</div>
@@ -330,7 +330,7 @@ export function DashboardView({
                   }))
                 : []
               ).map((server) => (
-                <div key={server.id} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                <div key={server.id} className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 backdrop-blur-xl">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-sm font-bold text-white">{server.name}</div>
@@ -355,14 +355,14 @@ export function DashboardView({
                 </div>
               ))}
               {liveServers.length === 0 && (
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+                <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 text-sm text-esport-text-muted backdrop-blur-xl">
                   No open server rooms right now.
                 </div>
               )}
             </div>
           </div>
 
-          <div className="esport-card p-6">
+          <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Win Rate Leaders</div>
@@ -385,7 +385,7 @@ export function DashboardView({
                         void onOpenPublicProfile(player.user_id);
                       }
                     }}
-                    className="flex w-full items-center gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-left transition-all hover:border-esport-accent/40 hover:bg-esport-accent/[0.06]"
+                    className="flex w-full items-center gap-4 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 text-left backdrop-blur-xl transition-all hover:border-esport-accent/40 hover:bg-esport-accent/[0.08]"
                   >
                     <div className="w-9 text-center text-lg font-display font-bold text-esport-text-muted">#{index + 1}</div>
                     <img src={avatar} alt={displayName} className="h-11 w-11 rounded-2xl border border-white/10 object-cover" />
@@ -401,7 +401,7 @@ export function DashboardView({
                 );
               })}
               {leaders.length === 0 && (
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+                <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 text-sm text-esport-text-muted backdrop-blur-xl">
                   No leaderboard data yet.
                 </div>
               )}
@@ -411,7 +411,7 @@ export function DashboardView({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="esport-card p-6">
+        <section className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Arena Feed</div>
@@ -419,12 +419,12 @@ export function DashboardView({
             </div>
             <MessageSquareQuote className="h-5 w-5 text-esport-accent" />
           </div>
-          <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-sm text-esport-text-muted">
+          <div className="mt-5 rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-6 text-sm text-esport-text-muted backdrop-blur-xl">
             Arena feed will populate automatically once real matches, rooms, and leaderboard activity start coming in.
           </div>
         </section>
 
-        <section className="esport-card p-6">
+        <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Personal Snapshot</div>
@@ -437,14 +437,14 @@ export function DashboardView({
             <CompactStat title="K/D" value={String(stats?.kdRatio || "0.00")} />
             <CompactStat title="Headshot" value={stats?.headshotPct || "0%"} />
           </div>
-          <div className="mt-5 rounded-2xl border border-esport-secondary/20 bg-esport-secondary/10 p-4 text-sm text-esport-text-muted">
+          <div className="mt-5 rounded-2xl border border-esport-secondary/20 bg-[linear-gradient(180deg,rgba(249,115,22,0.12),rgba(249,115,22,0.04))] p-4 text-sm text-esport-text-muted backdrop-blur-xl">
             Neural Map stays the deep-dive analytics zone. The dashboard now keeps your personal stats compact so the main page stays focused on live arena activity.
           </div>
         </section>
       </div>
 
       {loading && (
-        <div className="rounded-2xl border border-esport-border bg-white/[0.03] p-4 text-sm text-esport-text-muted">
+        <div className="rounded-2xl border border-esport-border bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 text-sm text-esport-text-muted backdrop-blur-xl">
           Syncing dashboard feeds...
         </div>
       )}
@@ -454,7 +454,7 @@ export function DashboardView({
 
 function CompactStat({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-4 backdrop-blur-xl">
       <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-esport-text-muted">{title}</div>
       <div className="mt-2 text-2xl font-display font-bold text-white">{value}</div>
     </div>
@@ -470,7 +470,7 @@ function DashboardMatchModal({ match }: { match: DashboardMatchSummary }) {
         <CompactStat title="Mode" value={String(match.gameMode).toUpperCase()} />
         <CompactStat title="Winner" value={match.winningSide} />
       </div>
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5">
+      <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-5 backdrop-blur-xl">
         <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-esport-text-muted">Final Score</div>
         <div className="mt-3 text-4xl font-display font-bold text-white">
           {match.winningScore} - {match.losingScore}
@@ -479,7 +479,7 @@ function DashboardMatchModal({ match }: { match: DashboardMatchSummary }) {
           Started {formatRelativeTime(match.startedAt)} · Ended {formatRelativeTime(match.endedAt || match.startedAt)}
         </div>
       </div>
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 text-sm leading-relaxed text-esport-text-muted">
+      <div className="rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-5 text-sm leading-relaxed text-esport-text-muted backdrop-blur-xl">
         This match finished in the <span className="font-bold text-white">{match.name}</span> room on <span className="font-bold text-white">{match.selectedMap || "the selected map"}</span>.
         The winning side was <span className="font-bold text-white">{match.winningSide}</span>, and the room ran at a stake of <span className="font-bold text-amber-300">{match.stakeAmount} USDT</span>.
       </div>
