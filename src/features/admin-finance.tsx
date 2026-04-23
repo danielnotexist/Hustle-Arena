@@ -213,30 +213,38 @@ export function DepositPage({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="esport-card p-6">
-        <div className="rounded-2xl border border-esport-accent/30 bg-[radial-gradient(circle_at_top,rgba(0,243,255,0.22),rgba(7,10,18,0.92)_58%)] px-6 py-5">
-          <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-esport-accent">Account Balance</div>
-          <div className="mt-2 text-4xl font-display font-bold text-white">{Number(visibleBalance || 0).toLocaleString()} USDT</div>
-          <div className="mt-2 text-xs text-esport-text-muted">
-            {isDemoMode ? "Demo account balance (virtual funds)." : "Live account balance (real funds)."}
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="relative overflow-hidden rounded-[28px] border border-esport-accent/25 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.28),rgba(2,6,23,0.38))] p-6 md:p-8 backdrop-blur-xl">
+        <div className="absolute -right-16 top-0 h-56 w-56 rounded-full bg-esport-accent/10 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-esport-accent/30 bg-esport-accent/10 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-esport-accent">
+              <Shield className="h-3.5 w-3.5" />
+              Wallet Operations
+            </div>
+            <div>
+              <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white">Wallet</h3>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-esport-text-muted">
+                {isDemoMode
+                  ? "Demo wallet stays visible for UI flow only. Switch to live mode to unlock real deposit and withdrawal operations."
+                  : `Deposit USDT to the platform hot wallet on the ${walletNetwork} network, then submit the transaction details for backend verification and balance reconciliation.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-esport-accent/30 bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(59,130,246,0.05))] px-6 py-5 backdrop-blur-xl">
+            <div className="text-[10px] font-bold uppercase tracking-[0.26em] text-esport-accent">Account Balance</div>
+            <div className="mt-2 text-4xl font-display font-bold text-white">{Number(visibleBalance || 0).toLocaleString()} USDT</div>
+            <div className="mt-2 text-xs text-esport-text-muted">
+              {isDemoMode ? "Demo account balance (virtual funds)." : "Live account balance (real funds)."}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="text-center space-y-4">
-        <h3 className="text-4xl font-display font-bold uppercase tracking-tight text-white">Wallet</h3>
-        {!isDemoMode && (
-          <p className="text-esport-text-muted max-w-xl mx-auto">
-            Deposit USDT to the platform hot wallet on the {walletNetwork} network to fund your account.
-            Credits should only be applied after backend-side verification and reconciliation.
-          </p>
-        )}
-      </div>
-
       {!isDemoMode ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="esport-card p-8 flex flex-col items-center justify-center space-y-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-8 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300 flex flex-col items-center justify-center space-y-6">
           <div className="bg-white p-4 rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.1)]">
             <img 
               src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${hotWalletAddress}`} 
@@ -250,16 +258,16 @@ export function DepositPage({
           </div>
         </div>
 
-        <div className="esport-card p-8 space-y-8">
+        <div className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-8 space-y-8 shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-300">
           <div className="space-y-4">
             <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Platform Hot Wallet Address</label>
             <div className="flex gap-2">
-              <div className="flex-1 bg-black/40 border border-esport-border rounded-xl px-4 py-4 font-mono text-sm break-all text-white">
+              <div className="flex-1 rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-4 font-mono text-sm break-all text-white backdrop-blur-xl">
                 {hotWalletAddress}
               </div>
               <button 
                 onClick={copyToClipboard}
-                className="p-4 bg-esport-accent/10 border border-esport-accent/20 rounded-xl text-esport-accent hover:bg-esport-accent hover:text-esport-bg transition-all"
+                className="rounded-xl border border-esport-accent/20 bg-[linear-gradient(180deg,rgba(59,130,246,0.14),rgba(59,130,246,0.05))] p-4 text-esport-accent backdrop-blur-xl transition-all hover:bg-esport-accent hover:text-esport-bg"
               >
                 <Copy size={20} />
               </button>
@@ -267,7 +275,7 @@ export function DepositPage({
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-white/5 border border-esport-border rounded-xl">
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-4 backdrop-blur-xl">
               <div className="w-10 h-10 rounded-full bg-esport-secondary/10 flex items-center justify-center text-esport-secondary">
                 <Shield size={20} />
               </div>
@@ -276,7 +284,7 @@ export function DepositPage({
                 <div className="text-[10px] text-esport-text-muted">User balances are credited internally after deposit verification</div>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-4 bg-white/5 border border-esport-border rounded-xl">
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-4 backdrop-blur-xl">
               <div className="w-10 h-10 rounded-full bg-esport-success/10 flex items-center justify-center text-esport-success">
                 <Activity size={20} />
               </div>
@@ -300,7 +308,7 @@ export function DepositPage({
                 step="0.01"
                 value={amountUsdt}
                 onChange={(e) => setAmountUsdt(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="25.00"
               />
             </div>
@@ -310,7 +318,7 @@ export function DepositPage({
                 type="text"
                 value={txid}
                 onChange={(e) => setTxid(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 font-mono"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm font-mono backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="0x..."
               />
             </div>
@@ -320,7 +328,7 @@ export function DepositPage({
                 type="text"
                 value={fromWalletAddress}
                 onChange={(e) => setFromWalletAddress(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 font-mono"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm font-mono backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="0x..."
               />
             </div>
@@ -329,7 +337,7 @@ export function DepositPage({
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 min-h-[90px]"
+                className="w-full min-h-[90px] rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="Optional context for the admin review team"
               />
             </div>
@@ -355,7 +363,7 @@ export function DepositPage({
                 step="0.01"
                 value={withdrawalAmountUsdt}
                 onChange={(e) => setWithdrawalAmountUsdt(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="25.00"
               />
             </div>
@@ -365,7 +373,7 @@ export function DepositPage({
                 type="text"
                 value={destinationWalletAddress}
                 onChange={(e) => setDestinationWalletAddress(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 font-mono"
+                className="w-full rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm font-mono backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="0x..."
               />
             </div>
@@ -374,7 +382,7 @@ export function DepositPage({
               <textarea
                 value={withdrawalNote}
                 onChange={(e) => setWithdrawalNote(e.target.value)}
-                className="w-full bg-white/5 border border-esport-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 min-h-[90px]"
+                className="w-full min-h-[90px] rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-4 py-3 text-sm backdrop-blur-xl focus:outline-none focus:border-esport-accent/50"
                 placeholder="Optional payout context"
               />
             </div>
@@ -389,7 +397,7 @@ export function DepositPage({
         </div>
       </div>
       ) : (
-        <div className="esport-card p-8 text-center">
+        <div className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.1),transparent_34%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-8 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
           <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-esport-accent">Demo Mode Wallet</div>
           <div className="mt-3 text-sm text-esport-text-muted">
             Deposit and withdrawal actions are disabled in demo mode.
@@ -399,7 +407,7 @@ export function DepositPage({
       )}
 
       {!isDemoMode && (
-      <div className="esport-card p-6">
+      <div className="overflow-hidden rounded-[30px] border border-esport-accent/20 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_32%),linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
         <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Recent Deposits</h4>
         {loadingRequests ? (
           <div className="text-center py-12 text-esport-text-muted text-sm italic">Loading deposit requests...</div>
@@ -410,7 +418,7 @@ export function DepositPage({
         ) : (
           <div className="space-y-3">
             {depositRequests.map((request) => (
-              <div key={request.id} className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-2">
+              <div key={request.id} className="rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-4 space-y-2 backdrop-blur-xl">
                 <div className="flex items-center justify-between gap-4">
                   <div className="font-bold text-white">{request.amountUsdt.toFixed(2)} USDT</div>
                   <span className={cn(
@@ -435,7 +443,7 @@ export function DepositPage({
       )}
 
       {!isDemoMode && (
-      <div className="esport-card p-6">
+      <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.14),rgba(2,6,23,0.22))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all duration-300">
         <h4 className="text-sm font-bold uppercase tracking-widest text-white mb-4">Recent Withdrawals</h4>
         {loadingRequests ? (
           <div className="text-center py-12 text-esport-text-muted text-sm italic">Loading withdrawal requests...</div>
@@ -446,7 +454,7 @@ export function DepositPage({
         ) : (
           <div className="space-y-3">
             {withdrawalRequests.map((request) => (
-              <div key={request.id} className="rounded-xl border border-esport-border bg-white/5 p-4 space-y-2">
+              <div key={request.id} className="rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-4 space-y-2 backdrop-blur-xl">
                 <div className="flex items-center justify-between gap-4">
                   <div className="font-bold text-white">{request.amountUsdt.toFixed(2)} USDT</div>
                   <span className={cn(

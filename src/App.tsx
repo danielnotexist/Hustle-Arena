@@ -35,6 +35,7 @@ import hustleArenaSidebarLogo from "./assets/hustle-arena-sidebar-logo.jpg";
 import squadHubBackground from "./assets/ha-squad-hub.png";
 import arenaGuardBackground from "./assets/arena-guard-bg.png";
 import dashboardBackground from "./assets/dashboard-background.png";
+import walletBackground from "./assets/wallet-background.png";
 import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
@@ -269,10 +270,13 @@ export default function App() {
   const battlefieldTabs = ["Battlefield Matchmaking", "Custom Lobby Browser"];
   const isBattlefieldTab = battlefieldTabs.includes(activeTab);
   const isDashboardTab = activeTab === "Dashboard";
+  const isWalletTab = activeTab === "Wallet";
   const isSquadHubTab = activeTab === "Squad Hub";
   const isArenaGuardTab = activeTab === "Arena Guard";
   const activeSectionBackground = isDashboardTab
     ? dashboardBackground
+    : isWalletTab
+      ? walletBackground
     : isSquadHubTab
     ? squadHubBackground
     : isArenaGuardTab
@@ -1332,6 +1336,8 @@ export default function App() {
                     className={`absolute inset-0 ${
                       isDashboardTab
                         ? "bg-[linear-gradient(90deg,rgba(5,8,13,0.22)_0%,rgba(5,8,13,0.1)_15%,rgba(5,8,13,0.03)_34%,rgba(5,8,13,0.03)_68%,rgba(5,8,13,0.1)_85%,rgba(5,8,13,0.22)_100%),linear-gradient(180deg,rgba(5,8,13,0.16)_0%,rgba(5,8,13,0.02)_24%,rgba(5,8,13,0.2)_100%)]"
+                        : isWalletTab
+                          ? "bg-[linear-gradient(90deg,rgba(5,8,13,0.24)_0%,rgba(5,8,13,0.1)_15%,rgba(5,8,13,0.03)_34%,rgba(5,8,13,0.03)_68%,rgba(5,8,13,0.12)_85%,rgba(5,8,13,0.24)_100%),linear-gradient(180deg,rgba(5,8,13,0.18)_0%,rgba(5,8,13,0.03)_24%,rgba(5,8,13,0.22)_100%)]"
                         : isArenaGuardTab
                         ? "bg-[linear-gradient(90deg,rgba(5,8,13,0.22)_0%,rgba(5,8,13,0.08)_15%,rgba(5,8,13,0.03)_34%,rgba(5,8,13,0.03)_68%,rgba(5,8,13,0.12)_85%,rgba(5,8,13,0.24)_100%),linear-gradient(180deg,rgba(5,8,13,0.18)_0%,rgba(5,8,13,0.03)_24%,rgba(5,8,13,0.22)_100%)]"
                         : "bg-[linear-gradient(90deg,rgba(5,8,13,0.24)_0%,rgba(5,8,13,0.08)_14%,rgba(5,8,13,0.02)_32%,rgba(5,8,13,0.02)_68%,rgba(5,8,13,0.12)_86%,rgba(5,8,13,0.28)_100%),linear-gradient(180deg,rgba(5,8,13,0.2)_0%,rgba(5,8,13,0.02)_24%,rgba(5,8,13,0.24)_100%)]"
