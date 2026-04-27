@@ -898,7 +898,9 @@ export function CustomLobbyView({
     return acc;
   }, {});
   const canStartVote = !!activeLobby && !activeMatch && !activeLobby.selected_map && tMembers.length === activeLobby.team_size && ctMembers.length === activeLobby.team_size && isLeader;
-  const canJoinServer = !!activeMatch && !!activeLobby?.selected_map && !!myMembership && myMembership.team_side !== "UNASSIGNED";
+  const serverStatus = activeMatch?.server_status || (activeMatch?.dedicated_server_endpoint ? "ready" : "awaiting_allocation");
+  const isDedicatedServerReady = !!activeMatch?.dedicated_server_endpoint && ["ready", "live", "allocated"].includes(serverStatus);
+  const canJoinServer = !!activeMatch && isDedicatedServerReady && !!activeLobby?.selected_map && !!myMembership && myMembership.team_side !== "UNASSIGNED";
   const hasJoinedServer = !!activeMatch?.match_players?.some((player) => player.user_id === user?.id && player.joined_server);
   const joinedServerCount = (activeMatch?.match_players || []).filter((player) => player.joined_server).length;
   const totalServerPlayers = (activeMatch?.match_players || []).length;
@@ -916,6 +918,16 @@ export function CustomLobbyView({
       !!activeLobby.selected_map
     );
   const canKickPlayers = isLeader && activeLobby?.status === "open";
+  const dedicatedServerLabel =
+    serverStatus === "ready" || serverStatus === "allocated"
+      ? "CS2 server ready"
+      : serverStatus === "live"
+        ? "CS2 match live"
+        : serverStatus === "provisioning" || serverStatus === "booting" || serverStatus === "allocation_claimed"
+          ? "Opening CS2 server"
+          : serverStatus === "failed"
+            ? "Server startup failed"
+            : "Waiting for server allocation";
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured()) {
@@ -1349,6 +1361,10 @@ export function CustomLobbyView({
 
   const handleJoinServer = async () => {
     if (!activeMatch) return;
+    if (!isDedicatedServerReady) {
+      addToast("The CS2 server is still opening. Join unlocks as soon as it is ready.", "info");
+      return;
+    }
     try {
       const endpoint = await joinMatchServer(activeMatch.id);
       await loadState();
@@ -1773,6 +1789,11 @@ export function CustomLobbyView({
                         : "Map Voting waits for both teams and all players ready"}
                   </div>
                 )}
+                  {activeMatch && !canJoinServer && !hasJoinedServer && (
+                    <div className="rounded-lg border border-esport-accent/25 bg-esport-accent/10 px-4 py-2.5 text-sm font-bold text-white">
+                      {dedicatedServerLabel}
+                    </div>
+                  )}
                   {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
                 </div>
               </div>
@@ -1876,14 +1897,21 @@ export function CustomLobbyView({
                 <div className="rounded-[24px] border border-esport-secondary/30 bg-esport-secondary/10 p-4 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between shadow-[0_0_30px_rgba(59,130,246,0.08)]">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-esport-text-muted">CS2 dedicated server state</div>
-                    <div className="mt-2 text-lg font-bold text-white">{activeMatch.status === "pending" ? "CS2 server staged · waiting for player joins" : "CS2 match live · Lobby removed from browser"}</div>
+                    <div className="mt-2 text-lg font-bold text-white">{dedicatedServerLabel}</div>
                     <div className="text-xs text-esport-text-muted mt-1">
-                      {activeMatch.status === "pending"
+                      {!isDedicatedServerReady
+                        ? "The platform is preparing the dedicated server with the agreed lobby settings. Join unlocks automatically when the endpoint is ready."
+                        : activeMatch.status === "pending"
                         ? `${joinedServerCount}/${totalServerPlayers} players joined the server. Once everyone joins, the server session becomes live.`
                         : "Reconnect remains available from the header until the match ends."}
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
+                    {!canJoinServer && !hasJoinedServer && (
+                      <div className="rounded-lg border border-esport-accent/25 bg-black/20 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-esport-accent">
+                        {serverStatus.replace(/_/g, " ")}
+                      </div>
+                    )}
                     {canJoinServer && <button onClick={handleJoinServer} disabled={hasJoinedServer} className="esport-btn-primary disabled:opacity-50">{hasJoinedServer ? "Joined Server" : "Join Server"}</button>}
                     {canResolveDemoMatch && (
                       <>

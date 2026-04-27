@@ -149,11 +149,14 @@ export interface ActiveMatch {
   lobby_id: string;
   mode: LobbyMode;
   status: MatchStatus;
+  server_status?: string | null;
   dedicated_server_endpoint?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   match_players?: Array<{
     user_id: string;
+    steam_id64?: string | null;
+    steam_verified?: boolean | null;
     team_side: TeamSide;
     joined_server?: boolean | null;
     is_winner?: boolean | null;
@@ -910,7 +913,7 @@ export async function fetchMyActiveLobby(userId: string, mode: LobbyMode) {
 export async function fetchMyActiveMatch(lobbyId: string) {
   const { data, error } = await supabase
     .from("matches")
-    .select("id, lobby_id, mode, status, dedicated_server_endpoint, started_at, ended_at, match_players(user_id, team_side, joined_server, is_winner, round_score, kills, deaths, assists, payout_amount, profiles:user_id(username))")
+    .select("id, lobby_id, mode, status, server_status, dedicated_server_endpoint, started_at, ended_at, match_players(user_id, steam_id64, steam_verified, team_side, joined_server, is_winner, round_score, kills, deaths, assists, payout_amount, profiles:user_id(username))")
     .eq("lobby_id", lobbyId)
     .in("status", ["pending", "live"])
     .order("created_at", { ascending: false })

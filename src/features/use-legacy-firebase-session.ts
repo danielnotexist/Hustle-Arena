@@ -1,40 +1,10 @@
 import { useEffect, useState } from "react";
-import {
-  auth,
-  db,
-  doc,
-  getDoc,
-  onAuthStateChanged,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-} from "../firebase";
 import type { AccountMode, ArenaUser, PlatformSessionState, ProfileData, UserStats, WalletSnapshot } from "./types";
+import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./session-defaults";
 
-export const DEFAULT_STATS: UserStats = {
-  credits: 0,
-  level: 1,
-  rank: "Bronze I",
-  winRate: "0%",
-  kdRatio: 0,
-  headshotPct: "0%",
-  performance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-};
-
-export const DEFAULT_PROFILE_DATA: ProfileData = {
-  bio: "Ready to dominate the arena. Tactical shooter veteran.",
-  country: "Israel",
-  twitter: "",
-  twitch: "",
-  avatarUrl: "",
-  coverUrl: "",
-};
-
-export const DEFAULT_WALLET: WalletSnapshot = {
-  availableBalance: 0,
-  lockedBalance: 0,
-  demoBalance: 0,
-};
+async function loadFirebase() {
+  return import("../firebase");
+}
 
 function toArenaUser(userData: any): ArenaUser {
   return {
@@ -63,6 +33,7 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
       return;
     }
 
+    const { auth, db, doc, getDoc } = await loadFirebase();
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) {
       setIsLoggedIn(false);
@@ -111,8 +82,15 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     }
 
     let profileUnsubscribe: (() => void) | null = null;
+    let cancelled = false;
+    let authUnsubscribe: (() => void) | null = null;
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    void loadFirebase().then(({ auth, db, doc, getDoc, onAuthStateChanged, onSnapshot, serverTimestamp, setDoc }) => {
+      if (cancelled) {
+        return;
+      }
+
+      authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setIsLoggedIn(false);
         setIsAdmin(false);
@@ -182,9 +160,11 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
         console.error("Auth state change error:", error);
       }
     });
+    });
 
     return () => {
-      unsubscribe();
+      cancelled = true;
+      if (authUnsubscribe) authUnsubscribe();
       if (profileUnsubscribe) profileUnsubscribe();
     };
   }, [enabled]);
@@ -193,6 +173,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     if (!user?.id) {
       throw new Error("You must be logged in to switch account modes.");
     }
+
+    const { db, doc, setDoc } = await loadFirebase();
 
     await setDoc(
       doc(db, "users", user.id),
@@ -217,6 +199,8 @@ export function useLegacyFirebaseSession(enabled = true): PlatformSessionState {
     }
 
     const nextDemoBalance = wallet.demoBalance + safeAmount;
+
+    const { db, doc, setDoc } = await loadFirebase();
 
     await setDoc(
       doc(db, "users", user.id),

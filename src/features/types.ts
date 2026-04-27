@@ -17,6 +17,10 @@ export interface ProfileData {
   twitch: string;
   avatarUrl?: string;
   coverUrl?: string;
+  steamId64?: string;
+  steamVerified?: boolean;
+  steamLinkedAt?: string | null;
+  steamLastVerifiedAt?: string | null;
 }
 
 export interface ArenaUser {
@@ -28,6 +32,8 @@ export interface ArenaUser {
   kycStatus: string;
   kycMessage?: string | null;
   accountMode?: AccountMode;
+  steamId64?: string | null;
+  steamVerified?: boolean;
 }
 
 export interface WalletSnapshot {

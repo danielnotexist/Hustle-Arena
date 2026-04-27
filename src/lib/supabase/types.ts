@@ -32,6 +32,10 @@ export interface SupabaseProfileRecord {
   kd_ratio?: number | null;
   headshot_pct?: string | null;
   performance?: number[] | null;
+  steam_id64?: string | null;
+  steam_verified?: boolean | null;
+  steam_linked_at?: string | null;
+  steam_last_verified_at?: string | null;
 }
 
 export interface SupabaseWalletRecord {
@@ -115,4 +119,8 @@ export interface MyProfileRpcRow {
   available_balance: number | null;
   locked_balance: number | null;
   demo_balance: number | null;
+  steam_id64?: string | null;
+  steam_verified?: boolean | null;
+  steam_linked_at?: string | null;
+  steam_last_verified_at?: string | null;
 }

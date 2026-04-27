@@ -16,7 +16,7 @@ export async function fetchMyProfile() {
 export async function fetchExtendedProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, email, avatar_url, cover_url, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance")
+    .select("id, username, email, avatar_url, cover_url, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance, steam_id64, steam_verified, steam_linked_at, steam_last_verified_at")
     .eq("id", userId)
     .single();
 
@@ -53,6 +53,8 @@ export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | M
     kycStatus: profile.kyc_status,
     kycMessage: "kyc_message" in profile ? profile.kyc_message || null : null,
     accountMode: profile.account_mode || "live",
+    steamId64: profile.steam_id64 || null,
+    steamVerified: Boolean(profile.steam_verified),
   };
 }
 
@@ -64,6 +66,10 @@ export function mapSupabaseProfileToProfileData(profile: ArenaProfileLike): Prof
     twitch: profile.twitch || "",
     avatarUrl: profile.avatar_url || "",
     coverUrl: profile.cover_url || "",
+    steamId64: profile.steam_id64 || "",
+    steamVerified: Boolean(profile.steam_verified),
+    steamLinkedAt: profile.steam_linked_at || null,
+    steamLastVerifiedAt: profile.steam_last_verified_at || null,
   };
 }
 
@@ -120,6 +126,24 @@ export async function updateProfileBasics(userId: string, profile: ProfileData) 
   if (error) {
     throw error;
   }
+}
+
+export async function updateMySteamId64(steamId64: string) {
+  const { data, error } = await supabase.rpc("update_my_steam_id64", {
+    p_steam_id64: steamId64,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return row as {
+    steam_id64: string;
+    steam_verified: boolean;
+    steam_linked_at: string | null;
+    steam_last_verified_at: string | null;
+  };
 }
 
 export async function updateAccountMode(userId: string, accountMode: AccountMode) {

@@ -200,6 +200,8 @@ export function BattlefieldView({
   const selectedTeamSize = TEAM_SIZE_BY_MATCH_TYPE[matchType];
   const selectedGameMode = GAME_MODE_BY_MATCH_TYPE[matchType];
   const selectedQueueLabel = QUEUE_LABEL_BY_MATCH_TYPE[matchType];
+  const hasSteamId64 = typeof user?.steamId64 === "string" && /^[0-9]{17}$/.test(user.steamId64);
+  const needsVerifiedSteamForLiveStake = accountMode === "live" && Number(selectedStakeAmount || 0) > 0 && !user?.steamVerified;
   const wizardProgressSegments = [1, 2, 3] as const;
   const matchTypeCards = ([
     "ranked_2v2",
@@ -1088,6 +1090,14 @@ export function BattlefieldView({
       addToast("Switch to Demo Account from Profile before entering matchmaking.", "error");
       return;
     }
+    if (!hasSteamId64) {
+      addToast("Add your 17-digit SteamID64 in Profile settings before CS2 matchmaking.", "error");
+      return;
+    }
+    if (needsVerifiedSteamForLiveStake) {
+      addToast("Verified Steam login is required before live-stake CS2 matches.", "error");
+      return;
+    }
     if (!selectedStakeAmount) {
       addToast("Choose how much you want to play for before starting matchmaking.", "error");
       return;
@@ -1424,6 +1434,10 @@ export function BattlefieldView({
     const poll = async () => {
       try {
         if (!selectedStakeAmount) return;
+        if (!hasSteamId64 || needsVerifiedSteamForLiveStake) {
+          resetQuickQueueState("idle");
+          return;
+        }
         const requestVersion = queueRequestVersionRef.current;
         const nextStatus = await quickQueueJoinOrMatch(
           accountMode,

@@ -29,14 +29,13 @@ import {
   ShieldAlert,
   Wallet,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
 import hustleArenaSidebarLogo from "./assets/hustle-arena-sidebar-logo.jpg";
 import squadHubBackground from "./assets/ha-squad-hub.png";
 import arenaGuardBackground from "./assets/arena-guard-bg.png";
 import dashboardBackground from "./assets/dashboard-background.png";
 import walletBackground from "./assets/wallet-background.png";
-import { auth, signOut } from "./firebase";
 import { isSupabaseConfigured } from "./lib/env";
 import { clearSupabaseLocalSession, isSupabaseAbortError, isSupabaseInvalidRefreshTokenError, supabase } from "./lib/supabase";
 import {
@@ -59,30 +58,29 @@ import {
 } from "./lib/supabase/social";
 import { playChatMessageSound, playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
-import {
-  AdminPanel,
-  ArenaTVView,
-  ApexListView,
-  AuthForm,
-  BattlefieldView,
-  CustomLobbyBrowserView,
-  DashboardView,
-  DepositPage,
-  HustlePrimeView,
-  KYCForm,
-  LandingPage,
-  MissionsView,
-  NeuralMapView,
-  ForumsView,
-  SocialView,
-  SidebarItem,
-  SquadHubView,
-  SyndicatesView,
-  PublicProfileView,
-  UserProfileView,
-  VaultView,
-} from "./features/app-sections";
+import { SidebarItem } from "./features/sidebar-item";
 import { usePlatformSession } from "./features/use-platform-session";
+
+const AdminPanel = lazy(() => import("./features/admin-finance").then((module) => ({ default: module.AdminPanel })));
+const ArenaTVView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.ArenaTVView })));
+const ApexListView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.ApexListView })));
+const AuthForm = lazy(() => import("./features/landing-auth").then((module) => ({ default: module.AuthForm })));
+const BattlefieldView = lazy(() => import("./features/quick-match-view").then((module) => ({ default: module.BattlefieldView })));
+const CustomLobbyBrowserView = lazy(() => import("./features/battlefield-view").then((module) => ({ default: module.CustomLobbyBrowserView })));
+const DashboardView = lazy(() => import("./features/navigation-dashboard").then((module) => ({ default: module.DashboardView })));
+const DepositPage = lazy(() => import("./features/admin-finance").then((module) => ({ default: module.DepositPage })));
+const HustlePrimeView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.HustlePrimeView })));
+const KYCForm = lazy(() => import("./features/landing-auth").then((module) => ({ default: module.KYCForm })));
+const LandingPage = lazy(() => import("./features/landing-auth").then((module) => ({ default: module.LandingPage })));
+const MissionsView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.MissionsView })));
+const NeuralMapView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.NeuralMapView })));
+const ForumsView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.ForumsView })));
+const SocialView = lazy(() => import("./features/profile-social").then((module) => ({ default: module.SocialView })));
+const SquadHubView = lazy(() => import("./features/profile-social").then((module) => ({ default: module.SquadHubView })));
+const SyndicatesView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.SyndicatesView })));
+const PublicProfileView = lazy(() => import("./features/profile-social").then((module) => ({ default: module.PublicProfileView })));
+const UserProfileView = lazy(() => import("./features/profile-social").then((module) => ({ default: module.UserProfileView })));
+const VaultView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.VaultView })));
 
 const DASHBOARD_TAB = "Dashboard";
 const ACTIVE_TAB_STORAGE_KEY = "hustle_arena_active_tab";
@@ -104,6 +102,16 @@ const VALID_TABS = new Set([
   "Arena Guard",
   "Hustle Prime",
 ]);
+
+function SectionLoading() {
+  return (
+    <div className="flex min-h-[280px] items-center justify-center">
+      <div className="rounded-2xl border border-esport-accent/20 bg-esport-accent/10 px-5 py-3 text-xs font-bold uppercase tracking-[0.2em] text-esport-accent">
+        Loading Arena Module
+      </div>
+    </div>
+  );
+}
 
 // --- Main App Component ---
 export default function App() {
@@ -646,6 +654,7 @@ export default function App() {
         }
         setHasSupabaseSession(false);
       } else {
+        const { auth, signOut } = await import("./firebase");
         await signOut(auth);
       }
 
@@ -709,6 +718,7 @@ export default function App() {
           console.error("Session recovery sign-out warning:", error);
         }
       } else {
+        const { auth, signOut } = await import("./firebase");
         await signOut(auth);
       }
     } catch (error) {
@@ -965,7 +975,9 @@ export default function App() {
         </div>
       ) : (
       view === "landing" ? (
-        <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
+        <Suspense fallback={<SectionLoading />}>
+          <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
+        </Suspense>
       ) : (
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
@@ -1380,6 +1392,7 @@ export default function App() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                   >
+                    <Suspense fallback={<SectionLoading />}>
                     {activeTab === "Admin" && isAdmin && <AdminPanel addToast={addToast} />}
                     {activeTab === "Wallet" && <DepositPage addToast={addToast} user={user} accountMode={accountMode} visibleBalance={visibleBalance} />}
                     {activeTab === "Profile" && (
@@ -1404,6 +1417,7 @@ export default function App() {
                           setProfileData={setProfileData}
                           switchAccountMode={switchAccountMode}
                           topUpDemoBalance={topUpDemoBalance}
+                          refreshSession={refreshSession}
                           addToast={addToast}
                           openModal={openModal}
                           initialTab={profileInitialTab}
@@ -1444,6 +1458,7 @@ export default function App() {
                         onOpenPublicProfile={openPublicProfilePage}
                       />
                     )}
+                    </Suspense>
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -1628,7 +1643,9 @@ export default function App() {
                 </div>
               )}
               <div className={`${modalContent?.options?.bodyPadding === "none" ? "" : "p-8"} ${modalContent?.options?.size === "full" ? "max-h-[calc(92vh-40px)] overflow-y-auto custom-scrollbar" : ""}`}>
-                {modalContent?.body}
+                <Suspense fallback={<SectionLoading />}>
+                  {modalContent?.body}
+                </Suspense>
               </div>
               {modalContent?.options?.showFooter !== false && (
                 <div className="p-6 bg-black/20 border-t border-esport-border flex justify-end gap-3">

@@ -47,7 +47,7 @@ import {
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
 import { fetchUserMatchHistory, joinMatchmakingLobby, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
-import { updateProfileBasics } from "../lib/supabase/profile";
+import { updateMySteamId64, updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
 import { playChatMessageSound } from "../lib/sound";
 import { db, doc, setDoc } from "../firebase";
@@ -370,6 +370,7 @@ export function UserProfileView({
   setProfileData,
   switchAccountMode,
   topUpDemoBalance,
+  refreshSession,
   addToast,
   openModal,
   initialTab = "overview",
@@ -382,6 +383,7 @@ export function UserProfileView({
   setProfileData: any;
   switchAccountMode: (mode: AccountMode) => Promise<void>;
   topUpDemoBalance: (amount: number) => Promise<void>;
+  refreshSession?: () => Promise<void>;
   addToast: any;
   openModal: any;
   initialTab?: "overview" | "matches" | "highlights" | "settings";
@@ -392,6 +394,7 @@ export function UserProfileView({
   const [demoTopUpAmount, setDemoTopUpAmount] = useState("");
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     setEditForm({
@@ -482,11 +485,25 @@ export function UserProfileView({
     const normalizedProfile = {
       ...editForm,
       country: normalizeSelectableCountry(editForm.country),
+      steamId64: String(editForm.steamId64 || "").replace(/\s+/g, ""),
     };
 
+    if (normalizedProfile.steamId64 && !/^[0-9]{17}$/.test(normalizedProfile.steamId64)) {
+      addToast("SteamID64 must be exactly 17 digits.", "error");
+      return;
+    }
+
+    setIsSavingProfile(true);
     try {
       if (isSupabaseConfigured()) {
         await updateProfileBasics(user.id, normalizedProfile);
+        if (normalizedProfile.steamId64 && normalizedProfile.steamId64 !== (profileData.steamId64 || "")) {
+          const steamRow = await updateMySteamId64(normalizedProfile.steamId64);
+          normalizedProfile.steamId64 = steamRow.steam_id64 || "";
+          normalizedProfile.steamVerified = Boolean(steamRow.steam_verified);
+          normalizedProfile.steamLinkedAt = steamRow.steam_linked_at || null;
+          normalizedProfile.steamLastVerifiedAt = steamRow.steam_last_verified_at || null;
+        }
       } else {
         await setDoc(doc(db, "users", user.id), {
           ...normalizedProfile
@@ -494,11 +511,14 @@ export function UserProfileView({
       }
       setProfileData(normalizedProfile);
       setEditForm(normalizedProfile);
+      await refreshSession?.();
       setIsEditing(false);
       addToast("Profile updated successfully!", "success");
     } catch (error) {
       console.error("Error updating profile:", error);
-      addToast("Failed to update profile", "error");
+      addToast((error as { message?: string })?.message || "Failed to update profile", "error");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -605,6 +625,36 @@ export function UserProfileView({
             {accountMode === "demo" && user?.kycStatus !== "verified" && (
               <p className="text-xs text-esport-text-muted mt-3">
                 Demo mode stays playable without KYC. Verification is only required before switching into live-stakes play.
+              </p>
+            )}
+          </div>
+
+          <div className={`esport-card p-6 border-2 ${profileData.steamId64 ? "border-esport-success/20" : "border-esport-danger/30"}`}>
+            <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Steam Identity</h3>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-esport-text-muted uppercase font-bold">CS2 Link</span>
+              <span className={cn(
+                "badge text-[10px] font-bold uppercase tracking-widest",
+                profileData.steamVerified ? "badge-success" : profileData.steamId64 ? "badge-accent" : "badge-danger"
+              )}>
+                {profileData.steamVerified ? "Verified" : profileData.steamId64 ? "Manual" : "Missing"}
+              </span>
+            </div>
+            <div className="rounded-xl border border-esport-border bg-white/5 p-4">
+              <div className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">SteamID64</div>
+              <div className="mt-2 font-mono text-sm text-white break-all">{profileData.steamId64 || "Not connected"}</div>
+            </div>
+            {!profileData.steamId64 && (
+              <button
+                onClick={() => { setActiveTab("settings"); setIsEditing(true); }}
+                className="esport-btn-primary w-full py-3 text-[10px] uppercase tracking-[0.2em] mt-4"
+              >
+                Add SteamID64
+              </button>
+            )}
+            {profileData.steamId64 && !profileData.steamVerified && (
+              <p className="text-xs text-esport-text-muted mt-3">
+                Manual SteamID64 is valid for demo CS2 matching. Live-stake matches will require Steam verification.
               </p>
             )}
           </div>
@@ -829,6 +879,32 @@ export function UserProfileView({
                       Choose your country from the supported list.
                     </p>
                   </div>
+                  <div className="rounded-xl border border-esport-accent/25 bg-esport-accent/10 p-4">
+                    <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">SteamID64</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={17}
+                      value={editForm.steamId64 || ""}
+                      onChange={(e) => setEditForm({ ...editForm, steamId64: e.target.value.replace(/\D/g, "").slice(0, 17) })}
+                      placeholder="7656119..."
+                      className="w-full bg-black/50 border border-esport-border rounded-lg p-3 font-mono text-white focus:border-esport-accent outline-none transition-colors"
+                    />
+                    <p className="mt-2 text-xs text-esport-text-muted">
+                      Required before CS2 queue or server join. Manual entries are allowed for demo tests; live stakes need verified Steam login later.
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                      <span className={cn(
+                        "badge",
+                        editForm.steamVerified ? "badge-success" : editForm.steamId64 ? "badge-accent" : "badge-danger"
+                      )}>
+                        {editForm.steamVerified ? "Verified" : editForm.steamId64 ? "Manual" : "Missing"}
+                      </span>
+                      {editForm.steamId64 && !editForm.steamVerified && (
+                        <span className="text-esport-text-muted">Not eligible for live-stake settlement</span>
+                      )}
+                    </div>
+                  </div>
                     <div>
                       <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Avatar URL</label>
                       <input
@@ -886,9 +962,11 @@ export function UserProfileView({
                           />
                         </div>
                       ) : null}
-                    </div>
+                  </div>
                   <div className="pt-4 border-t border-esport-border flex gap-3">
-                    <button onClick={handleSave} className="esport-btn-primary">Save Changes</button>
+                    <button onClick={handleSave} disabled={isSavingProfile} className="esport-btn-primary disabled:opacity-50">
+                      {isSavingProfile ? "Saving..." : "Save Changes"}
+                    </button>
                     <button onClick={() => { setEditForm(profileData); setIsEditing(false); setActiveTab('overview'); }} className="esport-btn-secondary">Cancel</button>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ import {
   updateAccountMode,
 } from "../lib/supabase/profile";
 import type { AccountMode, PlatformSessionState, ProfileData, WalletSnapshot, UserStats } from "./types";
-import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./use-legacy-firebase-session";
+import { DEFAULT_PROFILE_DATA, DEFAULT_STATS, DEFAULT_WALLET } from "./session-defaults";
 
 const SESSION_REQUEST_TIMEOUT_MS = 12000;
 
@@ -77,6 +77,8 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       kycStatus: typeof metadata.kyc_status === "string" ? metadata.kyc_status : "none",
       kycMessage: null,
       accountMode: metadata.account_mode === "demo" ? "demo" : "live",
+      steamId64: typeof metadata.steam_id64 === "string" ? metadata.steam_id64 : null,
+      steamVerified: metadata.steam_verified === true,
     };
   };
 
