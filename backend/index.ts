@@ -1,5 +1,5 @@
 import express from "express";
-import { backendConfig } from "./config";
+import { backendConfig, getMissingSupabaseEnv } from "./config";
 import { corsMiddleware } from "./middleware/cors";
 import { errorHandler } from "./middleware/errors";
 import { requireAdmin, requireAuth, type AuthenticatedRequest } from "./middleware/auth";
@@ -15,10 +15,14 @@ app.use(express.json({ limit: "1mb" }));
 app.use(rateLimit({ windowMs: 60_000, max: 240 }));
 
 app.get("/health", (_req, res) => {
+  const missingSupabaseEnv = getMissingSupabaseEnv();
+
   res.json({
     ok: true,
     service: "hustle-arena-backend",
     environment: backendConfig.nodeEnv,
+    supabaseConfigured: missingSupabaseEnv.length === 0,
+    missingSupabaseEnv,
     timestamp: new Date().toISOString(),
   });
 });

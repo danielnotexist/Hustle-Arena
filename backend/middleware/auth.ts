@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { User } from "@supabase/supabase-js";
-import { supabaseAdmin } from "../supabase";
+import { getSupabaseAdmin } from "../supabase";
 
 export type AuthenticatedRequest = Request & {
   auth?: {
@@ -25,6 +25,14 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
   if (!token) {
     res.status(401).json({ error: "Missing bearer token" });
+    return;
+  }
+
+  let supabaseAdmin;
+  try {
+    supabaseAdmin = getSupabaseAdmin();
+  } catch (error) {
+    next(error);
     return;
   }
 
