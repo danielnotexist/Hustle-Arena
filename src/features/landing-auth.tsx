@@ -1,6 +1,11 @@
 import { motion } from "motion/react";
-import { AlertCircle, CheckCircle2, ChevronDown, Gamepad2, Plus, ShieldAlert, User } from "lucide-react";
+import { AlertCircle, CheckCircle2, Crosshair, Gamepad2, Gift, Headphones, Plus, Shield, ShieldAlert, ShieldCheck, Target, Trophy, User, Users, WalletCards, Zap } from "lucide-react";
 import React, { useRef, useState } from "react";
+import backgroundImage from "../assets/background.png";
+import competitiveImage from "../assets/gamemodes/square/competitive_square.png";
+import wingmanImage from "../assets/gamemodes/square/wingman_square.png";
+import teamFfaImage from "../assets/gamemodes/square/team_ffa_square.png";
+import arenaGuardImage from "../assets/arena-guard-bg.png";
 import hustleArenaLogo from "../assets/hustle-arena-logo.png";
 import { db, doc, serverTimestamp, updateDoc } from "../firebase";
 import { isSupabaseConfigured } from "../lib/env";
@@ -40,235 +45,188 @@ export function DynamicImage({ prompt, className }: { prompt: string, className?
 }
 
 export function LandingPage({ onLogin }: { onLogin: () => void }) {
+  const tournaments = [
+    { tag: "1V1", title: "Hustler 1V1 Cup", entry: "$50", prize: "$2,000", image: wingmanImage },
+    { tag: "5V5", title: "Cyber League", entry: "$250", prize: "$25,000", image: competitiveImage },
+    { tag: "5V5", title: "Hustle Arena Open", entry: "$100", prize: "$10,000", image: teamFfaImage },
+  ];
+
+  const trustItems = [
+    { icon: <Zap size={22} />, title: "Instant", body: "Matchmaking" },
+    { icon: <ShieldCheck size={22} />, title: "Anti-cheat", body: "Protected" },
+    { icon: <WalletCards size={22} />, title: "Skin & Cash", body: "Payouts" },
+    { icon: <Headphones size={22} />, title: "24/7", body: "Support" },
+    { icon: <Gamepad2 size={22} />, title: "Built By", body: "CS2 Players" },
+  ];
+
   return (
-    <div className="min-h-screen bg-esport-bg overflow-x-hidden">
-      {/* Navbar */}
-      <nav className="glass-header h-20 flex items-center justify-between px-12 fixed w-full top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 h-12">
-            <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
-              <Gamepad2 className="text-black w-3/4 h-3/4" />
-            </div>
-            <span className="font-display font-bold text-2xl tracking-wider text-white">HUSTLE</span>
-          </div>
-        </div>
-        <div className="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest">
-          <a href="#tournaments" className="hover:text-esport-accent transition-colors">Tournaments</a>
-          <a href="#pro-gear" className="hover:text-esport-accent transition-colors">Pro Gear</a>
-          <a href="#community" className="hover:text-esport-accent transition-colors">Community</a>
-          <button onClick={onLogin} className="esport-btn-primary">Enter Arena</button>
-        </div>
-      </nav>
+    <div className="min-h-screen overflow-x-hidden bg-[#030712] text-white">
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_18%_8%,rgba(37,99,235,0.22),transparent_31%),radial-gradient(circle_at_82%_30%,rgba(249,115,22,0.11),transparent_26%),linear-gradient(180deg,#030712_0%,#07101d_45%,#02050b_100%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 opacity-[0.07] [background-image:linear-gradient(rgba(34,211,238,.45)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,.45)_1px,transparent_1px)] [background-size:42px_42px]" />
 
-      {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center pt-20">
-        <div className="absolute inset-0 z-0">
-          <DynamicImage 
-            prompt="A cinematic, high-energy esports arena with neon lights, a large screen showing a competitive game like CS:GO or Valorant, and a cheering crowd in the background. Futuristic aesthetic, 4k, professional photography." 
-            className="w-full h-full object-cover opacity-40" 
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-esport-bg/20 via-esport-bg/60 to-esport-bg" />
-        </div>
-        
-        <div className="container mx-auto px-6 relative z-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-          >
-            <span className="badge badge-accent mb-6 px-4 py-1 text-sm">Next-Gen Competitive Platform</span>
-            <h1 className="text-6xl md:text-8xl font-display font-black uppercase tracking-tighter mb-8 leading-[0.9]">
-              WHERE LEGENDS <br />
-              <span className="text-esport-accent italic">ARE FORGED</span>
+      <main className="relative z-10 mx-auto w-full max-w-[1160px] px-4 py-5 sm:px-6 lg:px-8">
+        <section className="ha-panel ha-hero-grid min-h-[470px] overflow-hidden p-5 md:grid md:grid-cols-[1.08fr_.92fr] md:items-center md:p-8">
+          <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-[10px] border border-cyan-300/10 bg-black/25">
+            <img src={backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.26),transparent_42%),linear-gradient(90deg,rgba(2,6,23,0.2),rgba(2,6,23,0.72))]" />
+            <img
+              src={hustleArenaLogo}
+              alt="Hustle Arena"
+              className="relative z-10 w-[min(88%,480px)] object-contain drop-shadow-[0_0_34px_rgba(34,211,238,0.52)]"
+            />
+          </div>
+
+          <div className="relative px-2 py-8 md:px-8">
+            <h1 className="font-display text-[42px] font-black uppercase leading-[0.92] tracking-normal text-white sm:text-[58px] lg:text-[64px]">
+              Built By <span className="text-[#2d74ff]">Pros</span>
+              <br />
+              For Gamers
+              <br />
+              Not Spectators
             </h1>
-            <p className="text-xl text-esport-text-muted max-w-2xl mx-auto mb-12">
-              The ultimate destination for competitive gamers. High-stakes tournaments, advanced neural analytics, and a global community of elite combatants.
+            <p className="mt-5 max-w-md text-sm font-semibold leading-6 text-slate-300">
+              The ultimate self-wagering CS2 platform. Compete. Risk. Win. On your terms.
             </p>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-              <button onClick={onLogin} className="esport-btn-primary px-12 py-5 text-xl w-full md:w-auto">
-                Start Your Career
+            <ul className="mt-6 space-y-3 text-xs font-black uppercase tracking-[0.08em] text-slate-200">
+              {["Self-wager CS2 matches", "Instant matchmaking & lobbies", "Fair play. Secure. Anti-cheat.", "Instant skin & cash payouts"].map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-400/10 text-cyan-300">
+                    <CheckCircle2 size={13} />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <button onClick={onLogin} className="ha-blue-button min-h-[52px] px-9 text-sm">
+                Play Now
               </button>
-              <button className="esport-btn-secondary px-12 py-5 text-xl w-full md:w-auto">
-                Explore Tournaments
-              </button>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 animate-bounce text-esport-text-muted">
-          <ChevronDown size={32} />
-        </div>
-      </section>
-
-      {/* Pro Gamers Section */}
-      <section className="py-32 bg-esport-sidebar/30">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center gap-16">
-            <div className="flex-1">
-              <DynamicImage 
-                prompt="A professional esports player sitting in a high-tech gaming chair, wearing a headset, focused on a glowing monitor. Intense atmosphere, neon blue lighting, high detail." 
-                className="w-full h-[500px] object-cover rounded-3xl border border-esport-accent/30 shadow-[0_0_50px_rgba(59,130,246,0.2)]" 
-              />
-            </div>
-            <div className="flex-1 space-y-8">
-              <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-tighter">
-                BUILT BY <span className="text-esport-accent">PROS</span> <br />
-                FOR THE <span className="text-esport-secondary">ELITE</span>
-              </h2>
-              <p className="text-lg text-esport-text-muted leading-relaxed">
-                Hustle Arena isn't just another platform. It's a neural-linked ecosystem designed by professional athletes to provide the most responsive, fair, and rewarding competitive experience in the world.
-              </p>
-              <ul className="space-y-4">
-                {[
-                  "Sub-millisecond latency infrastructure",
-                  "AI-powered anti-cheat protocols",
-                  "Direct path to professional scouting",
-                  "Instant prize pool distributions"
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 font-bold uppercase tracking-wider text-sm">
-                    <CheckCircle2 className="text-esport-accent" size={20} />
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <a href="#tournaments" className="ha-dark-button min-h-[52px] px-9 text-sm">
+                How It Works
+              </a>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Live Tournaments */}
-      <section id="tournaments" className="py-32 container mx-auto px-6">
-        <div className="text-center mb-20">
-          <h2 className="text-4xl font-display font-black uppercase tracking-tighter mb-4">Live Tournaments</h2>
-          <p className="text-esport-text-muted">Join the battle and claim your share of the massive prize pools.</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            { title: "Hustle Strike Invitational", prize: "$50,000", game: "Tactical Shooter", img: "esports tactical shooter tournament stage with players at computers" },
-            { title: "Cyber League Masters", prize: "$25,000", game: "Battle Royale", img: "esports battle royale tournament stage with players at computers" },
-            { title: "Hustle Arena Open", prize: "$10,000", game: "MOBA Championship", img: "esports moba tournament stage with players at computers" }
-          ].map((t, i) => (
-            <div key={i} className="esport-card group overflow-hidden">
-              <div className="h-48 overflow-hidden relative">
-                <DynamicImage prompt={t.img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                <div className="absolute top-4 right-4 badge badge-accent">LIVE</div>
-              </div>
-              <div className="p-8 space-y-4">
-                <div className="text-[10px] font-bold text-esport-accent uppercase tracking-widest">{t.game}</div>
-                <h3 className="text-xl font-display font-bold uppercase">{t.title}</h3>
-                <div className="flex justify-between items-center pt-4 border-t border-esport-border">
-                  <div>
-                    <div className="text-[10px] text-esport-text-muted uppercase">Prize Pool</div>
-                    <div className="text-lg font-display font-bold text-esport-secondary">{t.prize}</div>
-                  </div>
-                  <button className="esport-btn-primary px-6 py-2 text-xs">Join Now</button>
+        <section id="tournaments" className="ha-panel mt-10 p-5 sm:p-7">
+          <div className="mb-6 text-center">
+            <h2 className="font-display text-3xl font-black uppercase tracking-normal text-white">
+              <span className="text-[#1f67ff]">Live</span> Tournaments
+            </h2>
+            <p className="mt-2 text-sm font-semibold text-slate-400">Compete in high-stakes CS2 tournaments and climb the leaderboard.</p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-3">
+            {tournaments.map((tournament) => (
+              <article key={tournament.title} className="group overflow-hidden rounded-[7px] border border-cyan-300/18 bg-[#07101c] shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+                <div className="relative h-44 overflow-hidden">
+                  <img src={tournament.image} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#07101c] via-transparent to-transparent" />
+                  <div className="absolute left-4 top-4 rounded border border-blue-400/35 bg-blue-600/20 px-2.5 py-1 text-xs font-black uppercase text-blue-300">{tournament.tag}</div>
                 </div>
+                <div className="p-5">
+                  <h3 className="font-display text-2xl font-black uppercase tracking-normal text-white">{tournament.title}</h3>
+                  <div className="mt-5 grid grid-cols-2 border-t border-cyan-300/10 pt-4">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Entry Fee</div>
+                      <div className="mt-1 font-display text-2xl font-black text-[#ff7a22]">{tournament.entry}</div>
+                    </div>
+                    <div className="border-l border-cyan-300/10 pl-5">
+                      <div className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-400">Prize Pool</div>
+                      <div className="mt-1 font-display text-2xl font-black text-[#2d74ff]">{tournament.prize}</div>
+                    </div>
+                  </div>
+                  <button onClick={onLogin} className="ha-blue-button mt-5 w-full py-3 text-xs">Join Now</button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="mt-7 flex justify-center">
+            <button className="ha-dark-button min-w-[280px] py-3 text-xs">View All Tournaments</button>
+          </div>
+        </section>
+
+        <section id="pro-gear" className="mt-10 grid gap-6 md:grid-cols-[.78fr_1.22fr]">
+          <div className="ha-panel p-7">
+            <h2 className="font-display text-[38px] font-black uppercase leading-[0.95] tracking-normal">
+              Gear Up.
+              <br />
+              Lock In.
+              <br />
+              <span className="text-[#ff7a22]">Take Over.</span>
+            </h2>
+            <p className="mt-5 text-sm font-semibold leading-6 text-slate-400">
+              Use promo codes, grab exclusive rewards, and boost your CS2 grind with Hustle Arena.
+            </p>
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <div className="border border-cyan-300/15 bg-black/22 p-4">
+                <div className="font-display text-xl font-black text-[#2d74ff]">10% OFF</div>
+                <div className="mt-1 text-[10px] font-black uppercase text-slate-400">On All Deposits</div>
+              </div>
+              <div className="border border-cyan-300/15 bg-black/22 p-4">
+                <div className="font-display text-xl font-black text-[#ff7a22]">FREE CASE</div>
+                <div className="mt-1 text-[10px] font-black uppercase text-slate-400">For New Players</div>
+              </div>
+            </div>
+            <button onClick={onLogin} className="ha-blue-button mt-7 px-7 py-3 text-xs">Claim Rewards</button>
+          </div>
+
+          <div className="ha-panel relative min-h-[330px] overflow-hidden p-5">
+            <img src={arenaGuardImage} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(37,99,235,0.28),transparent_38%),linear-gradient(90deg,rgba(2,6,23,0.86),rgba(2,6,23,0.38))]" />
+            <div className="relative z-10 flex h-full min-h-[290px] items-center justify-center">
+              <div className="grid grid-cols-2 gap-8 text-cyan-200 sm:grid-cols-4">
+                {[Target, Crosshair, Shield, Gift].map((Icon, index) => (
+                  <div key={index} className="flex h-20 w-20 rotate-[-8deg] items-center justify-center rounded border border-cyan-300/20 bg-blue-500/10 shadow-[0_0_28px_rgba(37,99,235,0.22)]">
+                    <Icon size={38} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="community" className="py-12 text-center">
+          <h2 className="font-display text-4xl font-black uppercase tracking-normal">
+            Join The <span className="text-[#2d74ff] italic">Global</span> Squad
+          </h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-400">
+            Hustle Arena is where CS2 players battle, win, and rise together. Are you in?
+          </p>
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            {[
+              { icon: <Users size={36} />, value: "2.4M+", label: "Players" },
+              { icon: <Target size={36} />, value: "150K+", label: "Matches Played", orange: true },
+              { icon: <Trophy size={36} />, value: "$12M+", label: "Paid Out" },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-[10px] border border-cyan-300/14 bg-[#07101c]/78 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+                <div className="mx-auto flex items-center justify-center gap-5">
+                  <div className="text-[#2d74ff]">{stat.icon}</div>
+                  <div className="text-left">
+                    <div className={`font-display text-3xl font-black ${stat.orange ? "text-[#ff7a22]" : "text-[#2d74ff]"}`}>{stat.value}</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{stat.label}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={onLogin} className="ha-blue-button mx-auto mt-8 min-w-[260px] py-4 text-xs">Join Now</button>
+        </section>
+
+        <footer className="mb-5 grid gap-3 border border-cyan-300/12 bg-[#06101c]/85 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
+          {trustItems.map((item) => (
+            <div key={item.title} className="flex items-center gap-3 border-cyan-300/10 py-2 lg:border-r lg:last:border-r-0">
+              <div className="text-[#2d74ff]">{item.icon}</div>
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.12em] text-white">{item.title}</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">{item.body}</div>
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* Pro Gear Section */}
-      <section id="pro-gear" className="py-32 bg-gradient-to-b from-transparent to-esport-sidebar/50">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row-reverse items-center gap-16">
-            <div className="flex-1">
-              <DynamicImage 
-                prompt="A collection of high-end esports gaming peripherals: a glowing mechanical keyboard, a precision mouse, and a sleek headset on a dark desk. Cyberpunk aesthetic, neon cyan accents, professional esports gear." 
-                className="w-full h-[500px] object-cover rounded-3xl border border-esport-secondary/30 shadow-[0_0_50px_rgba(249,115,22,0.1)]" 
-              />
-            </div>
-            <div className="flex-1 space-y-8">
-              <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-tighter">
-                EQUIP THE <span className="text-esport-secondary">BEST</span> <br />
-                DOMINATE THE <span className="text-esport-accent">REST</span>
-              </h2>
-              <p className="text-lg text-esport-text-muted leading-relaxed">
-                Access exclusive gear drops and hardware discounts through the Hustle Arena Vault. Our partners provide the tools you need to reach the top of the leaderboard.
-              </p>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="p-6 bg-white/5 rounded-2xl border border-esport-border">
-                  <div className="text-2xl font-display font-bold text-esport-accent mb-2">15% OFF</div>
-                  <div className="text-xs text-esport-text-muted uppercase font-bold">Logitech G Series</div>
-                </div>
-                <div className="p-6 bg-white/5 rounded-2xl border border-esport-border">
-                  <div className="text-2xl font-display font-bold text-esport-secondary mb-2">FREE</div>
-                  <div className="text-xs text-esport-text-muted uppercase font-bold">Prime Gear Drops</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Community Section */}
-      <section id="community" className="py-32 container mx-auto px-6 text-center">
-        <div className="max-w-3xl mx-auto space-y-12">
-          <h2 className="text-4xl md:text-6xl font-display font-black uppercase tracking-tighter">
-            JOIN THE <span className="text-esport-accent italic">GLOBAL</span> SQUAD
-          </h2>
-          <p className="text-xl text-esport-text-muted">
-            Connect with millions of players, form squads, and climb the global rankings together. The arena is waiting for you.
-          </p>
-          <div className="flex justify-center gap-12 py-8">
-            <div className="space-y-2">
-              <div className="text-4xl font-display font-black text-esport-accent">2.4M+</div>
-              <div className="text-xs text-esport-text-muted uppercase font-bold">Active Players</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-display font-black text-esport-secondary">150K+</div>
-              <div className="text-xs text-esport-text-muted uppercase font-bold">Daily Matches</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-display font-black text-white">$12M+</div>
-              <div className="text-xs text-esport-text-muted uppercase font-bold">Prizes Paid</div>
-            </div>
-          </div>
-          <button onClick={onLogin} className="esport-btn-primary px-16 py-6 text-2xl uppercase italic font-black tracking-tighter">
-            Join Now
-          </button>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-20 border-t border-esport-border bg-esport-sidebar/50">
-        <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 h-8">
-              <div className="h-full aspect-square rounded bg-esport-accent flex items-center justify-center">
-                <Gamepad2 className="text-black w-3/4 h-3/4" />
-              </div>
-              <span className="font-display font-bold text-lg tracking-wider text-white">HUSTLE</span>
-            </div>
-          </div>
-          <div className="text-esport-text-muted text-sm">
-            © 2026 Hustle Arena. All rights reserved. Professional Esports Platform.
-          </div>
-          <div className="flex gap-6">
-            <a href="#" className="text-esport-text-muted hover:text-white transition-colors">Twitter</a>
-            <a href="#" className="text-esport-text-muted hover:text-white transition-colors">Discord</a>
-            <a href="#" className="text-esport-text-muted hover:text-white transition-colors">Support</a>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   );
 }
-
-function FeatureCard({ icon, title, desc }: any) {
-  return (
-    <div className="esport-card p-10 esport-card-hover group">
-      <div className="w-16 h-16 bg-esport-accent/10 rounded-2xl flex items-center justify-center text-esport-accent mb-8 group-hover:scale-110 transition-transform">
-        {icon}
-      </div>
-      <h3 className="text-2xl font-display font-bold uppercase mb-4">{title}</h3>
-      <p className="text-esport-text-muted leading-relaxed">{desc}</p>
-    </div>
-  );
-}
-
 export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -294,31 +252,45 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
   };
 
   return (
-    <div className="space-y-8">
-      {error && <div className="p-3 bg-esport-danger/20 border border-esport-danger/50 text-esport-danger text-xs rounded-lg text-center font-bold uppercase tracking-widest">{error}</div>}
+    <div className="space-y-7">
+      {error && (
+        <div className="border border-red-400/45 bg-red-500/12 p-4 text-center text-xs font-black uppercase tracking-[0.14em] text-red-200">
+          {error}
+        </div>
+      )}
 
       {!useSupabaseAuth && (
-        <div className="p-4 rounded-xl bg-esport-secondary/10 border border-esport-secondary/30 text-esport-secondary text-[10px] leading-relaxed font-medium">
-          <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
+        <div className="border border-orange-300/35 bg-orange-400/10 p-5 text-orange-200">
+          <div className="mb-2 flex items-center gap-3 text-xs font-black uppercase tracking-[0.12em]">
             <AlertCircle size={14} />
             Firebase Fallback Active
           </div>
-          Supabase auth keys are not configured in this environment, so Steam sign-in cannot start here.
+          <p className="text-sm leading-6 text-orange-100/80">Supabase auth keys are not configured in this environment, so Steam sign-in cannot start here.</p>
         </div>
       )}
 
       {useSupabaseAuth && (
-        <div className="p-4 rounded-xl bg-esport-success/10 border border-esport-success/30 text-esport-success text-[10px] leading-relaxed font-medium">
-          Steam is the required sign-in method. Your verified SteamID64 is stored on your Hustle Arena profile automatically.
+        <div className="relative overflow-hidden border border-emerald-300/55 bg-[linear-gradient(90deg,rgba(16,185,129,0.13),rgba(6,182,212,0.08))] p-5 shadow-[0_0_28px_rgba(16,185,129,0.12)]">
+          <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.2),transparent_60%)]" />
+          <div className="relative flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/10 text-emerald-300 shadow-[0_0_22px_rgba(16,185,129,0.18)]">
+              <ShieldCheck size={28} />
+            </div>
+            <p className="text-sm font-semibold leading-6 text-slate-200">
+              Steam is the required sign-in method. Your verified <span className="font-black text-emerald-300">SteamID64</span> is stored on your <span className="font-black text-emerald-300">Hustle Arena</span> profile automatically.
+            </p>
+          </div>
         </div>
       )}
 
       <button
         onClick={handleSteamSignIn}
         disabled={loading}
-        className="esport-btn-primary w-full py-4 text-sm uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-3"
+        className="ha-steam-button w-full"
       >
-        <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="h-5 w-5" alt="" />
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-[0_0_22px_rgba(255,255,255,0.28)]">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="h-7 w-7" alt="" />
+        </span>
         {loading ? "Opening Steam..." : "Sign in with Steam"}
       </button>
     </div>

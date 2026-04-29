@@ -913,6 +913,8 @@ export default function App() {
     setNotificationsOpen(false);
   };
 
+  const isAccessArenaModal = modalContent?.title === "Access Arena";
+
   return (
     <div className="min-h-screen bg-esport-bg text-white font-sans">
       {showAuthBootstrapScreen ? (
@@ -1621,42 +1623,61 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
+              className={isAccessArenaModal ? "ha-access-backdrop absolute inset-0" : "absolute inset-0 bg-black/80 backdrop-blur-sm"}
+            >
+              {isAccessArenaModal && (
+                <>
+                  <img src={hustleArenaLogo} alt="" className="absolute left-1/2 top-1/2 h-[92vmin] w-[92vmin] -translate-x-1/2 -translate-y-1/2 object-contain opacity-20 blur-[1px]" />
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                </>
+              )}
+            </motion.div>
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className={`esport-card w-full relative z-10 overflow-hidden ${
-                modalContent?.options?.size === "full"
-                  ? "max-w-7xl max-h-[92vh]"
-                  : modalContent?.options?.size === "wide"
-                    ? "max-w-5xl"
-                    : "max-w-lg"
-              }`}
+              className={
+                isAccessArenaModal
+                  ? "ha-access-modal w-full max-w-[670px] relative z-10 overflow-hidden"
+                  : `esport-card w-full relative z-10 overflow-hidden ${
+                      modalContent?.options?.size === "full"
+                        ? "max-w-7xl max-h-[92vh]"
+                        : modalContent?.options?.size === "wide"
+                          ? "max-w-5xl"
+                          : "max-w-lg"
+                    }`
+              }
             >
               {modalContent?.options?.showHeader !== false && (
-                <div className="p-6 border-b border-esport-border flex items-center justify-between">
-                  <h3 className="text-xl font-display font-bold uppercase">{modalContent?.title}</h3>
-                  <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                <div className={isAccessArenaModal ? "ha-access-modal-header" : "p-6 border-b border-esport-border flex items-center justify-between"}>
+                  <h3 className={isAccessArenaModal ? "font-display text-[32px] font-black uppercase leading-none tracking-normal text-white" : "text-xl font-display font-bold uppercase"}>
+                    {isAccessArenaModal ? (
+                      <>
+                        Access <span className="text-[#2d74ff]">Arena</span>
+                      </>
+                    ) : (
+                      modalContent?.title
+                    )}
+                  </h3>
+                  <button onClick={() => setIsModalOpen(false)} className={isAccessArenaModal ? "p-1 text-slate-300 transition-colors hover:text-white" : "p-2 hover:bg-white/5 rounded-lg transition-colors"}>
                     <X size={20} />
                   </button>
                 </div>
               )}
-              <div className={`${modalContent?.options?.bodyPadding === "none" ? "" : "p-8"} ${modalContent?.options?.size === "full" ? "max-h-[calc(92vh-40px)] overflow-y-auto custom-scrollbar" : ""}`}>
+              <div className={`${isAccessArenaModal ? "px-6 pb-8 pt-4 sm:px-9" : modalContent?.options?.bodyPadding === "none" ? "" : "p-8"} ${modalContent?.options?.size === "full" ? "max-h-[calc(92vh-40px)] overflow-y-auto custom-scrollbar" : ""}`}>
                 <Suspense fallback={<SectionLoading />}>
                   {modalContent?.body}
                 </Suspense>
               </div>
               {modalContent?.options?.showFooter !== false && (
-                <div className="p-6 bg-black/20 border-t border-esport-border flex justify-end gap-3">
-                  <button onClick={() => setIsModalOpen(false)} className="esport-btn-secondary px-8">Cancel</button>
+                <div className={isAccessArenaModal ? "ha-access-modal-footer" : "p-6 bg-black/20 border-t border-esport-border flex justify-end gap-3"}>
+                  <button onClick={() => setIsModalOpen(false)} className={isAccessArenaModal ? "ha-modal-cancel min-w-[180px]" : "esport-btn-secondary px-8"}>Cancel</button>
                   <button 
                     onClick={() => {
                       addToast("Action confirmed!", "success");
                       setIsModalOpen(false);
                     }} 
-                    className="esport-btn-primary px-8"
+                    className={isAccessArenaModal ? "ha-modal-confirm min-w-[200px]" : "esport-btn-primary px-8"}
                   >
                     Confirm
                   </button>
