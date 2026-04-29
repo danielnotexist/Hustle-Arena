@@ -53,6 +53,7 @@ import {
   fetchMyNotifications,
   fetchPublicProfileBasics,
   fetchPublicProfileDetails,
+  markNotificationsRead,
   type AppNotification,
   type PublicProfileDetails,
 } from "./lib/supabase/social";
@@ -797,7 +798,7 @@ export default function App() {
 
     if (unreadDirectMessageIds.length) {
       try {
-        await Promise.all(unreadDirectMessageIds.map((id) => markNotificationRead(id)));
+        await markNotificationsRead(unreadDirectMessageIds);
         setNotifications((current) =>
           current.map((notice) =>
             unreadDirectMessageIds.includes(notice.id) ? { ...notice, is_read: true } : notice
@@ -822,7 +823,7 @@ export default function App() {
     }
 
     try {
-      await Promise.all(unreadGeneralIds.map((id) => markNotificationRead(id)));
+      await markNotificationsRead(unreadGeneralIds);
       setNotifications((current) =>
         current.map((notice) =>
           unreadGeneralIds.includes(notice.id) ? { ...notice, is_read: true } : notice

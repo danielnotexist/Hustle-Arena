@@ -1,4 +1,6 @@
 import { supabase } from "../supabase";
+import { platformFetch } from "../api";
+import { appEnv } from "../env";
 
 export type SendFriendRequestResult =
   | "requested"
@@ -239,7 +241,35 @@ export interface AppNotification {
   metadata?: Record<string, any> | null;
 }
 
+export interface DirectMessage {
+  id: number;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  message_type: string;
+  metadata: any;
+  created_at: string;
+}
+
+export interface PendingLobbyInvite {
+  id: number;
+  lobby_id: string;
+  lobby_name: string;
+  from_user_id: string;
+  from_username: string;
+  password_required: boolean;
+}
+
 export async function fetchMyNotifications(limit = 20) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch(`/api/social/notifications?limit=${encodeURIComponent(String(limit))}`);
+    if (!response.ok) {
+      throw new Error("Failed to load notifications.");
+    }
+    const payload = await response.json();
+    return (payload.data || []) as AppNotification[];
+  }
+
   const { data, error } = await supabase
     .from("notifications")
     .select("id, title, body, is_read, created_at, notice_type, link_target, metadata")
@@ -251,4 +281,201 @@ export async function fetchMyNotifications(limit = 20) {
   }
 
   return (data || []) as AppNotification[];
+}
+
+export async function markNotificationsRead(notificationIds: number[]) {
+  const ids = Array.from(new Set(notificationIds.filter((id) => Number.isInteger(id) && id > 0)));
+  if (!ids.length) {
+    return;
+  }
+
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/social/notifications/read", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to mark notifications as read.");
+    }
+    return;
+  }
+
+  await Promise.all(
+    ids.map(async (id) => {
+      const { error } = await supabase.rpc("mark_notification_read", {
+        p_notice_id: id,
+      });
+      if (error) {
+        throw error;
+      }
+    })
+  );
+}
+
+export async function fetchDirectMessageUnreadCounts(userId: string) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/social/direct-messages/unread-counts");
+    if (!response.ok) {
+      throw new Error("Failed to load unread message counts.");
+    }
+    const payload = await response.json();
+    return (payload.data || {}) as Record<string, number>;
+  }
+
+  const { data } = await supabase
+    .from("direct_messages")
+    .select("sender_id")
+    .eq("receiver_id", userId)
+    .eq("is_read", false);
+
+  const counts: Record<string, number> = {};
+  (data ?? []).forEach((row: any) => {
+    const sender = row.sender_id as string;
+    counts[sender] = (counts[sender] ?? 0) + 1;
+  });
+
+  return counts;
+}
+
+export async function fetchDirectMessageThread(userId: string, friendId: string, limit = 200) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch(
+      `/api/social/direct-messages/thread/${encodeURIComponent(friendId)}?limit=${encodeURIComponent(String(limit))}`
+    );
+    if (!response.ok) {
+      throw new Error("Failed to load messages.");
+    }
+    const payload = await response.json();
+    return (payload.data || []) as DirectMessage[];
+  }
+
+  const condition =
+    "and(sender_id.eq." + userId + ",receiver_id.eq." + friendId + "),and(sender_id.eq." + friendId + ",receiver_id.eq." + userId + ")";
+
+  const { data } = await supabase
+    .from("direct_messages")
+    .select("id,sender_id,receiver_id,message,message_type,metadata,created_at")
+    .or(condition)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  await supabase
+    .from("direct_messages")
+    .update({ is_read: true })
+    .eq("receiver_id", userId)
+    .eq("sender_id", friendId)
+    .eq("is_read", false);
+
+  return (data ?? []) as DirectMessage[];
+}
+
+export async function sendDirectMessage(senderId: string, receiverId: string, message: string, messageType = "text", metadata: Record<string, any> = {}) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/social/direct-messages", {
+      method: "POST",
+      body: JSON.stringify({
+        receiverId,
+        message,
+        messageType,
+        metadata,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to send message.");
+    }
+    const payload = await response.json();
+    return payload.data as DirectMessage;
+  }
+
+  const { data, error } = await supabase
+    .from("direct_messages")
+    .insert({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      message,
+      message_type: messageType,
+      metadata,
+    })
+    .select("id,sender_id,receiver_id,message,message_type,metadata,created_at")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as DirectMessage;
+}
+
+export async function fetchPendingLobbyInvites(userId: string) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/social/lobby-invites/pending");
+    if (!response.ok) {
+      throw new Error("Failed to load lobby invites.");
+    }
+    const payload = await response.json();
+    return (payload.data || []) as PendingLobbyInvite[];
+  }
+
+  const { data, error } = await supabase
+    .from("lobby_invites")
+    .select("id,lobby_id,from_user_id,status,lobbies!inner(name,password_required,status)")
+    .eq("to_user_id", userId)
+    .eq("status", "pending");
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []).filter((invite: any) => invite.lobbies?.status === "open");
+  if (!rows.length) {
+    return [];
+  }
+
+  const inviterIds = rows.map((invite: any) => invite.from_user_id as string);
+  const inviterMap = await fetchPublicProfileBasics(inviterIds);
+
+  return rows.map((invite: any) => ({
+    id: invite.id,
+    lobby_id: invite.lobby_id,
+    lobby_name: invite.lobbies?.name ?? "Squad Lobby",
+    from_user_id: invite.from_user_id,
+    from_username:
+      inviterMap.get(invite.from_user_id)?.username?.trim() ||
+      inviterMap.get(invite.from_user_id)?.email?.split("@")[0]?.trim() ||
+      `Player ${String(invite.from_user_id).slice(0, 8)}`,
+    password_required: !!invite.lobbies?.password_required,
+  }));
+}
+
+export async function respondLobbyInvite(inviteId: number, lobbyId: string, action: "accept" | "ignore", password?: string | null) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch(`/api/social/lobby-invites/${inviteId}/respond`, {
+      method: "POST",
+      body: JSON.stringify({ action, password }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to respond to lobby invite.");
+    }
+    return;
+  }
+
+  if (action === "accept") {
+    const { error: joinError } = await supabase.rpc("join_matchmaking_lobby", {
+      p_lobby_id: lobbyId,
+      p_password: password ?? null,
+    });
+
+    if (joinError) {
+      throw joinError;
+    }
+  }
+
+  const { error } = await supabase
+    .from("lobby_invites")
+    .update({ status: action === "accept" ? "accepted" : "ignored", responded_at: new Date().toISOString() })
+    .eq("id", inviteId);
+
+  if (error) {
+    throw error;
+  }
 }

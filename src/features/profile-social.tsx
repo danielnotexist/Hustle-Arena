@@ -39,14 +39,19 @@ import { isSupabaseConfigured } from "../lib/env";
 import {
   addProfileComment,
   deleteProfileComment,
+  fetchDirectMessageThread,
+  fetchDirectMessageUnreadCounts,
+  fetchPendingLobbyInvites,
   fetchProfileComments,
   fetchPublicProfileBasics,
   findPublicProfileByUsername,
+  respondLobbyInvite,
   type ProfileComment,
   respondFriendRequest as respondFriendRequestRpc,
+  sendDirectMessage,
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
-import { fetchUserMatchHistory, joinMatchmakingLobby, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
+import { fetchUserMatchHistory, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
 import { startSteamLink } from "../lib/steam";
@@ -1323,38 +1328,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const loadPendingLobbyInvites = async () => {
     if (!user?.id) return;
 
-    const { data, error } = await supabase
-      .from('lobby_invites')
-      .select('id,lobby_id,from_user_id,status,lobbies!inner(name,password_required,status)')
-      .eq('to_user_id', user.id)
-      .eq('status', 'pending');
-
-    if (error) {
-      throw error;
-    }
-
-    const rows = (data ?? []).filter((invite: any) => invite.lobbies?.status === 'open');
-    if (!rows.length) {
-      setPendingLobbyInvites([]);
-      return;
-    }
-
-    const inviterIds = rows.map((invite: any) => invite.from_user_id as string);
-    const inviterMap = await fetchPublicProfileBasics(inviterIds);
-
-    setPendingLobbyInvites(
-      rows.map((invite: any) => ({
-        id: invite.id,
-        lobby_id: invite.lobby_id,
-        lobby_name: invite.lobbies?.name ?? 'Squad Lobby',
-        from_user_id: invite.from_user_id,
-        from_username:
-          inviterMap.get(invite.from_user_id)?.username?.trim() ||
-          inviterMap.get(invite.from_user_id)?.email?.split('@')[0]?.trim() ||
-          `Player ${String(invite.from_user_id).slice(0, 8)}`,
-        password_required: !!invite.lobbies?.password_required,
-      }))
-    );
+    setPendingLobbyInvites(await fetchPendingLobbyInvites(user.id));
   };
 
   const handleFriendRequest = async (request: { id: number; requester_id: string }, action: 'accept' | 'ignore' | 'block') => {
@@ -1407,19 +1381,10 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     try {
       if (action === 'accept') {
         const password = invite.password_required ? window.prompt(`Enter the password for ${invite.lobby_name}`) || '' : null;
-        await joinMatchmakingLobby(invite.lobby_id, password);
-        await supabase
-          .from('lobby_invites')
-          .update({ status: 'accepted', responded_at: new Date().toISOString() })
-          .eq('id', invite.id)
-          .eq('to_user_id', user.id);
+        await respondLobbyInvite(invite.id, invite.lobby_id, 'accept', password);
         addToast('Joined squad lobby.', 'success');
       } else {
-        await supabase
-          .from('lobby_invites')
-          .update({ status: 'ignored', responded_at: new Date().toISOString() })
-          .eq('id', invite.id)
-          .eq('to_user_id', user.id);
+        await respondLobbyInvite(invite.id, invite.lobby_id, 'ignore');
         addToast('Lobby invite ignored.', 'info');
       }
 
@@ -1677,19 +1642,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
   const loadUnreadCounts = async () => {
     if (!user?.id) return;
 
-    const { data } = await supabase
-      .from('direct_messages')
-      .select('sender_id')
-      .eq('receiver_id', user.id)
-      .eq('is_read', false);
-
-    const counts: Record<string, number> = {};
-    (data ?? []).forEach((row: any) => {
-      const sender = row.sender_id as string;
-      counts[sender] = (counts[sender] ?? 0) + 1;
-    });
-
-    setUnreadByFriend(counts);
+    setUnreadByFriend(await fetchDirectMessageUnreadCounts(user.id));
   };
 
   const loadThread = async (friendId: string | null) => {
@@ -1698,25 +1651,7 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
       return;
     }
 
-    const condition =
-      'and(sender_id.eq.' + user.id + ',receiver_id.eq.' + friendId + '),and(sender_id.eq.' + friendId + ',receiver_id.eq.' + user.id + ')';
-
-    const { data } = await supabase
-      .from('direct_messages')
-      .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
-      .or(condition)
-      .order('created_at', { ascending: true })
-      .limit(200);
-
-    setThreadMessages((data ?? []) as any);
-
-    await supabase
-      .from('direct_messages')
-      .update({ is_read: true })
-      .eq('receiver_id', user.id)
-      .eq('sender_id', friendId)
-      .eq('is_read', false);
-
+    setThreadMessages((await fetchDirectMessageThread(user.id, friendId, 200)) as any);
     await loadUnreadCounts();
   };
 
@@ -1724,19 +1659,11 @@ export function SocialView({ addToast, user, accountMode = 'demo', openModal, re
     const text = messageDraft.trim();
     if (!text || !selectedFriendId || !user?.id) return;
 
-    const { data, error } = await supabase
-      .from('direct_messages')
-      .insert({
-        sender_id: user.id,
-        receiver_id: selectedFriendId,
-        message: text,
-        message_type: 'text',
-        metadata: {}
-      })
-      .select('id,sender_id,receiver_id,message,message_type,metadata,created_at')
-      .single();
-
-    if (error) {
+    let data;
+    try {
+      data = await sendDirectMessage(user.id, selectedFriendId, text, 'text', {});
+    } catch (error) {
+      console.error('Failed to send message:', error);
       addToast('Failed to send message', 'error');
       return;
     }

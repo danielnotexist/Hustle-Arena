@@ -1,4 +1,6 @@
 import { isSupabaseTransientNetworkError, supabase } from "../supabase";
+import { platformFetch } from "../api";
+import { appEnv } from "../env";
 
 export type LobbyMode = "demo" | "live";
 export type LobbyKind = "public" | "custom";
@@ -1163,6 +1165,17 @@ export async function fetchUnreadDemoMatchResultNotifications(limit = 1) {
 }
 
 export async function markNotificationRead(notificationId: number) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/social/notifications/read", {
+      method: "POST",
+      body: JSON.stringify({ ids: [notificationId] }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to mark notification as read.");
+    }
+    return;
+  }
+
   const { error } = await supabase.rpc("mark_notification_read", {
     p_notice_id: notificationId,
   });
@@ -1367,6 +1380,15 @@ export async function fetchMyQuickQueueStatus(mode: LobbyMode) {
 }
 
 export async function fetchQuickQueuePartyInvites(userId: string) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/matchmaking/party-invites");
+    if (!response.ok) {
+      throw new Error("Failed to load party invites.");
+    }
+    const payload = await response.json();
+    return (payload.data || []) as QuickQueuePartyInvite[];
+  }
+
   const { data, error } = await supabase
     .from("quick_queue_party_invites")
     .select("id, host_user_id, invitee_user_id, mode, team_size, stake_amount, status, created_at, updated_at, responded_at")
@@ -1381,6 +1403,23 @@ export async function fetchQuickQueuePartyInvites(userId: string) {
 }
 
 export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: LobbyMode, teamSize: 2 | 5, stakeAmount: number) {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch("/api/matchmaking/party-invites", {
+      method: "POST",
+      body: JSON.stringify({
+        inviteeUserId,
+        mode,
+        teamSize,
+        stakeAmount,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to send party invite.");
+    }
+    const payload = await response.json();
+    return (payload.data || "sent") as string;
+  }
+
   const { data, error } = await supabase.rpc("send_quick_queue_party_invite", {
     p_invitee_user_id: inviteeUserId,
     p_mode: mode,
@@ -1396,6 +1435,18 @@ export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: Lob
 }
 
 export async function respondQuickQueuePartyInvite(inviteId: number, action: "accept" | "decline" | "cancel") {
+  if (appEnv.apiBaseUrl) {
+    const response = await platformFetch(`/api/matchmaking/party-invites/${inviteId}/respond`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to respond to party invite.");
+    }
+    const payload = await response.json();
+    return (payload.data || action) as string;
+  }
+
   const { data, error } = await supabase.rpc("respond_quick_queue_party_invite", {
     p_invite_id: inviteId,
     p_action: action,

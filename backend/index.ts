@@ -5,6 +5,8 @@ import { errorHandler } from "./middleware/errors";
 import { requireAdmin, requireAuth, type AuthenticatedRequest } from "./middleware/auth";
 import { rateLimit } from "./middleware/rate-limit";
 import { missionsRouter } from "./routes/missions";
+import { matchmakingRouter } from "./routes/matchmaking";
+import { socialRouter } from "./routes/social";
 import { steamRouter } from "./routes/steam";
 import { vaultRouter } from "./routes/vault";
 import { walletRouter } from "./routes/wallet";
@@ -44,6 +46,8 @@ app.get("/api/admin/health", requireAuth, requireAdmin, (_req, res) => {
 });
 
 app.use("/api/missions", missionsRouter);
+app.use("/api/matchmaking", matchmakingRouter);
+app.use("/api/social", socialRouter);
 app.use("/api/steam", steamRouter);
 app.use("/api/vault", vaultRouter);
 app.use("/api/wallet", walletRouter);
