@@ -60,6 +60,13 @@
 - Verification: Railway `/health` returned 200 and new hot-path endpoints returned 401 instead of 404 when called without auth
 - Verification: `npm run check` passed
 
+#### Railway fallback hardening
+
+- Browser console still showed errors when Railway returned 401 for hot-path endpoints
+- Updated social and matchmaking client calls so Railway is only an acceleration path
+- If Railway returns non-OK or the request fails, the app silently falls back to the existing Supabase path instead of breaking notifications, invites, or direct messages
+- Verification: `npm run check` passed
+
 #### Repository sync
 
 - אותר שה־repo האמיתי נמצא בתוך `test-google-studio`

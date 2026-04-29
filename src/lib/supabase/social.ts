@@ -261,12 +261,15 @@ export interface PendingLobbyInvite {
 
 export async function fetchMyNotifications(limit = 20) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch(`/api/social/notifications?limit=${encodeURIComponent(String(limit))}`);
-    if (!response.ok) {
-      throw new Error("Failed to load notifications.");
+    try {
+      const response = await platformFetch(`/api/social/notifications?limit=${encodeURIComponent(String(limit))}`);
+      if (response.ok) {
+        const payload = await response.json();
+        return (payload.data || []) as AppNotification[];
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    const payload = await response.json();
-    return (payload.data || []) as AppNotification[];
   }
 
   const { data, error } = await supabase
@@ -289,14 +292,17 @@ export async function markNotificationsRead(notificationIds: number[]) {
   }
 
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch("/api/social/notifications/read", {
-      method: "POST",
-      body: JSON.stringify({ ids }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to mark notifications as read.");
+    try {
+      const response = await platformFetch("/api/social/notifications/read", {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      });
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    return;
   }
 
   await Promise.all(
@@ -313,12 +319,15 @@ export async function markNotificationsRead(notificationIds: number[]) {
 
 export async function fetchDirectMessageUnreadCounts(userId: string) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch("/api/social/direct-messages/unread-counts");
-    if (!response.ok) {
-      throw new Error("Failed to load unread message counts.");
+    try {
+      const response = await platformFetch("/api/social/direct-messages/unread-counts");
+      if (response.ok) {
+        const payload = await response.json();
+        return (payload.data || {}) as Record<string, number>;
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    const payload = await response.json();
-    return (payload.data || {}) as Record<string, number>;
   }
 
   const { data } = await supabase
@@ -338,14 +347,17 @@ export async function fetchDirectMessageUnreadCounts(userId: string) {
 
 export async function fetchDirectMessageThread(userId: string, friendId: string, limit = 200) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch(
-      `/api/social/direct-messages/thread/${encodeURIComponent(friendId)}?limit=${encodeURIComponent(String(limit))}`
-    );
-    if (!response.ok) {
-      throw new Error("Failed to load messages.");
+    try {
+      const response = await platformFetch(
+        `/api/social/direct-messages/thread/${encodeURIComponent(friendId)}?limit=${encodeURIComponent(String(limit))}`
+      );
+      if (response.ok) {
+        const payload = await response.json();
+        return (payload.data || []) as DirectMessage[];
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    const payload = await response.json();
-    return (payload.data || []) as DirectMessage[];
   }
 
   const condition =
@@ -370,20 +382,23 @@ export async function fetchDirectMessageThread(userId: string, friendId: string,
 
 export async function sendDirectMessage(senderId: string, receiverId: string, message: string, messageType = "text", metadata: Record<string, any> = {}) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch("/api/social/direct-messages", {
-      method: "POST",
-      body: JSON.stringify({
-        receiverId,
-        message,
-        messageType,
-        metadata,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to send message.");
+    try {
+      const response = await platformFetch("/api/social/direct-messages", {
+        method: "POST",
+        body: JSON.stringify({
+          receiverId,
+          message,
+          messageType,
+          metadata,
+        }),
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        return payload.data as DirectMessage;
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    const payload = await response.json();
-    return payload.data as DirectMessage;
   }
 
   const { data, error } = await supabase
@@ -407,12 +422,15 @@ export async function sendDirectMessage(senderId: string, receiverId: string, me
 
 export async function fetchPendingLobbyInvites(userId: string) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch("/api/social/lobby-invites/pending");
-    if (!response.ok) {
-      throw new Error("Failed to load lobby invites.");
+    try {
+      const response = await platformFetch("/api/social/lobby-invites/pending");
+      if (response.ok) {
+        const payload = await response.json();
+        return (payload.data || []) as PendingLobbyInvite[];
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    const payload = await response.json();
-    return (payload.data || []) as PendingLobbyInvite[];
   }
 
   const { data, error } = await supabase
@@ -448,14 +466,17 @@ export async function fetchPendingLobbyInvites(userId: string) {
 
 export async function respondLobbyInvite(inviteId: number, lobbyId: string, action: "accept" | "ignore", password?: string | null) {
   if (await hasPlatformApiSession()) {
-    const response = await platformFetch(`/api/social/lobby-invites/${inviteId}/respond`, {
-      method: "POST",
-      body: JSON.stringify({ action, password }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to respond to lobby invite.");
+    try {
+      const response = await platformFetch(`/api/social/lobby-invites/${inviteId}/respond`, {
+        method: "POST",
+        body: JSON.stringify({ action, password }),
+      });
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Fall back to Supabase below.
     }
-    return;
   }
 
   if (action === "accept") {
