@@ -54,7 +54,6 @@ import {
 import { fetchUserMatchHistory, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
 import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
-import { startSteamLink } from "../lib/steam";
 import { playChatMessageSound } from "../lib/sound";
 import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
@@ -401,7 +400,6 @@ export function UserProfileView({
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isConnectingSteam, setIsConnectingSteam] = useState(false);
 
   useEffect(() => {
     setEditForm({
@@ -513,22 +511,6 @@ export function UserProfileView({
       addToast((error as { message?: string })?.message || "Failed to update profile", "error");
     } finally {
       setIsSavingProfile(false);
-    }
-  };
-
-  const handleConnectSteam = async () => {
-    if (!isSupabaseConfigured()) {
-      addToast("Steam login requires the production backend.", "error");
-      return;
-    }
-
-    setIsConnectingSteam(true);
-    try {
-      await startSteamLink();
-    } catch (error) {
-      console.error("Failed to start Steam login:", error);
-      addToast((error as { message?: string })?.message || "Failed to start Steam login.", "error");
-      setIsConnectingSteam(false);
     }
   };
 
@@ -655,17 +637,8 @@ export function UserProfileView({
               <div className="mt-2 font-mono text-sm text-white break-all">{profileData.steamId64 || "Not connected"}</div>
             </div>
             {!profileData.steamVerified && (
-              <button
-                onClick={() => void handleConnectSteam()}
-                disabled={isConnectingSteam}
-                className="esport-btn-primary w-full py-3 text-[10px] uppercase tracking-[0.2em] mt-4"
-              >
-                {isConnectingSteam ? "Opening Steam..." : "Connect Steam"}
-              </button>
-            )}
-            {!profileData.steamVerified && (
               <p className="text-xs text-esport-text-muted mt-3">
-                Steam login is required before CS2 queue, server joins, and live-stake settlement.
+                Sign out and enter with Steam to attach a verified SteamID64 to this account.
               </p>
             )}
           </div>
@@ -900,18 +873,8 @@ export function UserProfileView({
                         {editForm.steamVerified ? "Verified" : "Missing"}
                       </span>
                     </div>
-                    {!editForm.steamVerified && (
-                      <button
-                        type="button"
-                        onClick={() => void handleConnectSteam()}
-                        disabled={isConnectingSteam}
-                        className="esport-btn-primary mt-4 w-full py-3 text-[10px] uppercase tracking-[0.2em]"
-                      >
-                        {isConnectingSteam ? "Opening Steam..." : "Connect with Steam"}
-                      </button>
-                    )}
                     <p className="mt-3 text-xs text-esport-text-muted">
-                      Steam verification now happens through the official Steam sign-in page. Manual SteamID entry is disabled.
+                      Steam identity is locked to the account used at sign-in. Manual SteamID entry and profile linking are disabled.
                     </p>
                   </div>
                     <div>

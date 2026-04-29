@@ -1090,7 +1090,7 @@ export function BattlefieldView({
       return;
     }
     if (!hasVerifiedSteam) {
-      addToast("Connect your Steam account in Profile settings before CS2 matchmaking.", "error");
+      addToast("Sign in with Steam before CS2 matchmaking.", "error");
       return;
     }
     if (!selectedStakeAmount) {

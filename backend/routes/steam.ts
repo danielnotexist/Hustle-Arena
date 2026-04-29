@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { backendConfig } from "../config";
-import { requireAuth, type AuthenticatedRequest } from "../middleware/auth";
 import { getSupabaseAdmin } from "../supabase";
 
 export const steamRouter = Router();
@@ -35,7 +34,7 @@ function signPayload(payload: string) {
   return crypto.createHmac("sha256", getStateSecret()).update(payload).digest("base64url");
 }
 
-function createState(userId: string) {
+function createState(userId?: string) {
   const payload = base64UrlEncode(JSON.stringify({
     userId,
     nonce: crypto.randomUUID(),
@@ -64,7 +63,7 @@ function verifyState(state: unknown) {
   } catch {
     throw new BadRequestError("Invalid Steam login state.");
   }
-  if (!parsed.userId || !parsed.exp || parsed.exp < Date.now()) {
+  if (!parsed.exp || parsed.exp < Date.now()) {
     throw new BadRequestError("Expired Steam login state.");
   }
 
@@ -116,10 +115,9 @@ async function verifySteamOpenId(query: Record<string, unknown>) {
   return getSteamIdFromClaimedId(claimedId);
 }
 
-steamRouter.post("/link/start", requireAuth, (req: AuthenticatedRequest, res) => {
+function getSteamAuthUrl(state: string) {
   const returnTo = getSteamCallbackUrl();
   const realm = new URL(returnTo).origin;
-  const state = createState(req.auth?.user.id || "");
   const redirectUrl = new URL(STEAM_OPENID_URL);
 
   redirectUrl.searchParams.set("openid.ns", OPENID_NS);
@@ -129,18 +127,102 @@ steamRouter.post("/link/start", requireAuth, (req: AuthenticatedRequest, res) =>
   redirectUrl.searchParams.set("openid.identity", OPENID_IDENTIFIER_SELECT);
   redirectUrl.searchParams.set("openid.claimed_id", OPENID_IDENTIFIER_SELECT);
 
-  res.json({ authUrl: redirectUrl.toString() });
+  return redirectUrl.toString();
+}
+
+async function ensureSteamSupabaseUser(steamId64: string) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const syntheticEmail = `steam_${steamId64}@steam.hustle-arena.local`;
+  const username = `Steam_${steamId64.slice(-8)}`;
+
+  const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email")
+    .eq("steam_id64", steamId64)
+    .maybeSingle();
+
+  if (existingProfileError) {
+    throw existingProfileError;
+  }
+
+  if (existingProfile?.id && existingProfile.email) {
+    return {
+      userId: existingProfile.id as string,
+      email: existingProfile.email as string,
+    };
+  }
+
+  const { data: emailProfile, error: emailProfileError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email")
+    .eq("email", syntheticEmail)
+    .maybeSingle();
+
+  if (emailProfileError) {
+    throw emailProfileError;
+  }
+
+  if (emailProfile?.id && emailProfile.email) {
+    return {
+      userId: emailProfile.id as string,
+      email: emailProfile.email as string,
+    };
+  }
+
+  const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+    email: syntheticEmail,
+    email_confirm: true,
+    password: crypto.randomBytes(32).toString("base64url"),
+    user_metadata: {
+      username,
+      steam_id64: steamId64,
+      steam_verified: true,
+      provider: "steam",
+    },
+  });
+
+  if (createUserError || !createdUser.user?.id || !createdUser.user.email) {
+    throw createUserError || new Error("Failed to create Steam user.");
+  }
+
+  return {
+    userId: createdUser.user.id,
+    email: createdUser.user.email,
+  };
+}
+
+async function createSteamMagicLink(email: string) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: {
+      redirectTo: `${getFrontendOrigin()}/?steam_login=success`,
+    },
+  });
+
+  if (error || !data.properties?.action_link) {
+    throw error || new Error("Failed to create Steam login session.");
+  }
+
+  return data.properties.action_link;
+}
+
+steamRouter.post("/login/start", (_req, res) => {
+  const authUrl = getSteamAuthUrl(createState());
+  res.json({ authUrl });
 });
 
-steamRouter.get("/callback", async (req, res, next) => {
+steamRouter.get("/callback", async (req, res) => {
   const frontendOrigin = getFrontendOrigin();
 
   try {
-    const state = verifyState(req.query.state);
+    verifyState(req.query.state);
     const steamId64 = await verifySteamOpenId(req.query);
+    const steamUser = await ensureSteamSupabaseUser(steamId64);
     const supabaseAdmin = getSupabaseAdmin();
     const { error } = await supabaseAdmin.rpc("link_verified_steam_id64", {
-      p_user_id: state.userId,
+      p_user_id: steamUser.userId,
       p_steam_id64: steamId64,
     });
 
@@ -148,9 +230,10 @@ steamRouter.get("/callback", async (req, res, next) => {
       throw error;
     }
 
-    res.redirect(`${frontendOrigin}/?steam_link=success`);
+    const actionLink = await createSteamMagicLink(steamUser.email);
+    res.redirect(actionLink);
   } catch (error) {
     console.error("Steam OpenID callback failed:", error);
-    res.redirect(`${frontendOrigin}/?steam_link=error`);
+    res.redirect(`${frontendOrigin}/?steam_login=error`);
   }
 });

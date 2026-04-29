@@ -1,7 +1,7 @@
 import { platformFetch } from "./api";
 
-export async function startSteamLink() {
-  const response = await platformFetch("/api/steam/link/start", {
+export async function startSteamLogin() {
+  const response = await platformFetch("/api/steam/login/start", {
     method: "POST",
   });
   const payload = await response.json().catch(() => ({}));

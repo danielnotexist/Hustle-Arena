@@ -198,6 +198,27 @@ export async function recordMatchServerTelemetry(input: {
   return Number(data);
 }
 
+export async function syncMatchConnectedSteamIds(input: {
+  matchId: string;
+  connectedSteamIds: string[];
+}) {
+  const { data, error } = await supabase.rpc("sync_match_connected_steam_ids", {
+    p_match_id: input.matchId,
+    p_connected_steam_ids: input.connectedSteamIds,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Array<{
+    user_id: string;
+    steam_id64: string | null;
+    joined_server: boolean;
+    joined_server_at: string | null;
+  }>;
+}
+
 export async function queueMatchServerTeardown(input: {
   matchId: string;
   reason?: string | null;

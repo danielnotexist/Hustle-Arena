@@ -2,10 +2,10 @@ import { motion } from "motion/react";
 import { AlertCircle, CheckCircle2, ChevronDown, Gamepad2, Plus, ShieldAlert, User } from "lucide-react";
 import React, { useRef, useState } from "react";
 import hustleArenaLogo from "../assets/hustle-arena-logo.png";
-import { auth, createUserWithEmailAndPassword, db, doc, googleProvider, serverTimestamp, signInWithEmailAndPassword, signInWithPopup, updateDoc } from "../firebase";
+import { db, doc, serverTimestamp, updateDoc } from "../firebase";
 import { isSupabaseConfigured } from "../lib/env";
 import { submitKycForReview } from "../lib/supabase/profile";
-import { supabase } from "../lib/supabase";
+import { startSteamLogin } from "../lib/steam";
 import { cn } from "./shared-ui";
 
 export function DynamicImage({ prompt, className }: { prompt: string, className?: string }) {
@@ -270,100 +270,31 @@ function FeatureCard({ icon, title, desc }: any) {
 }
 
 export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const useSupabaseAuth = isSupabaseConfigured();
 
-  const handleSubmit = async () => {
-    setError("");
-    setLoading(true);
-
-    try {
-      if (useSupabaseAuth) {
-        if (mode === "login") {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          if (signInError) throw signInError;
-          onLogin({ email });
-        } else {
-          const { error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                username: username.trim() || email.split("@")[0],
-              },
-            },
-          });
-          if (signUpError) throw signUpError;
-          setMode("login");
-          alert("Registration successful. If email confirmation is enabled, verify your email and then sign in.");
-        }
-      } else if (mode === "login") {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-        setMode("login");
-        alert("Registration successful! You can now sign in.");
-      }
-    } catch (err: any) {
-      console.error("Auth error:", err);
-      setError(err.message || "Authentication failed");
-    } finally {
-      setLoading(false);
+  const handleSteamSignIn = async () => {
+    if (!useSupabaseAuth) {
+      setError("Steam login requires Supabase and the Hustle Arena backend.");
+      return;
     }
-  };
 
-  const handleGoogleSignIn = async () => {
     setError("");
     setLoading(true);
     try {
-      if (useSupabaseAuth) {
-        setError("Google sign-in should be connected through Supabase Auth providers next. Email/password auth is ready now.");
-        return;
-      }
-
-      await signInWithPopup(auth, googleProvider);
+      await startSteamLogin();
+      onLogin({ provider: "steam" });
     } catch (err: any) {
-      console.error("Google Auth error:", err);
-      if (err.code === 'auth/unauthorized-domain') {
-        setError("Domain not authorized. Please add '" + window.location.hostname + "' to your Firebase Console -> Authentication -> Settings -> Authorized domains.");
-      } else {
-        setError(err.message || "Google Authentication failed");
-      }
-    } finally {
+      console.error("Steam Auth error:", err);
+      setError(err.message || "Steam authentication failed");
       setLoading(false);
     }
-  };
-
-  const handleSteamSignIn = () => {
-    setError("Steam SSO is now handled after sign-in from Profile settings so it can securely link to your Hustle Arena account.");
   };
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-4 p-1 bg-white/5 rounded-xl border border-esport-border">
-        <button 
-          onClick={() => setMode("login")}
-          className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${mode === "login" ? "bg-esport-accent text-white" : "text-esport-text-muted hover:text-white"}`}
-        >
-          Login
-        </button>
-        <button 
-          onClick={() => setMode("register")}
-          className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${mode === "register" ? "bg-esport-accent text-white" : "text-esport-text-muted hover:text-white"}`}
-        >
-          Register
-        </button>
-      </div>
-
       {error && <div className="p-3 bg-esport-danger/20 border border-esport-danger/50 text-esport-danger text-xs rounded-lg text-center font-bold uppercase tracking-widest">{error}</div>}
 
       {!useSupabaseAuth && (
@@ -372,84 +303,24 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
             <AlertCircle size={14} />
             Firebase Fallback Active
           </div>
-          Supabase auth keys are not configured in this environment, so the app is using the legacy Firebase sign-in flow.
+          Supabase auth keys are not configured in this environment, so Steam sign-in cannot start here.
         </div>
       )}
 
       {useSupabaseAuth && (
         <div className="p-4 rounded-xl bg-esport-success/10 border border-esport-success/30 text-esport-success text-[10px] leading-relaxed font-medium">
-          <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider">
-            <CheckCircle2 size={14} />
-            Supabase Auth Active
-          </div>
-          Email/password authentication is now handled by Supabase.
+          Steam is the required sign-in method. Your verified SteamID64 is stored on your Hustle Arena profile automatically.
         </div>
       )}
 
-      <div className="space-y-4">
-        {mode === "register" && (
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Username</label>
-            <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="CyberGhost_99" 
-              className="w-full bg-white/5 border border-esport-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 transition-all" 
-            />
-          </div>
-        )}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Email Address</label>
-          <input 
-            type="email" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@example.com" 
-            className="w-full bg-white/5 border border-esport-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 transition-all" 
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">Password</label>
-          <input 
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••" 
-            className="w-full bg-white/5 border border-esport-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-esport-accent/50 transition-all" 
-          />
-        </div>
-      </div>
-
-      <button 
-        onClick={handleSubmit} 
+      <button
+        onClick={handleSteamSignIn}
         disabled={loading}
-        className="esport-btn-primary w-full py-4 uppercase tracking-widest text-sm disabled:opacity-50"
+        className="esport-btn-primary w-full py-4 text-sm uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-3"
       >
-        {loading ? "Processing..." : (mode === "login" ? "Sign In" : "Create Account")}
+        <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="h-5 w-5" alt="" />
+        {loading ? "Opening Steam..." : "Sign in with Steam"}
       </button>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-esport-border"></div></div>
-        <div className="relative flex justify-center text-[10px] uppercase font-bold"><span className="bg-esport-card px-4 text-esport-text-muted">Or continue with</span></div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={handleSteamSignIn}
-          className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group"
-        >
-          <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          Steam
-        </button>
-        <button 
-          onClick={handleGoogleSignIn}
-          className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group"
-        >
-          <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          Google
-        </button>
-      </div>
     </div>
   );
 }
