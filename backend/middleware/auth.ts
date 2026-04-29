@@ -61,6 +61,17 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   next();
 }
 
+export async function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const token = getBearerToken(req);
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  await requireAuth(req, res, next);
+}
+
 export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (req.auth?.profile?.role !== "admin") {
     res.status(403).json({ error: "Admin access required" });

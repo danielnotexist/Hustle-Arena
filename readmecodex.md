@@ -72,6 +72,7 @@
 - Disabled Railway hot-path client routing by default behind `VITE_ENABLE_RAILWAY_HOT_PATHS=true`
 - This keeps the deployed Railway backend available, but routes production social/invite/notification traffic through the stable Supabase path unless the flag is explicitly enabled
 - Reason: production browser sessions were still producing Railway 401s and breaking user-facing flows
+- Backend GET hot-path routes now return empty results for unauthenticated requests, so older open browser tabs stop logging 401s while users refresh into the stable frontend bundle
 
 #### Repository sync
 
