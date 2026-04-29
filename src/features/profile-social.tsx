@@ -47,8 +47,9 @@ import {
   sendFriendRequest as sendFriendRequestRpc,
 } from "../lib/supabase/social";
 import { fetchUserMatchHistory, joinMatchmakingLobby, type UserMatchHistoryItem } from "../lib/supabase/matchmaking";
-import { updateMySteamId64, updateProfileBasics } from "../lib/supabase/profile";
+import { updateProfileBasics } from "../lib/supabase/profile";
 import { supabase } from "../lib/supabase";
+import { startSteamLink } from "../lib/steam";
 import { playChatMessageSound } from "../lib/sound";
 import { db, doc, setDoc } from "../firebase";
 import { cn } from "./shared-ui";
@@ -395,6 +396,7 @@ export function UserProfileView({
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isConnectingSteam, setIsConnectingSteam] = useState(false);
 
   useEffect(() => {
     setEditForm({
@@ -485,25 +487,12 @@ export function UserProfileView({
     const normalizedProfile = {
       ...editForm,
       country: normalizeSelectableCountry(editForm.country),
-      steamId64: String(editForm.steamId64 || "").replace(/\s+/g, ""),
     };
-
-    if (normalizedProfile.steamId64 && !/^[0-9]{17}$/.test(normalizedProfile.steamId64)) {
-      addToast("SteamID64 must be exactly 17 digits.", "error");
-      return;
-    }
 
     setIsSavingProfile(true);
     try {
       if (isSupabaseConfigured()) {
         await updateProfileBasics(user.id, normalizedProfile);
-        if (normalizedProfile.steamId64 && normalizedProfile.steamId64 !== (profileData.steamId64 || "")) {
-          const steamRow = await updateMySteamId64(normalizedProfile.steamId64);
-          normalizedProfile.steamId64 = steamRow.steam_id64 || "";
-          normalizedProfile.steamVerified = Boolean(steamRow.steam_verified);
-          normalizedProfile.steamLinkedAt = steamRow.steam_linked_at || null;
-          normalizedProfile.steamLastVerifiedAt = steamRow.steam_last_verified_at || null;
-        }
       } else {
         await setDoc(doc(db, "users", user.id), {
           ...normalizedProfile
@@ -519,6 +508,22 @@ export function UserProfileView({
       addToast((error as { message?: string })?.message || "Failed to update profile", "error");
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleConnectSteam = async () => {
+    if (!isSupabaseConfigured()) {
+      addToast("Steam login requires the production backend.", "error");
+      return;
+    }
+
+    setIsConnectingSteam(true);
+    try {
+      await startSteamLink();
+    } catch (error) {
+      console.error("Failed to start Steam login:", error);
+      addToast((error as { message?: string })?.message || "Failed to start Steam login.", "error");
+      setIsConnectingSteam(false);
     }
   };
 
@@ -629,32 +634,33 @@ export function UserProfileView({
             )}
           </div>
 
-          <div className={`esport-card p-6 border-2 ${profileData.steamId64 ? "border-esport-success/20" : "border-esport-danger/30"}`}>
+          <div className={`esport-card p-6 border-2 ${profileData.steamVerified ? "border-esport-success/20" : "border-esport-danger/30"}`}>
             <h3 className="font-display font-bold uppercase tracking-wider mb-4 text-esport-text-muted text-sm">Steam Identity</h3>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-esport-text-muted uppercase font-bold">CS2 Link</span>
               <span className={cn(
                 "badge text-[10px] font-bold uppercase tracking-widest",
-                profileData.steamVerified ? "badge-success" : profileData.steamId64 ? "badge-accent" : "badge-danger"
+                profileData.steamVerified ? "badge-success" : "badge-danger"
               )}>
-                {profileData.steamVerified ? "Verified" : profileData.steamId64 ? "Manual" : "Missing"}
+                {profileData.steamVerified ? "Verified" : "Missing"}
               </span>
             </div>
             <div className="rounded-xl border border-esport-border bg-white/5 p-4">
               <div className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">SteamID64</div>
               <div className="mt-2 font-mono text-sm text-white break-all">{profileData.steamId64 || "Not connected"}</div>
             </div>
-            {!profileData.steamId64 && (
+            {!profileData.steamVerified && (
               <button
-                onClick={() => { setActiveTab("settings"); setIsEditing(true); }}
+                onClick={() => void handleConnectSteam()}
+                disabled={isConnectingSteam}
                 className="esport-btn-primary w-full py-3 text-[10px] uppercase tracking-[0.2em] mt-4"
               >
-                Add SteamID64
+                {isConnectingSteam ? "Opening Steam..." : "Connect Steam"}
               </button>
             )}
-            {profileData.steamId64 && !profileData.steamVerified && (
+            {!profileData.steamVerified && (
               <p className="text-xs text-esport-text-muted mt-3">
-                Manual SteamID64 is valid for demo CS2 matching. Live-stake matches will require Steam verification.
+                Steam login is required before CS2 queue, server joins, and live-stake settlement.
               </p>
             )}
           </div>
@@ -880,30 +886,28 @@ export function UserProfileView({
                     </p>
                   </div>
                   <div className="rounded-xl border border-esport-accent/25 bg-esport-accent/10 p-4">
-                    <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">SteamID64</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={17}
-                      value={editForm.steamId64 || ""}
-                      onChange={(e) => setEditForm({ ...editForm, steamId64: e.target.value.replace(/\D/g, "").slice(0, 17) })}
-                      placeholder="7656119..."
-                      className="w-full bg-black/50 border border-esport-border rounded-lg p-3 font-mono text-white focus:border-esport-accent outline-none transition-colors"
-                    />
-                    <p className="mt-2 text-xs text-esport-text-muted">
-                      Required before CS2 queue or server join. Manual entries are allowed for demo tests; live stakes need verified Steam login later.
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
-                      <span className={cn(
-                        "badge",
-                        editForm.steamVerified ? "badge-success" : editForm.steamId64 ? "badge-accent" : "badge-danger"
-                      )}>
-                        {editForm.steamVerified ? "Verified" : editForm.steamId64 ? "Manual" : "Missing"}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-esport-text-muted uppercase tracking-wider">Steam Account</div>
+                        <div className="mt-2 font-mono text-sm text-white break-all">{editForm.steamId64 || "Not connected"}</div>
+                      </div>
+                      <span className={cn("badge text-[10px] font-bold uppercase tracking-widest", editForm.steamVerified ? "badge-success" : "badge-danger")}>
+                        {editForm.steamVerified ? "Verified" : "Missing"}
                       </span>
-                      {editForm.steamId64 && !editForm.steamVerified && (
-                        <span className="text-esport-text-muted">Not eligible for live-stake settlement</span>
-                      )}
                     </div>
+                    {!editForm.steamVerified && (
+                      <button
+                        type="button"
+                        onClick={() => void handleConnectSteam()}
+                        disabled={isConnectingSteam}
+                        className="esport-btn-primary mt-4 w-full py-3 text-[10px] uppercase tracking-[0.2em]"
+                      >
+                        {isConnectingSteam ? "Opening Steam..." : "Connect with Steam"}
+                      </button>
+                    )}
+                    <p className="mt-3 text-xs text-esport-text-muted">
+                      Steam verification now happens through the official Steam sign-in page. Manual SteamID entry is disabled.
+                    </p>
                   </div>
                     <div>
                       <label className="block text-xs font-bold text-esport-text-muted uppercase tracking-wider mb-2">Avatar URL</label>

@@ -128,24 +128,6 @@ export async function updateProfileBasics(userId: string, profile: ProfileData) 
   }
 }
 
-export async function updateMySteamId64(steamId64: string) {
-  const { data, error } = await supabase.rpc("update_my_steam_id64", {
-    p_steam_id64: steamId64,
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  return row as {
-    steam_id64: string;
-    steam_verified: boolean;
-    steam_linked_at: string | null;
-    steam_last_verified_at: string | null;
-  };
-}
-
 export async function updateAccountMode(userId: string, accountMode: AccountMode) {
   const { error } = await supabase
     .from("profiles")

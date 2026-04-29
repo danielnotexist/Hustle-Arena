@@ -343,6 +343,10 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
     }
   };
 
+  const handleSteamSignIn = () => {
+    setError("Steam SSO is now handled after sign-in from Profile settings so it can securely link to your Hustle Arena account.");
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex gap-4 p-1 bg-white/5 rounded-xl border border-esport-border">
@@ -431,7 +435,10 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <button className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group">
+        <button
+          onClick={handleSteamSignIn}
+          className="esport-btn-secondary py-3 text-xs flex items-center justify-center gap-2 group"
+        >
           <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" />
           Steam
         </button>
