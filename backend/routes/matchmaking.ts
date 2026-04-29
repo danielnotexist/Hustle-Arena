@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { optionalAuth, requireAuth, type AuthenticatedRequest } from "../middleware/auth";
+import { optionalAuthSoft, requireAuth, type AuthenticatedRequest } from "../middleware/auth";
 import { getSupabaseForBearerToken } from "../supabase";
 
 export const matchmakingRouter = Router();
@@ -69,7 +69,7 @@ function requireUserId(value: unknown) {
   return userId;
 }
 
-matchmakingRouter.get("/party-invites", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
+matchmakingRouter.get("/party-invites", optionalAuthSoft, async (req: AuthenticatedRequest, res, next) => {
   try {
     if (!req.auth?.user.id) {
       res.json({ data: [] });

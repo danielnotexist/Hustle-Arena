@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { optionalAuth, requireAuth, type AuthenticatedRequest } from "../middleware/auth";
+import { optionalAuthSoft, requireAuth, type AuthenticatedRequest } from "../middleware/auth";
 import { getSupabaseAdmin, getSupabaseForBearerToken } from "../supabase";
 
 export const socialRouter = Router();
@@ -65,7 +65,7 @@ function requireNumberArray(value: unknown, label: string) {
   return Array.from(new Set(ids)).slice(0, 100);
 }
 
-socialRouter.get("/notifications", optionalAuth, async (req: AuthenticatedRequest, res, next) => {
+socialRouter.get("/notifications", optionalAuthSoft, async (req: AuthenticatedRequest, res, next) => {
   try {
     if (!req.auth?.user.id) {
       res.json({ data: [] });
