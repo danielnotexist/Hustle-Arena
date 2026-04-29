@@ -74,6 +74,13 @@
 - Reason: production browser sessions were still producing Railway 401s and breaking user-facing flows
 - Backend GET hot-path routes now return empty results for unauthenticated requests, so older open browser tabs stop logging 401s while users refresh into the stable frontend bundle
 
+#### Gradual Railway re-enable: notifications
+
+- Started gradual re-enable with notifications only
+- Added `VITE_ENABLE_RAILWAY_NOTIFICATIONS`; it defaults to enabled unless explicitly set to `false`
+- Notification fetch and mark-read now try Railway first when a Supabase session exists, then fall back to Supabase
+- Other hot paths remain behind `VITE_ENABLE_RAILWAY_HOT_PATHS=true`
+
 #### Repository sync
 
 - אותר שה־repo האמיתי נמצא בתוך `test-google-studio`

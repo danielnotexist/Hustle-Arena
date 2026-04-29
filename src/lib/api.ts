@@ -36,3 +36,12 @@ export async function hasPlatformApiSession() {
   const { data } = await supabase.auth.getSession();
   return Boolean(data.session?.access_token);
 }
+
+export async function hasPlatformNotificationsSession() {
+  if (!appEnv.apiBaseUrl || !appEnv.railwayNotificationsEnabled) {
+    return false;
+  }
+
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session?.access_token);
+}

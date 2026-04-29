@@ -1,5 +1,5 @@
 import { isSupabaseTransientNetworkError, supabase } from "../supabase";
-import { hasPlatformApiSession, platformFetch } from "../api";
+import { hasPlatformApiSession, hasPlatformNotificationsSession, platformFetch } from "../api";
 
 export type LobbyMode = "demo" | "live";
 export type LobbyKind = "public" | "custom";
@@ -1164,7 +1164,7 @@ export async function fetchUnreadDemoMatchResultNotifications(limit = 1) {
 }
 
 export async function markNotificationRead(notificationId: number) {
-  if (await hasPlatformApiSession()) {
+  if (await hasPlatformNotificationsSession()) {
     try {
       const response = await platformFetch("/api/social/notifications/read", {
         method: "POST",

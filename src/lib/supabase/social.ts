@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import { hasPlatformApiSession, platformFetch } from "../api";
+import { hasPlatformApiSession, hasPlatformNotificationsSession, platformFetch } from "../api";
 
 export type SendFriendRequestResult =
   | "requested"
@@ -260,7 +260,7 @@ export interface PendingLobbyInvite {
 }
 
 export async function fetchMyNotifications(limit = 20) {
-  if (await hasPlatformApiSession()) {
+  if (await hasPlatformNotificationsSession()) {
     try {
       const response = await platformFetch(`/api/social/notifications?limit=${encodeURIComponent(String(limit))}`);
       if (response.ok) {
@@ -291,7 +291,7 @@ export async function markNotificationsRead(notificationIds: number[]) {
     return;
   }
 
-  if (await hasPlatformApiSession()) {
+  if (await hasPlatformNotificationsSession()) {
     try {
       const response = await platformFetch("/api/social/notifications/read", {
         method: "POST",
