@@ -29,7 +29,7 @@ export async function platformFetch(path: string, init: RequestInit = {}) {
 }
 
 export async function hasPlatformApiSession() {
-  if (!appEnv.apiBaseUrl) {
+  if (!appEnv.apiBaseUrl || !appEnv.railwayHotPathsEnabled) {
     return false;
   }
 

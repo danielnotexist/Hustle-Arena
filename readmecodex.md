@@ -67,6 +67,12 @@
 - If Railway returns non-OK or the request fails, the app silently falls back to the existing Supabase path instead of breaking notifications, invites, or direct messages
 - Verification: `npm run check` passed
 
+#### Hot-path stabilization switch
+
+- Disabled Railway hot-path client routing by default behind `VITE_ENABLE_RAILWAY_HOT_PATHS=true`
+- This keeps the deployed Railway backend available, but routes production social/invite/notification traffic through the stable Supabase path unless the flag is explicitly enabled
+- Reason: production browser sessions were still producing Railway 401s and breaking user-facing flows
+
 #### Repository sync
 
 - אותר שה־repo האמיתי נמצא בתוך `test-google-studio`
