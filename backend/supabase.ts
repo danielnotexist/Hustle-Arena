@@ -20,6 +20,21 @@ export function getSupabaseAnon() {
   return createClient(backendConfig.supabaseUrl, backendConfig.supabaseAnonKey, clientOptions);
 }
 
+export function getSupabaseForBearerToken(token: string) {
+  assertSupabaseConfigured();
+  return createClient(backendConfig.supabaseUrl, backendConfig.supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}
+
 export function getSupabaseAdmin() {
   assertSupabaseConfigured();
   return createClient(backendConfig.supabaseUrl, backendConfig.supabaseServiceRoleKey, {

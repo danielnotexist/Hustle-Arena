@@ -6,6 +6,7 @@ import { requireAdmin, requireAuth, type AuthenticatedRequest } from "./middlewa
 import { rateLimit } from "./middleware/rate-limit";
 import { missionsRouter } from "./routes/missions";
 import { vaultRouter } from "./routes/vault";
+import { walletRouter } from "./routes/wallet";
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.get("/api/admin/health", requireAuth, requireAdmin, (_req, res) => {
 
 app.use("/api/missions", missionsRouter);
 app.use("/api/vault", vaultRouter);
+app.use("/api/wallet", walletRouter);
 
 app.use(errorHandler);
 

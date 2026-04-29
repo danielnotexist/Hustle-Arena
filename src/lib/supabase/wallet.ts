@@ -1,6 +1,17 @@
 import { appEnv } from "../env";
+import { platformFetch } from "../api";
 import { supabase } from "../supabase";
 import type { DepositRequestRecord, PayoutJobRecord, WithdrawalRequestRecord } from "./types";
+
+async function readPlatformJson<T>(response: Response): Promise<T> {
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "Platform backend request failed.");
+  }
+
+  return payload as T;
+}
 
 export async function submitDepositRequest(input: {
   amountUsdt: number;
@@ -8,6 +19,24 @@ export async function submitDepositRequest(input: {
   fromWalletAddress?: string;
   note?: string;
 }) {
+  if (appEnv.apiBaseUrl) {
+    const payload = await readPlatformJson<{ data: DepositRequestRecord }>(
+      await platformFetch("/api/wallet/deposit-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          amountUsdt: input.amountUsdt,
+          txid: input.txid,
+          network: appEnv.platformHotWalletNetwork || "BEP20",
+          toWalletAddress: appEnv.platformHotWalletAddress,
+          fromWalletAddress: input.fromWalletAddress,
+          note: input.note,
+        }),
+      }),
+    );
+
+    return payload.data;
+  }
+
   const payload = {
     user_id: (await supabase.auth.getUser()).data.user?.id,
     amount_usdt: input.amountUsdt,
@@ -60,6 +89,16 @@ export async function fetchAdminDepositRequests() {
 }
 
 export async function approveDepositRequest(requestId: number, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/deposit-requests/${requestId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_approve_deposit_request", {
     p_request_id: requestId,
     p_admin_note: adminNote || null,
@@ -71,6 +110,16 @@ export async function approveDepositRequest(requestId: number, adminNote?: strin
 }
 
 export async function rejectDepositRequest(requestId: number, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/deposit-requests/${requestId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_reject_deposit_request", {
     p_request_id: requestId,
     p_admin_note: adminNote || null,
@@ -86,6 +135,22 @@ export async function submitWithdrawalRequest(input: {
   destinationWalletAddress: string;
   note?: string;
 }) {
+  if (appEnv.apiBaseUrl) {
+    const payload = await readPlatformJson<{ data: WithdrawalRequestRecord }>(
+      await platformFetch("/api/wallet/withdrawal-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          amountUsdt: input.amountUsdt,
+          network: appEnv.platformHotWalletNetwork || "BEP20",
+          destinationWalletAddress: input.destinationWalletAddress,
+          note: input.note,
+        }),
+      }),
+    );
+
+    return payload.data;
+  }
+
   const payload = {
     user_id: (await supabase.auth.getUser()).data.user?.id,
     amount_usdt: input.amountUsdt,
@@ -136,6 +201,16 @@ export async function fetchAdminWithdrawalRequests() {
 }
 
 export async function approveWithdrawalRequest(requestId: number, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/withdrawal-requests/${requestId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_approve_withdrawal_request", {
     p_request_id: requestId,
     p_admin_note: adminNote || null,
@@ -147,6 +222,16 @@ export async function approveWithdrawalRequest(requestId: number, adminNote?: st
 }
 
 export async function rejectWithdrawalRequest(requestId: number, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/withdrawal-requests/${requestId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_reject_withdrawal_request", {
     p_request_id: requestId,
     p_admin_note: adminNote || null,
@@ -171,6 +256,16 @@ export async function fetchAdminPayoutJobs() {
 }
 
 export async function markPayoutBroadcasted(payoutJobId: number, txid: string, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/payout-jobs/${payoutJobId}/broadcasted`, {
+        method: "POST",
+        body: JSON.stringify({ txid, adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_mark_payout_broadcasted", {
     p_payout_job_id: payoutJobId,
     p_txid: txid,
@@ -183,6 +278,16 @@ export async function markPayoutBroadcasted(payoutJobId: number, txid: string, a
 }
 
 export async function markPayoutConfirmed(payoutJobId: number, txid?: string, adminNote?: string) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/payout-jobs/${payoutJobId}/confirmed`, {
+        method: "POST",
+        body: JSON.stringify({ txid, adminNote }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_mark_payout_confirmed", {
     p_payout_job_id: payoutJobId,
     p_txid: txid || null,
@@ -200,6 +305,16 @@ export async function markPayoutFailed(
   adminNote?: string,
   refundToAvailable = true,
 ) {
+  if (appEnv.apiBaseUrl) {
+    await readPlatformJson<{ ok: true }>(
+      await platformFetch(`/api/wallet/admin/payout-jobs/${payoutJobId}/failed`, {
+        method: "POST",
+        body: JSON.stringify({ failureReason, adminNote, refundToAvailable }),
+      }),
+    );
+    return;
+  }
+
   const { error } = await supabase.rpc("admin_mark_payout_failed", {
     p_payout_job_id: payoutJobId,
     p_failure_reason: failureReason,
