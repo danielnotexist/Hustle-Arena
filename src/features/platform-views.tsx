@@ -4,6 +4,7 @@ import { Activity, CheckCircle2, ChevronDown, Clock, Crown, Download, FileVideo,
 import React, { useEffect, useState } from "react";
 import { collection, db, getDocs, limit, orderBy, query } from "../firebase";
 import { isSupabaseConfigured } from "../lib/env";
+import { platformFetch } from "../lib/api";
 import { fetchPublicApexLeaderboard } from "../lib/supabase/social";
 import type { Mission, UserStats } from "./types";
 import { DynamicImage } from "./landing-auth";
@@ -220,7 +221,7 @@ export function MissionsView({ addToast }: any) {
   useEffect(() => {
     const fetchMissions = async () => {
       try {
-        const response = await fetch("/api/missions");
+        const response = await platformFetch("/api/missions");
         if (response.ok) {
           const data = await response.json();
           setMissions(data.map((m: any) => ({
@@ -242,7 +243,7 @@ export function MissionsView({ addToast }: any) {
 
   const acceptMission = async (id: number) => {
     try {
-      const response = await fetch("/api/missions/accept", {
+      const response = await platformFetch("/api/missions/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ missionId: id })
@@ -308,7 +309,7 @@ export function VaultView({ addToast }: any) {
   ];
 
   const purchaseItem = (id: number, name: string) => {
-    fetch("/api/vault/purchase", {
+    platformFetch("/api/vault/purchase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ itemId: id })
