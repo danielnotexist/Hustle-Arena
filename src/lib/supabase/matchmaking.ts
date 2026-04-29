@@ -1,6 +1,5 @@
 import { isSupabaseTransientNetworkError, supabase } from "../supabase";
-import { platformFetch } from "../api";
-import { appEnv } from "../env";
+import { hasPlatformApiSession, platformFetch } from "../api";
 
 export type LobbyMode = "demo" | "live";
 export type LobbyKind = "public" | "custom";
@@ -1165,7 +1164,7 @@ export async function fetchUnreadDemoMatchResultNotifications(limit = 1) {
 }
 
 export async function markNotificationRead(notificationId: number) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/social/notifications/read", {
       method: "POST",
       body: JSON.stringify({ ids: [notificationId] }),
@@ -1380,7 +1379,7 @@ export async function fetchMyQuickQueueStatus(mode: LobbyMode) {
 }
 
 export async function fetchQuickQueuePartyInvites(userId: string) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/matchmaking/party-invites");
     if (!response.ok) {
       throw new Error("Failed to load party invites.");
@@ -1403,7 +1402,7 @@ export async function fetchQuickQueuePartyInvites(userId: string) {
 }
 
 export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: LobbyMode, teamSize: 2 | 5, stakeAmount: number) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/matchmaking/party-invites", {
       method: "POST",
       body: JSON.stringify({
@@ -1435,7 +1434,7 @@ export async function sendQuickQueuePartyInvite(inviteeUserId: string, mode: Lob
 }
 
 export async function respondQuickQueuePartyInvite(inviteId: number, action: "accept" | "decline" | "cancel") {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch(`/api/matchmaking/party-invites/${inviteId}/respond`, {
       method: "POST",
       body: JSON.stringify({ action }),

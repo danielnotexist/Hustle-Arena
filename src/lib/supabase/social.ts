@@ -1,6 +1,5 @@
 import { supabase } from "../supabase";
-import { platformFetch } from "../api";
-import { appEnv } from "../env";
+import { hasPlatformApiSession, platformFetch } from "../api";
 
 export type SendFriendRequestResult =
   | "requested"
@@ -261,7 +260,7 @@ export interface PendingLobbyInvite {
 }
 
 export async function fetchMyNotifications(limit = 20) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch(`/api/social/notifications?limit=${encodeURIComponent(String(limit))}`);
     if (!response.ok) {
       throw new Error("Failed to load notifications.");
@@ -289,7 +288,7 @@ export async function markNotificationsRead(notificationIds: number[]) {
     return;
   }
 
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/social/notifications/read", {
       method: "POST",
       body: JSON.stringify({ ids }),
@@ -313,7 +312,7 @@ export async function markNotificationsRead(notificationIds: number[]) {
 }
 
 export async function fetchDirectMessageUnreadCounts(userId: string) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/social/direct-messages/unread-counts");
     if (!response.ok) {
       throw new Error("Failed to load unread message counts.");
@@ -338,7 +337,7 @@ export async function fetchDirectMessageUnreadCounts(userId: string) {
 }
 
 export async function fetchDirectMessageThread(userId: string, friendId: string, limit = 200) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch(
       `/api/social/direct-messages/thread/${encodeURIComponent(friendId)}?limit=${encodeURIComponent(String(limit))}`
     );
@@ -370,7 +369,7 @@ export async function fetchDirectMessageThread(userId: string, friendId: string,
 }
 
 export async function sendDirectMessage(senderId: string, receiverId: string, message: string, messageType = "text", metadata: Record<string, any> = {}) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/social/direct-messages", {
       method: "POST",
       body: JSON.stringify({
@@ -407,7 +406,7 @@ export async function sendDirectMessage(senderId: string, receiverId: string, me
 }
 
 export async function fetchPendingLobbyInvites(userId: string) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch("/api/social/lobby-invites/pending");
     if (!response.ok) {
       throw new Error("Failed to load lobby invites.");
@@ -448,7 +447,7 @@ export async function fetchPendingLobbyInvites(userId: string) {
 }
 
 export async function respondLobbyInvite(inviteId: number, lobbyId: string, action: "accept" | "ignore", password?: string | null) {
-  if (appEnv.apiBaseUrl) {
+  if (await hasPlatformApiSession()) {
     const response = await platformFetch(`/api/social/lobby-invites/${inviteId}/respond`, {
       method: "POST",
       body: JSON.stringify({ action, password }),

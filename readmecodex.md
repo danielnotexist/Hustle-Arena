@@ -51,6 +51,15 @@
 - Frontend still falls back to direct Supabase calls when no Railway API base URL is configured
 - Verification: `npm run check` passed
 
+#### Railway production deploy follow-up
+
+- Found that Vercel had frontend code from `main`, while Railway production was still serving an older `preview` deployment
+- Symptom: browser console showed repeated 404s for `/api/social/notifications` and `/api/matchmaking/party-invites`
+- Manually deployed current code to Railway production with `railway up`
+- Added client fallback so Railway hot-path calls are used only when a Supabase bearer token is available; otherwise the app uses the existing Supabase path instead of producing 401 noise
+- Verification: Railway `/health` returned 200 and new hot-path endpoints returned 401 instead of 404 when called without auth
+- Verification: `npm run check` passed
+
 #### Repository sync
 
 - אותר שה־repo האמיתי נמצא בתוך `test-google-studio`

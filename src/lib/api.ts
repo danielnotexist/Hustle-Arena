@@ -27,3 +27,12 @@ export async function platformFetch(path: string, init: RequestInit = {}) {
     headers,
   });
 }
+
+export async function hasPlatformApiSession() {
+  if (!appEnv.apiBaseUrl) {
+    return false;
+  }
+
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session?.access_token);
+}
