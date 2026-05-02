@@ -3,6 +3,9 @@ import { platformFetch } from "./api";
 export async function startSteamLogin() {
   const response = await platformFetch("/api/steam/login/start", {
     method: "POST",
+    body: JSON.stringify({
+      returnOrigin: window.location.origin,
+    }),
   });
   const payload = await response.json().catch(() => ({}));
 

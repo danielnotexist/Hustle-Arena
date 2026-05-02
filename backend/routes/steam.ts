@@ -15,8 +15,19 @@ class BadRequestError extends Error {
   statusCode = 400;
 }
 
-function getFrontendOrigin() {
-  return backendConfig.frontendOrigin.split(",").map((origin) => origin.trim()).filter(Boolean)[0] || "http://localhost:5173";
+function getAllowedFrontendOrigins() {
+  return backendConfig.frontendOrigin
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+}
+
+function getFrontendOrigin(candidateOrigin?: unknown) {
+  const allowedOrigins = getAllowedFrontendOrigins();
+  const fallbackOrigin = allowedOrigins[0] || "http://localhost:5173";
+  const requestedOrigin = typeof candidateOrigin === "string" ? candidateOrigin.trim().replace(/\/$/, "") : "";
+
+  return requestedOrigin && allowedOrigins.includes(requestedOrigin) ? requestedOrigin : fallbackOrigin;
 }
 
 function getStateSecret() {
@@ -35,9 +46,10 @@ function signPayload(payload: string) {
   return crypto.createHmac("sha256", getStateSecret()).update(payload).digest("base64url");
 }
 
-function createState(userId?: string) {
+function createState(input: { userId?: string; returnOrigin?: string } = {}) {
   const payload = base64UrlEncode(JSON.stringify({
-    userId,
+    userId: input.userId,
+    returnOrigin: getFrontendOrigin(input.returnOrigin),
     nonce: crypto.randomUUID(),
     exp: Date.now() + STATE_TTL_MS,
   }));
@@ -58,9 +70,9 @@ function verifyState(state: unknown) {
     throw new BadRequestError("Invalid Steam login state.");
   }
 
-  let parsed: { userId?: string; exp?: number };
+  let parsed: { userId?: string; returnOrigin?: string; exp?: number };
   try {
-    parsed = JSON.parse(base64UrlDecode(payload)) as { userId?: string; exp?: number };
+    parsed = JSON.parse(base64UrlDecode(payload)) as { userId?: string; returnOrigin?: string; exp?: number };
   } catch {
     throw new BadRequestError("Invalid Steam login state.");
   }
@@ -274,13 +286,13 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
   };
 }
 
-async function createSteamMagicLink(email: string) {
+async function createSteamMagicLink(email: string, frontendOrigin: string) {
   const supabaseAdmin = getSupabaseAdmin();
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
     email,
     options: {
-      redirectTo: `${getFrontendOrigin()}/?steam_login=success`,
+      redirectTo: `${frontendOrigin}/?steam_login=success`,
     },
   });
 
@@ -291,16 +303,18 @@ async function createSteamMagicLink(email: string) {
   return data.properties.action_link;
 }
 
-steamRouter.post("/login/start", (_req, res) => {
-  const authUrl = getSteamAuthUrl(createState());
+steamRouter.post("/login/start", (req, res) => {
+  const returnOrigin = getFrontendOrigin(req.body?.returnOrigin || req.headers.origin);
+  const authUrl = getSteamAuthUrl(createState({ returnOrigin }));
   res.json({ authUrl });
 });
 
 steamRouter.get("/callback", async (req, res) => {
-  const frontendOrigin = getFrontendOrigin();
+  let frontendOrigin = getFrontendOrigin();
 
   try {
-    verifyState(req.query.state);
+    const state = verifyState(req.query.state);
+    frontendOrigin = getFrontendOrigin(state.returnOrigin);
     const steamId64 = await verifySteamOpenId(req.query);
     const steamPersonaName = await fetchSteamPersonaName(steamId64);
     const steamUser = await ensureSteamSupabaseUser(steamId64, steamPersonaName || `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64.slice(-8)}`);
@@ -314,7 +328,7 @@ steamRouter.get("/callback", async (req, res) => {
       throw error;
     }
 
-    const actionLink = await createSteamMagicLink(steamUser.email);
+    const actionLink = await createSteamMagicLink(steamUser.email, frontendOrigin);
     res.redirect(actionLink);
   } catch (error) {
     console.error("Steam OpenID callback failed:", error);
