@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { backendConfig } from "../config";
-import { getSupabaseAdmin } from "../supabase";
+import { getSupabaseAdmin, getSupabaseAnon } from "../supabase";
 
 export const steamRouter = Router();
 
@@ -385,21 +385,41 @@ async function ensureSteamSupabaseUser(steamId64: string, steamProfile: SteamPro
   };
 }
 
-async function createSteamMagicLink(email: string, frontendOrigin: string) {
+async function createSteamSessionRedirect(userId: string, email: string, frontendOrigin: string) {
   const supabaseAdmin = getSupabaseAdmin();
-  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: {
-      redirectTo: `${frontendOrigin}/?steam_login=success`,
-    },
+  const tempPassword = crypto.randomBytes(32).toString("base64url");
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password: tempPassword,
   });
 
-  if (error || !data.properties?.action_link) {
+  if (updateError) {
+    throw updateError;
+  }
+
+  const supabaseAnon = getSupabaseAnon();
+  const { data, error } = await supabaseAnon.auth.signInWithPassword({
+    email,
+    password: tempPassword,
+  });
+
+  if (error || !data.session) {
     throw error || new Error("Failed to create Steam login session.");
   }
 
-  return data.properties.action_link;
+  const params = new URLSearchParams({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    expires_in: String(data.session.expires_in || 3600),
+    token_type: data.session.token_type || "bearer",
+    type: "steam",
+    steam_login: "success",
+  });
+
+  if (data.session.expires_at) {
+    params.set("expires_at", String(data.session.expires_at));
+  }
+
+  return `${frontendOrigin}/#${params.toString()}`;
 }
 
 steamRouter.post("/login/start", (req, res) => {
@@ -441,8 +461,8 @@ steamRouter.get("/callback", async (req, res) => {
       throw error;
     }
 
-    const actionLink = await createSteamMagicLink(steamUser.email, frontendOrigin);
-    res.redirect(actionLink);
+    const sessionRedirectUrl = await createSteamSessionRedirect(steamUser.userId, steamUser.email, frontendOrigin);
+    res.redirect(sessionRedirectUrl);
   } catch (error) {
     console.error("Steam OpenID callback failed:", error);
     res.redirect(`${frontendOrigin}/?steam_login=error`);
