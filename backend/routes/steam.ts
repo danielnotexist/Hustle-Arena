@@ -309,6 +309,11 @@ steamRouter.post("/login/start", (req, res) => {
   res.json({ authUrl });
 });
 
+steamRouter.get("/login/start", (req, res) => {
+  const returnOrigin = getFrontendOrigin(req.query.returnOrigin || req.headers.referer || req.headers.origin);
+  res.redirect(getSteamAuthUrl(createState({ returnOrigin })));
+});
+
 steamRouter.get("/callback", async (req, res) => {
   let frontendOrigin = getFrontendOrigin();
 

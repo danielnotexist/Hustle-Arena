@@ -1,18 +1,11 @@
-import { platformFetch } from "./api";
+import { appEnv } from "./env";
 
-export async function startSteamLogin() {
-  const response = await platformFetch("/api/steam/login/start", {
-    method: "POST",
-    skipAuth: true,
-    body: JSON.stringify({
-      returnOrigin: window.location.origin,
-    }),
-  });
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok || !payload?.authUrl) {
-    throw new Error(payload?.error || "Failed to start Steam login.");
+export function startSteamLogin() {
+  if (!appEnv.apiBaseUrl) {
+    throw new Error("Steam login backend is not configured.");
   }
 
-  window.location.assign(payload.authUrl);
+  const loginUrl = new URL("/api/steam/login/start", appEnv.apiBaseUrl);
+  loginUrl.searchParams.set("returnOrigin", window.location.origin);
+  window.location.assign(loginUrl.toString());
 }
