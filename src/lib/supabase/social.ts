@@ -194,6 +194,16 @@ export async function fetchProfileComments(profileUserId: string, limit = 50) {
   });
 
   if (error) {
+    const missingRpc =
+      error.code === "PGRST202" ||
+      error.code === "42883" ||
+      /get_profile_comments/i.test(error.message || "");
+
+    if (missingRpc) {
+      console.warn("Profile comments RPC is not available in the current schema cache yet.");
+      return [];
+    }
+
     throw error;
   }
 
