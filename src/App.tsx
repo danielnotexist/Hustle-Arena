@@ -28,6 +28,8 @@ import {
   LogOut,
   ShieldAlert,
   Wallet,
+  Sun,
+  Moon,
 } from "lucide-react";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import hustleArenaLogo from "./assets/hustle-arena-logo.png";
@@ -61,6 +63,7 @@ import { playChatMessageSound, playNotificationSound } from "./lib/sound";
 import type { Toast } from "./features/types";
 import { SidebarItem } from "./features/sidebar-item";
 import { usePlatformSession } from "./features/use-platform-session";
+import { CookieConsent } from "./features/cookie-consent";
 
 const AdminPanel = lazy(() => import("./features/admin-finance").then((module) => ({ default: module.AdminPanel })));
 const ArenaTVView = lazy(() => import("./features/platform-views").then((module) => ({ default: module.ArenaTVView })));
@@ -129,6 +132,24 @@ export default function App() {
     const storedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     return storedTab && VALID_TABS.has(storedTab) ? storedTab : DASHBOARD_TAB;
   });
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "dark";
+    return window.localStorage.getItem("hustle_arena_theme") || "dark";
+  });
+
+  useEffect(() => {
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+    } else {
+      document.documentElement.classList.remove("light");
+    }
+    window.localStorage.setItem("hustle_arena_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "dark" ? "light" : "dark"));
+  };
+
   const [battlefieldMenuOpen, setBattlefieldMenuOpen] = useState(false);
   const [joiningLobbyTransition, setJoiningLobbyTransition] = useState(false);
   const [publicProfileState, setPublicProfileState] = useState<{
@@ -1799,6 +1820,8 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <CookieConsent />
     </div>
   );
 }
