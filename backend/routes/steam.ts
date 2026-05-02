@@ -166,12 +166,49 @@ function extractSteamXmlValue(body: string, tagName: string) {
 }
 
 function parseSteamMemberSince(value: string) {
-  if (!value) {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) {
     return null;
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
+  const match = cleaned.match(/^([A-Za-z]+)\s+([0-9]{1,2})(?:,\s*([0-9]{4}))?$/);
+  if (!match) {
+    return null;
+  }
+
+  const monthIndex = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ].indexOf(match[1].toLowerCase());
+  const day = Number(match[2]);
+  const now = new Date();
+  let year = match[3] ? Number(match[3]) : now.getUTCFullYear();
+
+  if (monthIndex < 0 || !Number.isInteger(day) || day < 1 || day > 31 || !Number.isInteger(year)) {
+    return null;
+  }
+
+  let parsed = new Date(Date.UTC(year, monthIndex, day));
+  if (!match[3] && parsed.getTime() > now.getTime()) {
+    year -= 1;
+    parsed = new Date(Date.UTC(year, monthIndex, day));
+  }
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== monthIndex ||
+    parsed.getUTCDate() !== day
+  ) {
     return null;
   }
 
