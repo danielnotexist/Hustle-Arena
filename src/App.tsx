@@ -165,6 +165,7 @@ export default function App() {
     shouldUseSupabase ? null : false
   );
   const [sessionRecoveryAction, setSessionRecoveryAction] = useState<"retry" | "logout" | null>(null);
+  const [sessionRecoveryVisible, setSessionRecoveryVisible] = useState(false);
   const {
     authProvider,
     isLoggedIn,
@@ -339,7 +340,22 @@ export default function App() {
       ? arenaGuardBackground
       : null;
   const showAuthBootstrapScreen = !authBootstrapComplete || (shouldUseSupabase && hasSupabaseSession === null);
-  const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user;
+  const showSessionRecoveryScreen = shouldUseSupabase && hasSupabaseSession === true && !user && sessionRecoveryVisible;
+
+  useEffect(() => {
+    if (!shouldUseSupabase || hasSupabaseSession !== true || user) {
+      setSessionRecoveryVisible(false);
+      return;
+    }
+
+    const recoveryTimer = window.setTimeout(() => {
+      setSessionRecoveryVisible(true);
+    }, 6000);
+
+    return () => {
+      window.clearTimeout(recoveryTimer);
+    };
+  }, [hasSupabaseSession, shouldUseSupabase, user]);
 
   useEffect(() => {
     if (user) {
