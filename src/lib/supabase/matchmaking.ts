@@ -175,6 +175,7 @@ export interface ActiveMatch {
 export interface RecentMatchSummary {
   id: string;
   mode: LobbyMode;
+  kind: LobbyKind;
   name: string;
   gameMode: string;
   selectedMap: string;

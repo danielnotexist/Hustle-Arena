@@ -97,7 +97,7 @@ export function DashboardView({
         }
 
         const [matchRows, lobbyRows, leaderRows] = await Promise.all([
-          fetchRecentMatches(accountMode, 6),
+          fetchRecentMatches(accountMode, 25),
           fetchOpenMatchmakingLobbies({ mode: accountMode, limit: 4 }),
           fetchPublicApexLeaderboard(5),
         ]);
@@ -283,6 +283,11 @@ export function DashboardView({
                     <div className="text-base font-bold text-white group-hover:text-esport-accent transition-colors">{match.name}</div>
                     <div className="mt-1 text-sm text-esport-text-muted">
                       {match.selectedMap} · {String(match.gameMode).toUpperCase()} · Winner {match.winningSide}
+                      {match.kind === "public" ? (
+                        <span className="ml-2 badge badge-accent text-[8px] px-1.5 py-0">Public Matchmaking</span>
+                      ) : (
+                        <span className="ml-2 badge bg-white/10 text-white text-[8px] px-1.5 py-0 border border-white/10">Custom Squad</span>
+                      )}
                     </div>
                   </div>
                 </div>
