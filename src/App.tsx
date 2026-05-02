@@ -181,6 +181,8 @@ export default function App() {
   const seenNotificationIdsRef = useRef<Set<number>>(new Set());
   const globalPresenceChannelRef = useRef<any>(null);
   const disableLastActiveHeartbeatRef = useRef(false);
+  const notificationsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notificationsPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!shouldUseSupabase) {
@@ -329,6 +331,39 @@ export default function App() {
     }
     window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (notificationsPanelRef.current?.contains(target) || notificationsButtonRef.current?.contains(target)) {
+        return;
+      }
+
+      setNotificationsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notificationsOpen]);
 
   useEffect(() => {
     if (!isAdmin && activeTab === "Admin") {
@@ -1183,7 +1218,7 @@ export default function App() {
 
           {/* Main Content */}
           <main className="flex-1 flex flex-col overflow-hidden relative">
-            <header className={`h-16 shrink-0 border-b px-8 flex items-center justify-between backdrop-blur-md ${
+            <header className={`relative z-[60] h-16 shrink-0 border-b px-8 flex items-center justify-between backdrop-blur-md ${
               isSquadHubTab
                 ? "border-white/10 bg-[linear-gradient(180deg,rgba(11,15,22,0.72),rgba(9,12,18,0.66))] backdrop-blur-xl"
                 : "border-white/8 bg-[linear-gradient(180deg,rgba(25,28,34,0.92),rgba(16,18,22,0.92))]"
@@ -1268,6 +1303,7 @@ export default function App() {
                 
                 <div className="relative">
                   <button
+                    ref={notificationsButtonRef}
                     onClick={() => setNotificationsOpen((current) => !current)}
                     className="relative p-2 text-esport-text-muted hover:text-white transition-colors"
                   >
@@ -1278,56 +1314,13 @@ export default function App() {
                       </span>
                     )}
                   </button>
-                  {notificationsOpen && (
-                    <div className="absolute right-0 mt-2 w-[360px] max-h-[420px] overflow-y-auto custom-scrollbar rounded-xl border border-esport-border bg-[#12151e]/95 backdrop-blur-md shadow-2xl z-50">
-                      <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
-                        <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Notifications</div>
-                        <div className="flex items-center gap-2">
-                          {unreadNotificationsCount > 0 && (
-                            <button
-                              onClick={() => void clearGeneralNotifications()}
-                              className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-accent hover:bg-esport-accent/15"
-                            >
-                              Clear all
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setNotificationsOpen(false)}
-                            className="p-1 text-esport-text-muted hover:text-white"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="divide-y divide-white/5">
-                        {generalNotifications.length === 0 && (
-                          <div className="px-4 py-6 text-sm text-esport-text-muted">No notifications yet.</div>
-                        )}
-                        {generalNotifications.map((notice) => (
-                          <button
-                            key={notice.id}
-                            onClick={() => void handleNotificationClick(notice)}
-                            className={`w-full text-left px-4 py-3 transition-colors hover:bg-white/5 ${notice.is_read ? "opacity-70" : ""}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <div className="text-sm font-bold text-white">{notice.title}</div>
-                                <div className="text-xs text-esport-text-muted mt-1">{notice.body}</div>
-                              </div>
-                              {!notice.is_read && <span className="mt-1 h-2 w-2 rounded-full bg-esport-accent shrink-0" />}
-                            </div>
-                            <div className="mt-2 text-[10px] uppercase tracking-[0.15em] text-esport-text-muted">
-                              {new Date(notice.created_at).toLocaleString()}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
                 
                 <button
-                  onClick={() => void openMessagesInbox()}
+                  onClick={() => {
+                    setNotificationsOpen(false);
+                    void openMessagesInbox();
+                  }}
                   className="relative p-2 text-esport-text-muted hover:text-white transition-colors"
                 >
                   <MessageSquare size={20} />
@@ -1339,6 +1332,58 @@ export default function App() {
                 </button>
               </div>
             </header>
+
+            {notificationsOpen && (
+              <div className="fixed inset-x-0 top-16 z-[120] pointer-events-none">
+                <div
+                  ref={notificationsPanelRef}
+                  className="pointer-events-auto ml-auto mr-4 mt-2 w-[360px] max-w-[calc(100vw-1.5rem)] max-h-[420px] overflow-y-auto custom-scrollbar rounded-xl border border-esport-border bg-[#12151e]/95 backdrop-blur-md shadow-2xl md:mr-6"
+                >
+                  <div className="px-4 py-3 border-b border-esport-border flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-esport-text-muted">Notifications</div>
+                    <div className="flex items-center gap-2">
+                      {unreadNotificationsCount > 0 && (
+                        <button
+                          onClick={() => void clearGeneralNotifications()}
+                          className="rounded-full border border-esport-accent/30 bg-esport-accent/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-esport-accent hover:bg-esport-accent/15"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setNotificationsOpen(false)}
+                        className="p-1 text-esport-text-muted hover:text-white"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {generalNotifications.length === 0 && (
+                      <div className="px-4 py-6 text-sm text-esport-text-muted">No notifications yet.</div>
+                    )}
+                    {generalNotifications.map((notice) => (
+                      <button
+                        key={notice.id}
+                        onClick={() => void handleNotificationClick(notice)}
+                        className={`w-full text-left px-4 py-3 transition-colors hover:bg-white/5 ${notice.is_read ? "opacity-70" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-bold text-white">{notice.title}</div>
+                            <div className="text-xs text-esport-text-muted mt-1">{notice.body}</div>
+                          </div>
+                          {!notice.is_read && <span className="mt-1 h-2 w-2 rounded-full bg-esport-accent shrink-0" />}
+                        </div>
+                        <div className="mt-2 text-[10px] uppercase tracking-[0.15em] text-esport-text-muted">
+                          {new Date(notice.created_at).toLocaleString()}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
               {activeSectionBackground && (
