@@ -256,14 +256,20 @@ export function AuthForm({ onLogin, onRefuse }: { onLogin: (user: any) => void; 
     <div className="space-y-7">
       {showDisclaimer ? (
         <div className="space-y-6">
+          {error && (
+            <div className="border border-red-400/45 bg-red-500/12 p-4 text-center text-xs font-black uppercase tracking-[0.14em] text-red-200">
+              {error}
+            </div>
+          )}
+
           <div className="border border-amber-300/35 bg-[linear-gradient(180deg,rgba(120,53,15,0.20),rgba(15,23,42,0.45))] p-5 text-amber-50 shadow-[0_0_28px_rgba(251,191,36,0.08)]">
             <div className="mb-3 text-center font-display text-[26px] font-black uppercase tracking-normal text-white">
               Disclaimer
             </div>
             <p className="text-sm font-semibold leading-7 text-slate-200">
-              Hustle-Arena is a skill-based competitive tournament platform where success is earned: not chanced.
-              Our matches and tournaments are solely designed around pure gaming performance, strategy and highly
-              enforced fair gameplay and strictly does not constitute gambling or betting under applicable legal standards.
+              Hustle-Arena is a skill-based competitive tournament platform where success is earned - not chanced.
+              Our matches/tournaments are solely designed around pure gaming performance and strategy with highly
+              enforced fair gameplay and Strictly DOES NOT constitute gambling or betting under applicable legal standards.
             </p>
           </div>
 
@@ -322,6 +328,7 @@ export function AuthForm({ onLogin, onRefuse }: { onLogin: (user: any) => void; 
 
       <button
         onClick={() => {
+          setLoading(false);
           setError("");
           setShowDisclaimer(true);
         }}
