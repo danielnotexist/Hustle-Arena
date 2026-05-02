@@ -21,6 +21,9 @@ export interface ProfileData {
   steamVerified?: boolean;
   steamLinkedAt?: string | null;
   steamLastVerifiedAt?: string | null;
+  steamAvatarUrl?: string | null;
+  steamMemberSince?: string | null;
+  steamProfileUrl?: string | null;
 }
 
 export interface ArenaUser {
@@ -34,6 +37,8 @@ export interface ArenaUser {
   accountMode?: AccountMode;
   steamId64?: string | null;
   steamVerified?: boolean;
+  steamAvatarUrl?: string | null;
+  steamMemberSince?: string | null;
 }
 
 export interface WalletSnapshot {

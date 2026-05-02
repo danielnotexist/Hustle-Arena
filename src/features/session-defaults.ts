@@ -21,6 +21,9 @@ export const DEFAULT_PROFILE_DATA: ProfileData = {
   steamVerified: false,
   steamLinkedAt: null,
   steamLastVerifiedAt: null,
+  steamAvatarUrl: null,
+  steamMemberSince: null,
+  steamProfileUrl: null,
 };
 
 export const DEFAULT_WALLET: WalletSnapshot = {

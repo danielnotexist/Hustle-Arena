@@ -16,7 +16,7 @@ export async function fetchMyProfile() {
 export async function fetchExtendedProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, email, avatar_url, cover_url, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance, steam_id64, steam_verified, steam_linked_at, steam_last_verified_at")
+    .select("id, username, email, avatar_url, cover_url, role, account_mode, demo_stats, level, kyc_status, kyc_message, kyc_updated_at, kyc_documents, kyc_details, bio, country, twitter, twitch, rank, win_rate, kd_ratio, headshot_pct, performance, steam_id64, steam_verified, steam_linked_at, steam_last_verified_at, steam_avatar_url, steam_member_since, steam_profile_url, steam_profile_fetched_at")
     .eq("id", userId)
     .single();
 
@@ -48,13 +48,15 @@ export function mapSupabaseProfileToArenaUser(profile: SupabaseProfileRecord | M
     id: profile.id,
     username: profile.username,
     email: profile.email,
-    avatarUrl: ("avatar_url" in profile ? profile.avatar_url : null) || null,
+    avatarUrl: ("avatar_url" in profile ? profile.avatar_url : null) || ("steam_avatar_url" in profile ? profile.steam_avatar_url : null) || null,
     role: profile.role,
     kycStatus: profile.kyc_status,
     kycMessage: "kyc_message" in profile ? profile.kyc_message || null : null,
     accountMode: profile.account_mode || "live",
     steamId64: profile.steam_id64 || null,
     steamVerified: Boolean(profile.steam_verified),
+    steamAvatarUrl: "steam_avatar_url" in profile ? profile.steam_avatar_url || null : null,
+    steamMemberSince: "steam_member_since" in profile ? profile.steam_member_since || null : null,
   };
 }
 
@@ -64,12 +66,15 @@ export function mapSupabaseProfileToProfileData(profile: ArenaProfileLike): Prof
     country: normalizeSelectableCountry(profile.country),
     twitter: profile.twitter || "",
     twitch: profile.twitch || "",
-    avatarUrl: profile.avatar_url || "",
+    avatarUrl: profile.avatar_url || profile.steam_avatar_url || "",
     coverUrl: profile.cover_url || "",
     steamId64: profile.steam_id64 || "",
     steamVerified: Boolean(profile.steam_verified),
     steamLinkedAt: profile.steam_linked_at || null,
     steamLastVerifiedAt: profile.steam_last_verified_at || null,
+    steamAvatarUrl: profile.steam_avatar_url || null,
+    steamMemberSince: profile.steam_member_since || null,
+    steamProfileUrl: profile.steam_profile_url || null,
   };
 }
 

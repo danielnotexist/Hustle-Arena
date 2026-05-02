@@ -50,6 +50,10 @@ create table if not exists public.profiles (
   is_banned boolean not null default false,
   suspended_until timestamptz,
   cooldown_until timestamptz,
+  steam_avatar_url text,
+  steam_member_since date,
+  steam_profile_url text,
+  steam_profile_fetched_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -419,14 +423,23 @@ returns table (
   cooldown_until timestamptz,
   available_balance numeric,
   locked_balance numeric,
-  demo_balance numeric
+  demo_balance numeric,
+  steam_id64 text,
+  steam_verified boolean,
+  steam_linked_at timestamptz,
+  steam_last_verified_at timestamptz,
+  steam_avatar_url text,
+  steam_member_since date,
+  steam_profile_url text
 )
 language sql
 security definer
 set search_path = public
 as $$
   select p.id, p.username, p.email, p.role, p.level, p.kyc_status, p.is_banned, p.suspended_until, p.cooldown_until,
-         coalesce(w.available_balance,0), coalesce(w.locked_balance,0), coalesce(w.demo_balance,0)
+         coalesce(w.available_balance,0), coalesce(w.locked_balance,0), coalesce(w.demo_balance,0),
+         p.steam_id64, coalesce(p.steam_verified, false), p.steam_linked_at, p.steam_last_verified_at,
+         p.steam_avatar_url, p.steam_member_since, p.steam_profile_url
   from public.profiles p
   left join public.wallets w on w.user_id = p.id
   where p.id = auth.uid();

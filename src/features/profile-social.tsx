@@ -101,6 +101,50 @@ function formatMatchHistoryTimestamp(value?: string | null) {
   return new Date(value).toLocaleDateString();
 }
 
+function formatSteamMemberSince(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatSteamAccountAge(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  let years = now.getFullYear() - date.getFullYear();
+  let months = now.getMonth() - date.getMonth();
+  if (now.getDate() < date.getDate()) {
+    months -= 1;
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years <= 0) {
+    return months <= 1 ? "New Steam user" : `${months} months on Steam`;
+  }
+
+  return months > 0 ? `${years}y ${months}m on Steam` : `${years} years on Steam`;
+}
+
 function MatchHistorySection({
   profileUserId,
   accountMode,
@@ -400,6 +444,8 @@ export function UserProfileView({
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isSavingDemoBalance, setIsSavingDemoBalance] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const steamMemberSinceLabel = formatSteamMemberSince(profileData.steamMemberSince);
+  const steamAccountAgeLabel = formatSteamAccountAge(profileData.steamMemberSince);
 
   useEffect(() => {
     setEditForm({
@@ -635,6 +681,18 @@ export function UserProfileView({
             <div className="rounded-xl border border-esport-border bg-white/5 p-4">
               <div className="text-[10px] font-bold text-esport-text-muted uppercase tracking-widest">SteamID64</div>
               <div className="mt-2 font-mono text-sm text-white break-all">{profileData.steamId64 || "Not connected"}</div>
+              {profileData.steamVerified && (
+                <div className="mt-3 border-t border-white/10 pt-3 text-[11px] font-semibold uppercase tracking-wider text-esport-text-muted">
+                  {steamMemberSinceLabel ? (
+                    <>
+                      <div>Steam member since {steamMemberSinceLabel}</div>
+                      {steamAccountAgeLabel && <div className="mt-1 text-esport-accent">{steamAccountAgeLabel}</div>}
+                    </>
+                  ) : (
+                    <div>Steam account age unavailable</div>
+                  )}
+                </div>
+              )}
             </div>
             {!profileData.steamVerified && (
               <p className="text-xs text-esport-text-muted mt-3">
@@ -868,6 +926,13 @@ export function UserProfileView({
                       <div>
                         <div className="text-xs font-bold text-esport-text-muted uppercase tracking-wider">Steam Account</div>
                         <div className="mt-2 font-mono text-sm text-white break-all">{editForm.steamId64 || "Not connected"}</div>
+                        {editForm.steamVerified && (
+                          <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-esport-text-muted">
+                            {formatSteamMemberSince(editForm.steamMemberSince)
+                              ? `Steam member since ${formatSteamMemberSince(editForm.steamMemberSince)}`
+                              : "Steam account age unavailable"}
+                          </div>
+                        )}
                       </div>
                       <span className={cn("badge text-[10px] font-bold uppercase tracking-widest", editForm.steamVerified ? "badge-success" : "badge-danger")}>
                         {editForm.steamVerified ? "Verified" : "Missing"}

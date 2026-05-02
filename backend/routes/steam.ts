@@ -11,6 +11,13 @@ const OPENID_IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_se
 const STATE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_STEAM_USERNAME_PREFIX = "Steam";
 
+type SteamProfileSummary = {
+  personaName: string;
+  avatarUrl: string | null;
+  memberSince: string | null;
+  profileUrl: string;
+};
+
 class BadRequestError extends Error {
   statusCode = 400;
 }
@@ -152,6 +159,24 @@ function decodeXmlEntities(value: string) {
     .replace(/&#39;/g, "'");
 }
 
+function extractSteamXmlValue(body: string, tagName: string) {
+  const match = body.match(new RegExp(`<${tagName}><!\\[CDATA\\[(.*?)\\]\\]><\\/${tagName}>|<${tagName}>(.*?)<\\/${tagName}>`, "s"));
+  return decodeXmlEntities(match?.[1] || match?.[2] || "").trim();
+}
+
+function parseSteamMemberSince(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
 function normalizeSteamPersonaName(value: unknown, steamId64: string) {
   const cleaned = String(value || "")
     .replace(/\s+/g, " ")
@@ -161,9 +186,11 @@ function normalizeSteamPersonaName(value: unknown, steamId64: string) {
   return cleaned || `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64.slice(-8)}`;
 }
 
-async function fetchSteamPersonaName(steamId64: string) {
+async function fetchSteamProfileSummary(steamId64: string): Promise<SteamProfileSummary | null> {
+  const profileUrl = `https://steamcommunity.com/profiles/${steamId64}`;
+
   try {
-    const response = await fetch(`https://steamcommunity.com/profiles/${steamId64}?xml=1`, {
+    const response = await fetch(`${profileUrl}?xml=1`, {
       headers: {
         "User-Agent": "HustleArena/1.0",
       },
@@ -174,11 +201,18 @@ async function fetchSteamPersonaName(steamId64: string) {
       return null;
     }
 
-    const match = body.match(/<steamID><!\[CDATA\[(.*?)\]\]><\/steamID>|<steamID>(.*?)<\/steamID>/s);
-    const personaName = decodeXmlEntities(match?.[1] || match?.[2] || "");
-    return normalizeSteamPersonaName(personaName, steamId64);
+    const personaName = extractSteamXmlValue(body, "steamID");
+    const avatarUrl = extractSteamXmlValue(body, "avatarFull") || extractSteamXmlValue(body, "avatarMedium") || null;
+    const memberSince = parseSteamMemberSince(extractSteamXmlValue(body, "memberSince"));
+
+    return {
+      personaName: normalizeSteamPersonaName(personaName, steamId64),
+      avatarUrl,
+      memberSince,
+      profileUrl,
+    };
   } catch (error) {
-    console.warn("Failed to load Steam persona name:", error);
+    console.warn("Failed to load Steam profile summary:", error);
     return null;
   }
 }
@@ -187,12 +221,17 @@ function getSteamDisplayUsername(desiredUsername: string, steamId64: string) {
   return normalizeSteamPersonaName(desiredUsername, steamId64);
 }
 
-async function syncSteamProfileName(userId: string, username: string, steamId64: string) {
+async function syncSteamProfileName(userId: string, username: string, steamId64: string, steamProfile?: SteamProfileSummary | null) {
   const supabaseAdmin = getSupabaseAdmin();
   const { error: profileError } = await supabaseAdmin
     .from("profiles")
     .update({
       username,
+      avatar_url: steamProfile?.avatarUrl || undefined,
+      steam_avatar_url: steamProfile?.avatarUrl || null,
+      steam_member_since: steamProfile?.memberSince || null,
+      steam_profile_url: steamProfile?.profileUrl || `https://steamcommunity.com/profiles/${steamId64}`,
+      steam_profile_fetched_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
@@ -204,6 +243,10 @@ async function syncSteamProfileName(userId: string, username: string, steamId64:
   const { error: userError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: {
       username,
+      avatar_url: steamProfile?.avatarUrl || undefined,
+      steam_avatar_url: steamProfile?.avatarUrl || null,
+      steam_member_since: steamProfile?.memberSince || null,
+      steam_profile_url: steamProfile?.profileUrl || `https://steamcommunity.com/profiles/${steamId64}`,
       steam_id64: steamId64,
       steam_verified: true,
       provider: "steam",
@@ -215,9 +258,10 @@ async function syncSteamProfileName(userId: string, username: string, steamId64:
   }
 }
 
-async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: string) {
+async function ensureSteamSupabaseUser(steamId64: string, steamProfile: SteamProfileSummary | null) {
   const supabaseAdmin = getSupabaseAdmin();
   const syntheticEmail = `steam_${steamId64}@steam.hustle-arena.local`;
+  const steamPersonaName = steamProfile?.personaName || `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64.slice(-8)}`;
 
   const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
     .from("profiles")
@@ -231,9 +275,7 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
 
   if (existingProfile?.id && existingProfile.email) {
     const username = getSteamDisplayUsername(steamPersonaName, steamId64);
-    if (existingProfile.username !== username) {
-      await syncSteamProfileName(existingProfile.id as string, username, steamId64);
-    }
+    await syncSteamProfileName(existingProfile.id as string, username, steamId64, steamProfile);
 
     return {
       userId: existingProfile.id as string,
@@ -253,9 +295,7 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
 
   if (emailProfile?.id && emailProfile.email) {
     const username = getSteamDisplayUsername(steamPersonaName, steamId64);
-    if (emailProfile.username !== username) {
-      await syncSteamProfileName(emailProfile.id as string, username, steamId64);
-    }
+    await syncSteamProfileName(emailProfile.id as string, username, steamId64, steamProfile);
 
     return {
       userId: emailProfile.id as string,
@@ -270,6 +310,10 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
     password: crypto.randomBytes(32).toString("base64url"),
     user_metadata: {
       username,
+      avatar_url: steamProfile?.avatarUrl || null,
+      steam_avatar_url: steamProfile?.avatarUrl || null,
+      steam_member_since: steamProfile?.memberSince || null,
+      steam_profile_url: steamProfile?.profileUrl || `https://steamcommunity.com/profiles/${steamId64}`,
       steam_id64: steamId64,
       steam_verified: true,
       provider: "steam",
@@ -279,6 +323,8 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
   if (createUserError || !createdUser.user?.id || !createdUser.user.email) {
     throw createUserError || new Error("Failed to create Steam user.");
   }
+
+  await syncSteamProfileName(createdUser.user.id, username, steamId64, steamProfile);
 
   return {
     userId: createdUser.user.id,
@@ -321,8 +367,8 @@ steamRouter.get("/callback", async (req, res) => {
     const state = verifyState(req.query.state);
     frontendOrigin = getFrontendOrigin(state.returnOrigin);
     const steamId64 = await verifySteamOpenId(req.query);
-    const steamPersonaName = await fetchSteamPersonaName(steamId64);
-    const steamUser = await ensureSteamSupabaseUser(steamId64, steamPersonaName || `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64.slice(-8)}`);
+    const steamProfile = await fetchSteamProfileSummary(steamId64);
+    const steamUser = await ensureSteamSupabaseUser(steamId64, steamProfile);
     const supabaseAdmin = getSupabaseAdmin();
     const { error } = await supabaseAdmin.rpc("link_verified_steam_id64", {
       p_user_id: steamUser.userId,

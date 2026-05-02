@@ -71,6 +71,7 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       email,
       avatarUrl:
         (typeof metadata.avatar_url === "string" && metadata.avatar_url) ||
+        (typeof metadata.steam_avatar_url === "string" && metadata.steam_avatar_url) ||
         (typeof metadata.picture === "string" && metadata.picture) ||
         null,
       role: typeof metadata.role === "string" ? metadata.role : "user",
@@ -79,6 +80,8 @@ export function useSupabaseSession(enabled = true): PlatformSessionState {
       accountMode: metadata.account_mode === "demo" ? "demo" : "live",
       steamId64: typeof metadata.steam_id64 === "string" ? metadata.steam_id64 : null,
       steamVerified: metadata.steam_verified === true,
+      steamAvatarUrl: typeof metadata.steam_avatar_url === "string" ? metadata.steam_avatar_url : null,
+      steamMemberSince: typeof metadata.steam_member_since === "string" ? metadata.steam_member_since : null,
     };
   };
 

@@ -36,6 +36,10 @@ export interface SupabaseProfileRecord {
   steam_verified?: boolean | null;
   steam_linked_at?: string | null;
   steam_last_verified_at?: string | null;
+  steam_avatar_url?: string | null;
+  steam_member_since?: string | null;
+  steam_profile_url?: string | null;
+  steam_profile_fetched_at?: string | null;
 }
 
 export interface SupabaseWalletRecord {
@@ -123,4 +127,7 @@ export interface MyProfileRpcRow {
   steam_verified?: boolean | null;
   steam_linked_at?: string | null;
   steam_last_verified_at?: string | null;
+  steam_avatar_url?: string | null;
+  steam_member_since?: string | null;
+  steam_profile_url?: string | null;
 }
