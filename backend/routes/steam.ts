@@ -10,6 +10,7 @@ const OPENID_NS = "http://specs.openid.net/auth/2.0";
 const OPENID_IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_select";
 const STATE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_STEAM_USERNAME_PREFIX = "Steam";
+const MIN_STEAM_ACCOUNT_AGE_YEARS = 1;
 
 type SteamProfileSummary = {
   personaName: string;
@@ -175,6 +176,21 @@ function parseSteamMemberSince(value: string) {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+function hasRequiredSteamAccountAge(memberSince: string | null) {
+  if (!memberSince) {
+    return false;
+  }
+
+  const joinedAt = new Date(`${memberSince}T00:00:00.000Z`);
+  if (Number.isNaN(joinedAt.getTime())) {
+    return false;
+  }
+
+  const eligibleAt = new Date(joinedAt);
+  eligibleAt.setUTCFullYear(eligibleAt.getUTCFullYear() + MIN_STEAM_ACCOUNT_AGE_YEARS);
+  return eligibleAt.getTime() <= Date.now();
 }
 
 function normalizeSteamPersonaName(value: unknown, steamId64: string) {
@@ -368,6 +384,11 @@ steamRouter.get("/callback", async (req, res) => {
     frontendOrigin = getFrontendOrigin(state.returnOrigin);
     const steamId64 = await verifySteamOpenId(req.query);
     const steamProfile = await fetchSteamProfileSummary(steamId64);
+    if (!hasRequiredSteamAccountAge(steamProfile?.memberSince || null)) {
+      res.redirect(`${frontendOrigin}/?steam_login=ineligible`);
+      return;
+    }
+
     const steamUser = await ensureSteamSupabaseUser(steamId64, steamProfile);
     const supabaseAdmin = getSupabaseAdmin();
     const { error } = await supabaseAdmin.rpc("link_verified_steam_id64", {
