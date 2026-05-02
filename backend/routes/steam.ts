@@ -384,7 +384,11 @@ steamRouter.get("/callback", async (req, res) => {
     frontendOrigin = getFrontendOrigin(state.returnOrigin);
     const steamId64 = await verifySteamOpenId(req.query);
     const steamProfile = await fetchSteamProfileSummary(steamId64);
-    if (!hasRequiredSteamAccountAge(steamProfile?.memberSince || null)) {
+    if (!steamProfile?.memberSince) {
+      res.redirect(`${frontendOrigin}/?steam_login=private_age`);
+      return;
+    }
+    if (!hasRequiredSteamAccountAge(steamProfile.memberSince)) {
       res.redirect(`${frontendOrigin}/?steam_login=ineligible`);
       return;
     }

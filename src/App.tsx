@@ -87,6 +87,8 @@ const DASHBOARD_TAB = "Dashboard";
 const ACTIVE_TAB_STORAGE_KEY = "hustle_arena_active_tab";
 const STEAM_ACCOUNT_INELIGIBLE_MESSAGE =
   "We're sorry, but it appears that your Steam account is not eligible to join our platform since we require a valid Steam account with at least 1 year of recorded activity.";
+const STEAM_ACCOUNT_PRIVATE_AGE_MESSAGE =
+  'Sorry, please disable your account from "private" into "public" display in your Steam settings and try again to meet our requirements.';
 const VALID_TABS = new Set([
   "Dashboard",
   "Admin",
@@ -266,22 +268,24 @@ export default function App() {
     }
 
     const url = new URL(window.location.href);
-    if (url.searchParams.get("steam_login") !== "ineligible") {
+    const steamLoginStatus = url.searchParams.get("steam_login");
+    if (steamLoginStatus !== "ineligible" && steamLoginStatus !== "private_age") {
       return;
     }
+    const isPrivateAge = steamLoginStatus === "private_age";
 
     openModal(
-      "Steam Account Not Eligible",
+      isPrivateAge ? "Steam Privacy Settings Required" : "Steam Account Not Eligible",
       <div className="space-y-7 text-center">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-red-300/35 bg-red-500/15 text-red-200 shadow-[0_0_34px_rgba(248,113,113,0.18)]">
           <ShieldAlert size={42} />
         </div>
         <div>
           <div className="font-display text-4xl font-black uppercase leading-tight tracking-normal text-white sm:text-5xl">
-            Steam Account Not Eligible
+            {isPrivateAge ? "Steam Privacy Settings Required" : "Steam Account Not Eligible"}
           </div>
           <p className="mx-auto mt-5 max-w-2xl text-lg font-bold leading-8 text-slate-200">
-            {STEAM_ACCOUNT_INELIGIBLE_MESSAGE}
+            {isPrivateAge ? STEAM_ACCOUNT_PRIVATE_AGE_MESSAGE : STEAM_ACCOUNT_INELIGIBLE_MESSAGE}
           </p>
         </div>
         <button
