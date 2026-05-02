@@ -227,9 +227,10 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
     </div>
   );
 }
-export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
+export function AuthForm({ onLogin, onRefuse }: { onLogin: (user: any) => void; onRefuse?: () => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   const useSupabaseAuth = isSupabaseConfigured();
 
@@ -253,6 +254,42 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
 
   return (
     <div className="space-y-7">
+      {showDisclaimer ? (
+        <div className="space-y-6">
+          <div className="border border-amber-300/35 bg-[linear-gradient(180deg,rgba(120,53,15,0.20),rgba(15,23,42,0.45))] p-5 text-amber-50 shadow-[0_0_28px_rgba(251,191,36,0.08)]">
+            <div className="mb-3 text-center font-display text-[26px] font-black uppercase tracking-normal text-white">
+              Disclaimer
+            </div>
+            <p className="text-sm font-semibold leading-7 text-slate-200">
+              Hustle-Arena is a skill-based competitive tournament platform where success is earned: not chanced.
+              Our matches and tournaments are solely designed around pure gaming performance, strategy and highly
+              enforced fair gameplay and strictly does not constitute gambling or betting under applicable legal standards.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => void handleSteamSignIn()}
+              disabled={loading}
+              className="ha-blue-button min-h-[54px] w-full text-sm"
+            >
+              {loading ? "Opening Steam..." : "I acknowledge"}
+            </button>
+            <button
+              onClick={() => {
+                setShowDisclaimer(false);
+                setError("");
+                onRefuse?.();
+              }}
+              disabled={loading}
+              className="ha-dark-button min-h-[54px] w-full text-sm"
+            >
+              I refuse
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
       {error && (
         <div className="border border-red-400/45 bg-red-500/12 p-4 text-center text-xs font-black uppercase tracking-[0.14em] text-red-200">
           {error}
@@ -284,15 +321,20 @@ export function AuthForm({ onLogin }: { onLogin: (user: any) => void }) {
       )}
 
       <button
-        onClick={handleSteamSignIn}
+        onClick={() => {
+          setError("");
+          setShowDisclaimer(true);
+        }}
         disabled={loading}
         className="ha-steam-button w-full"
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-[0_0_22px_rgba(255,255,255,0.28)]">
           <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg" className="h-7 w-7" alt="" />
         </span>
-        {loading ? "Opening Steam..." : "Sign in with Steam"}
+        Sign in with Steam
       </button>
+        </>
+      )}
     </div>
   );
 }

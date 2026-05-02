@@ -1014,7 +1014,13 @@ export default function App() {
       ) : (
       view === "landing" ? (
         <Suspense fallback={<SectionLoading />}>
-          <LandingPage onLogin={() => openModal("Access Arena", <AuthForm onLogin={() => undefined} />)} />
+          <LandingPage
+            onLogin={() =>
+              openModal("Access Arena", <AuthForm onLogin={() => undefined} onRefuse={() => setIsModalOpen(false)} />, {
+                showFooter: false,
+              })
+            }
+          />
         </Suspense>
       ) : (
         <div className="flex h-screen overflow-hidden">
