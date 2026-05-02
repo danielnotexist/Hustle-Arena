@@ -5,7 +5,7 @@
       "has": [
         {
           "type": "host",
-          "value": "hustlearena-danielnotexists-projects.vercel.app"
+          "value": "^(?!project-7y6n1\\.vercel\\.app$).*\\.vercel\\.app$"
         }
       ],
       "destination": "https://project-7y6n1.vercel.app/$1",
