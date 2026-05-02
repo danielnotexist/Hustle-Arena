@@ -85,8 +85,6 @@ const VaultView = lazy(() => import("./features/platform-views").then((module) =
 
 const DASHBOARD_TAB = "Dashboard";
 const ACTIVE_TAB_STORAGE_KEY = "hustle_arena_active_tab";
-const CANONICAL_PRODUCTION_ORIGIN = "https://project-7y6n1.vercel.app";
-const CANONICAL_PRODUCTION_HOST = new URL(CANONICAL_PRODUCTION_ORIGIN).hostname;
 const STEAM_ACCOUNT_INELIGIBLE_MESSAGE =
   "We're sorry, but it appears that your Steam account is not eligible to join our platform since we require a valid Steam account with at least 1 year of recorded activity.";
 const STEAM_ACCOUNT_PRIVATE_AGE_MESSAGE =
@@ -190,18 +188,6 @@ export default function App() {
   const disableLastActiveHeartbeatRef = useRef(false);
   const notificationsButtonRef = useRef<HTMLButtonElement | null>(null);
   const notificationsPanelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (!window.location.hostname.endsWith(".vercel.app") || window.location.hostname === CANONICAL_PRODUCTION_HOST) {
-      return;
-    }
-
-    window.location.replace(`${CANONICAL_PRODUCTION_ORIGIN}${window.location.pathname}${window.location.search}${window.location.hash}`);
-  }, []);
 
   useEffect(() => {
     if (!shouldUseSupabase) {

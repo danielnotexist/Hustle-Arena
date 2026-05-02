@@ -11,8 +11,6 @@ const OPENID_IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_se
 const STATE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_STEAM_USERNAME_PREFIX = "Steam";
 const MIN_STEAM_ACCOUNT_AGE_YEARS = 1;
-const CANONICAL_FRONTEND_ORIGIN = "https://project-7y6n1.vercel.app";
-const CANONICAL_FRONTEND_HOST = new URL(CANONICAL_FRONTEND_ORIGIN).hostname;
 
 type SteamProfileSummary = {
   personaName: string;
@@ -36,18 +34,6 @@ function getFrontendOrigin(candidateOrigin?: unknown) {
   const allowedOrigins = getAllowedFrontendOrigins();
   const fallbackOrigin = allowedOrigins[0] || "http://localhost:5173";
   const requestedOrigin = typeof candidateOrigin === "string" ? candidateOrigin.trim().replace(/\/$/, "") : "";
-
-  try {
-    const requestedUrl = requestedOrigin ? new URL(requestedOrigin) : null;
-    if (
-      requestedUrl?.hostname.endsWith(".vercel.app") &&
-      requestedUrl.hostname !== CANONICAL_FRONTEND_HOST
-    ) {
-      return CANONICAL_FRONTEND_ORIGIN;
-    }
-  } catch {
-    // Fall back to the configured origin below.
-  }
 
   return requestedOrigin && allowedOrigins.includes(requestedOrigin) ? requestedOrigin : fallbackOrigin;
 }
