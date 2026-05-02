@@ -42,7 +42,7 @@ end $$;
 -- ===============
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  username text not null unique,
+  username text not null,
   email text not null unique,
   role public.ha_role not null default 'user',
   level integer not null default 1,

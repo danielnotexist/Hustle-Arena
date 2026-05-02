@@ -171,36 +171,8 @@ async function fetchSteamPersonaName(steamId64: string) {
   }
 }
 
-async function getAvailableUsername(
-  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
-  desiredUsername: string,
-  steamId64: string,
-  userId?: string,
-) {
-  const baseUsername = normalizeSteamPersonaName(desiredUsername, steamId64);
-  const candidates = [
-    baseUsername,
-    `${baseUsername}_${steamId64.slice(-4)}`.slice(0, 48),
-    `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64.slice(-8)}`,
-  ];
-
-  for (const candidate of candidates) {
-    const { data, error } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("username", candidate)
-      .maybeSingle();
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data?.id || data.id === userId) {
-      return candidate;
-    }
-  }
-
-  return `${DEFAULT_STEAM_USERNAME_PREFIX}_${steamId64}`;
+function getSteamDisplayUsername(desiredUsername: string, steamId64: string) {
+  return normalizeSteamPersonaName(desiredUsername, steamId64);
 }
 
 async function syncSteamProfileName(userId: string, username: string, steamId64: string) {
@@ -246,7 +218,7 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
   }
 
   if (existingProfile?.id && existingProfile.email) {
-    const username = await getAvailableUsername(supabaseAdmin, steamPersonaName, steamId64, existingProfile.id as string);
+    const username = getSteamDisplayUsername(steamPersonaName, steamId64);
     if (existingProfile.username !== username) {
       await syncSteamProfileName(existingProfile.id as string, username, steamId64);
     }
@@ -268,7 +240,7 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
   }
 
   if (emailProfile?.id && emailProfile.email) {
-    const username = await getAvailableUsername(supabaseAdmin, steamPersonaName, steamId64, emailProfile.id as string);
+    const username = getSteamDisplayUsername(steamPersonaName, steamId64);
     if (emailProfile.username !== username) {
       await syncSteamProfileName(emailProfile.id as string, username, steamId64);
     }
@@ -279,7 +251,7 @@ async function ensureSteamSupabaseUser(steamId64: string, steamPersonaName: stri
     };
   }
 
-  const username = await getAvailableUsername(supabaseAdmin, steamPersonaName, steamId64);
+  const username = getSteamDisplayUsername(steamPersonaName, steamId64);
   const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
     email: syntheticEmail,
     email_confirm: true,
