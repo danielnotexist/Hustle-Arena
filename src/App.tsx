@@ -1086,7 +1086,7 @@ export default function App() {
       ) : (
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
-          <aside className="w-[272px] shrink-0 border-r border-white/10 bg-[linear-gradient(180deg,#16171b_0%,#101115_100%)] text-white z-40 flex flex-col relative overflow-hidden">
+          <aside className="w-[272px] shrink-0 select-none border-r border-white/10 bg-[linear-gradient(180deg,#16171b_0%,#101115_100%)] text-white z-40 flex flex-col relative overflow-hidden">
             <div className="absolute inset-0 pointer-events-none opacity-35 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.05),transparent_28%),linear-gradient(145deg,transparent_0%,rgba(255,255,255,0.03)_35%,transparent_70%)]" />
             <div className="p-6 pb-5">
               <div className="relative mx-auto w-full max-w-[226px] cursor-pointer" onClick={() => setView("dashboard")}>

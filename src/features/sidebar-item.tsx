@@ -18,7 +18,7 @@ export function SidebarItem({
   return (
     <div
       onClick={onClick}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-[16px] border px-4 py-3 text-left transition-all duration-200 ${
+      className={`group relative flex w-full cursor-pointer select-none items-center gap-3 overflow-hidden rounded-[16px] border px-4 py-3 text-left transition-all duration-200 ${
         active
           ? "border-cyan-400/45 bg-[linear-gradient(90deg,rgba(34,211,238,0.26),rgba(34,211,238,0.12))] text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.15)]"
           : "border-transparent text-white/90 hover:border-white/10 hover:bg-white/[0.04]"
