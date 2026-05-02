@@ -994,6 +994,7 @@ export async function fetchRecentMatches(mode: LobbyMode, limit = 6) {
     return {
       id: match.id,
       mode: match.mode,
+      kind: match.lobbies?.kind || "custom",
       name: match.lobbies?.name || "Arena Match",
       gameMode: match.lobbies?.game_mode || "competitive",
       selectedMap: match.lobbies?.selected_map || "-",
@@ -1512,6 +1513,7 @@ export async function fetchUserMatchHistory(userId: string, mode: LobbyMode, lim
       id: match.id,
       userId,
       mode: match.mode,
+      kind: match.lobbies?.kind || "custom",
       name: match.lobbies?.name || "Arena Match",
       gameMode: match.lobbies?.game_mode || "competitive",
       selectedMap: match.lobbies?.selected_map || "-",
