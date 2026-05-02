@@ -1058,6 +1058,8 @@ export function PublicProfileView({
   onOpenPublicProfile?: (userId: string) => void | Promise<void>;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "highlights">("overview");
+  const steamMemberSinceLabel = formatSteamMemberSince(profile.steam_member_since);
+  const steamAccountAgeLabel = formatSteamAccountAge(profile.steam_member_since);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-6">
@@ -1083,6 +1085,15 @@ export function PublicProfileView({
               <span className="flex items-center gap-1"><MapPin size={14} /> {profile.country || "Unknown Region"}</span>
               <span className="flex items-center gap-1"><Clock size={14} /> Member since 2026</span>
             </div>
+            {profile.steam_verified && profile.steam_id64 && (
+              <div className="mt-2 space-y-1 text-[11px] font-bold uppercase tracking-wider text-esport-text-muted">
+                <div>
+                  Steam Member since {steamMemberSinceLabel || "Unavailable"}
+                  {steamAccountAgeLabel ? <span className="text-esport-accent"> · {steamAccountAgeLabel}</span> : null}
+                </div>
+                <div className="font-mono text-white/80">Steam ID: {profile.steam_id64}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

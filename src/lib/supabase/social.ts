@@ -56,6 +56,9 @@ export interface PublicProfileDetails extends PublicProfileBasic {
   headshot_pct?: string | null;
   level?: number | null;
   last_active_at?: string | null;
+  steam_id64?: string | null;
+  steam_verified?: boolean | null;
+  steam_member_since?: string | null;
 }
 
 export interface ProfileComment {
@@ -174,6 +177,9 @@ export async function fetchPublicProfileDetails(userId: string) {
       headshot_pct: null,
       level: null,
       last_active_at: basicProfile.last_active_at || null,
+      steam_id64: null,
+      steam_verified: null,
+      steam_member_since: null,
     } satisfies PublicProfileDetails;
   }
 
